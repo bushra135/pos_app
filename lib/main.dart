@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'screens/auth/login_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -9,17 +10,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'POS App',
-      home: Scaffold(
-        appBar: AppBar(
-          title: const Text('POS App'),
-        ),
-        body: const Center(
-          child: Text('Welcome POS App 🚀'),
-        ),
-      ),
+      home: LoginScreen(),
     );
   }
 }
