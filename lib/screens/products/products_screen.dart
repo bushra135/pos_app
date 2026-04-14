@@ -97,12 +97,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFE6F7F3),
+                              color: const Color.fromARGB(255, 199, 235, 245),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
                               Icons.inventory,
-                              color: Color(0xFF27BFA2),
+                              color:                    Color.fromARGB(255, 5, 197, 245),
+
                             ),
                           ),
 

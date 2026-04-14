@@ -101,7 +101,7 @@ class _ScanScreenState extends State<ScanScreen> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(
-                        color: const Color(0xFF2ED3B7),
+                        color: const  Color.fromARGB(255, 164, 235, 213),
                         width: 3,
                       ),
                     ),
@@ -111,7 +111,7 @@ class _ScanScreenState extends State<ScanScreen> {
                           alignment: Alignment.center,
                           child: Container(
                             height: 2,
-                            color: const Color(0xFF2ED3B7),
+                            color: const Color.fromARGB(255, 164, 235, 213),
                           ),
                         ),
                       ],
@@ -178,7 +178,7 @@ class _ScanScreenState extends State<ScanScreen> {
                       onPressed: () {
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF27BFA2),
+                        backgroundColor: const Color.fromARGB(255, 70, 223, 175),
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),

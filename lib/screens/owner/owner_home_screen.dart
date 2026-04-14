@@ -68,7 +68,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             padding: const EdgeInsets.all(20),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF39C79A), Color(0xFF2F80FF)],
+                colors: [Color.fromARGB(255, 164, 235, 213), Color.fromARGB(255, 5, 197, 245)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),

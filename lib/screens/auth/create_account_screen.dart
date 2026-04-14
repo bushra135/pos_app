@@ -16,7 +16,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF08C08C), Color(0xFF0A84FF)],
+                colors: [Color.fromARGB(255, 164, 235, 213), Color.fromARGB(255, 5, 197, 245)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -69,7 +69,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             decoration: BoxDecoration(
                               color: isOwner
-                                  ? const Color(0xFF08C08C)
+                                  ? const Color.fromARGB(255, 138, 231, 206)
                                   : Colors.grey[200],
                               borderRadius: BorderRadius.circular(20),
                             ),
@@ -99,7 +99,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             decoration: BoxDecoration(
                               color: !isOwner
-                                  ? const Color(0xFF08C08C)
+                                  ? const Color.fromARGB(255, 64, 197, 221)
                                   : Colors.grey[200],
                               borderRadius: BorderRadius.circular(20),
                             ),
@@ -238,7 +238,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       height: 50,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF08C08C), Color(0xFF0A84FF)],
+                colors: [Color.fromARGB(255, 164, 235, 213), Color.fromARGB(255, 5, 197, 245)],
                         ),
                         borderRadius: BorderRadius.circular(14),
                       ),

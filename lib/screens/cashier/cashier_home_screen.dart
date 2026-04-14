@@ -78,7 +78,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
             padding: const EdgeInsets.all(20),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF39C79A), Color(0xFF2F80FF)],
+                colors: [Color.fromARGB(255, 164, 235, 213), Color.fromARGB(255, 5, 197, 245)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -230,7 +230,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                           height: 100,
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                              colors: [Color(0xFF39C79A), Color(0xFF2F80FF)],
+                colors: [Color.fromARGB(255, 164, 235, 213), Color.fromARGB(255, 5, 197, 245)],
                             ),
                             borderRadius: BorderRadius.circular(20),
                           ),

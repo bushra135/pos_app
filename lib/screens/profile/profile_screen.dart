@@ -25,16 +25,16 @@ class ProfileScreen extends StatelessWidget {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 30),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
                     colors: [
-                      Color(0xFF39C79A),
-                      Color(0xFF2F80FF),
+                      Color.fromARGB(255, 164, 235, 213),
+                      Color.fromARGB(255, 5, 197, 245),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.only(
+                  borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(26),
                     bottomRight: Radius.circular(26),
                   ),

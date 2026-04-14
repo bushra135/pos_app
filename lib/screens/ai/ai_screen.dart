@@ -15,12 +15,12 @@ class AIScreen extends StatelessWidget {
             //Header
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(25),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Color(0xFF8E2DE2),
-                    Color(0xFF4A00E0),
+                    Color.fromARGB(255, 164, 235, 213),
+                    Color.fromARGB(255, 5, 197, 245),
                   ],
                 ),
                 borderRadius: BorderRadius.vertical(
@@ -64,7 +64,8 @@ class AIScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const CircleAvatar(
-                    backgroundColor: Colors.purple,
+                    backgroundColor:Color.fromARGB(255, 5, 197, 245),
+
                     child: Icon(Icons.auto_awesome, color: Colors.white),
                   ),
                   const SizedBox(width: 10),
@@ -147,8 +148,9 @@ class AIScreen extends StatelessWidget {
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          Color(0xFF8E2DE2),
-                          Color(0xFF4A00E0),
+                    Color.fromARGB(255, 164, 235, 213),
+                    Color.fromARGB(255, 5, 197, 245),
+
                         ],
                       ),
                       shape: BoxShape.circle,
