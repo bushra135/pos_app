@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "162701310583",
+    "firebase_url": "https://shoppad-f3d43-default-rtdb.firebaseio.com",
+    "project_id": "shoppad-f3d43",
+    "storage_bucket": "shoppad-f3d43.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:162701310583:android:8d5d155b99639d64a56472",
+        "android_client_info": {
+          "package_name": "com.example.pos_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDuilJCNKxld6HurEnQ0iz1kJMffyR4nBk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
