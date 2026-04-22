@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../products/products_screen.dart';
 import '../reports/reports_screen.dart';
 import '../scan/scan_screen.dart';
-import '../ai/ai_screen.dart';
+import '../cart/cart_screen.dart';
 import '../profile/profile_screen.dart';
 
 class CashierHomeScreen extends StatefulWidget {
@@ -29,7 +29,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     _loadUserData();
   }
 
-  // Load cashier name and fetch store name using storeCode
+  // Load cashier name and fetch store name using store code
   Future<void> _loadUserData() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -101,7 +101,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
         currentScreen = const ReportsScreen();
         break;
       case 4:
-        currentScreen = const AIScreen();
+        currentScreen = const CartScreen();
         break;
       default:
         currentScreen = _buildHomeContent();
@@ -125,7 +125,10 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
         selectedItemColor: const Color(0xFF2F80FF),
         unselectedItemColor: Colors.grey,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: "Home",
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.inventory_2),
             label: "Products",
@@ -139,8 +142,8 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
             label: "Reports",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.smart_toy),
-            label: "AI",
+            icon: Icon(Icons.shopping_cart),
+            label: "Cart",
           ),
         ],
       ),
@@ -198,26 +201,24 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                   ],
                 ),
 
-                // Store name
+                // Cashier name
                 Text(
                   cashierName.isEmpty ? "Cashier" : cashierName,
-
                   style: const TextStyle(
                     fontSize: 15,
                     color: Colors.white70,
                   ),
                 ),
 
-                const SizedBox(height: 6),
+                const SizedBox(height: 10),
 
-                // Cashier first name
+                // Store name
                 Text(
                   storeName.isEmpty ? "My Store" : storeName,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 22,
+                    fontSize: 25,
                     fontWeight: FontWeight.bold,
-
                   ),
                 ),
 
@@ -266,7 +267,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                         Icon(Icons.attach_money, color: Colors.green),
                         SizedBox(height: 10),
                         Text(
-                          "\$847.50",
+                          "BD 847.500",
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -364,7 +365,9 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                     Expanded(
                       child: GestureDetector(
                         onTap: () {
-                          // Add cart navigation here later
+                          setState(() {
+                            selectedIndex = 4;
+                          });
                         },
                         child: Container(
                           height: 100,
@@ -377,9 +380,9 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.add_shopping_cart),
+                                Icon(Icons.shopping_cart),
                                 SizedBox(height: 8),
-                                Text("Add to Cart"),
+                                Text("Cart"),
                               ],
                             ),
                           ),
