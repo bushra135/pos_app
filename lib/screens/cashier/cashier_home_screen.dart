@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../products/products_screen.dart';
 import '../reports/reports_screen.dart';
 import '../scan/scan_screen.dart';
@@ -14,6 +17,74 @@ class CashierHomeScreen extends StatefulWidget {
 
 class _CashierHomeScreenState extends State<CashierHomeScreen> {
   int selectedIndex = 0;
+
+  // User info
+  String cashierName = '';
+  String storeName = '';
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  // Load cashier name and fetch store name using storeCode
+  Future<void> _loadUserData() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user == null) {
+        setState(() {
+          isLoading = false;
+        });
+        return;
+      }
+
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!userDoc.exists) {
+        setState(() {
+          isLoading = false;
+        });
+        return;
+      }
+
+      final userData = userDoc.data()!;
+
+      final String fullName = userData['fullName'] ?? '';
+      final String firstName =
+          fullName.isNotEmpty ? fullName.split(' ')[0] : '';
+
+      final String storeCode = userData['storeCode'] ?? '';
+
+      String fetchedStoreName = '';
+
+      if (storeCode.isNotEmpty) {
+        final storeDoc = await FirebaseFirestore.instance
+            .collection('stores')
+            .doc(storeCode)
+            .get();
+
+        if (storeDoc.exists) {
+          fetchedStoreName = storeDoc.data()?['storeName'] ?? '';
+        }
+      }
+
+      setState(() {
+        cashierName = firstName;
+        storeName = fetchedStoreName;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +109,11 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
-      body: SafeArea(child: currentScreen),
+      body: SafeArea(
+        child: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : currentScreen,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIndex,
         onTap: (index) {
@@ -59,7 +134,10 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
             icon: Icon(Icons.qr_code_scanner),
             label: "Scan",
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: "Reports"),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: "Reports",
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.smart_toy),
             label: "AI",
@@ -78,7 +156,10 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
             padding: const EdgeInsets.all(20),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color.fromARGB(255, 164, 235, 213), Color.fromARGB(255, 5, 197, 245)],
+                colors: [
+                  Color.fromARGB(255, 164, 235, 213),
+                  Color.fromARGB(255, 5, 197, 245),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -95,7 +176,10 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                   children: [
                     const Text(
                       "Welcome back,",
-                      style: TextStyle(color: Colors.white70),
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 15,
+                      ),
                     ),
                     GestureDetector(
                       onTap: () {
@@ -113,20 +197,36 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 5),
-                const Text(
-                  "Sarah Johnson",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+
+                // Store name
+                Text(
+                  cashierName.isEmpty ? "Cashier" : cashierName,
+
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: Colors.white70,
                   ),
                 ),
+
+                const SizedBox(height: 6),
+
+                // Cashier first name
+                Text(
+                  storeName.isEmpty ? "My Store" : storeName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+
+                  ),
+                ),
+
                 const SizedBox(height: 20),
+
                 Container(
                   padding: const EdgeInsets.all(15),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: const Row(
@@ -146,7 +246,9 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
               ],
             ),
           ),
+
           const SizedBox(height: 20),
+
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -203,7 +305,9 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
               ],
             ),
           ),
+
           const SizedBox(height: 25),
+
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
@@ -230,7 +334,10 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                           height: 100,
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                colors: [Color.fromARGB(255, 164, 235, 213), Color.fromARGB(255, 5, 197, 245)],
+                              colors: [
+                                Color.fromARGB(255, 164, 235, 213),
+                                Color.fromARGB(255, 5, 197, 245),
+                              ],
                             ),
                             borderRadius: BorderRadius.circular(20),
                           ),
@@ -244,7 +351,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                                 ),
                                 SizedBox(height: 8),
                                 Text(
-                                  "Scan Item",
+                                  "QR Scan",
                                   style: TextStyle(color: Colors.white),
                                 ),
                               ],
@@ -255,21 +362,26 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Container(
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.shopping_bag),
-                              SizedBox(height: 8),
-                              Text("View Cart"),
-                            ],
+                      child: GestureDetector(
+                        onTap: () {
+                          // Add cart navigation here later
+                        },
+                        child: Container(
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add_shopping_cart),
+                                SizedBox(height: 8),
+                                Text("Add to Cart"),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -279,6 +391,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
               ],
             ),
           ),
+
           const SizedBox(height: 30),
         ],
       ),

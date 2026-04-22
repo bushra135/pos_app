@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'create_account_screen.dart';
 import '../cashier/cashier_home_screen.dart';
 import '../owner/owner_home_screen.dart';
@@ -11,13 +15,16 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController emailController =
-      TextEditingController(text: 'owner@shop.com');
+  // Controllers for text fields
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
 
-  final TextEditingController passwordController =
-      TextEditingController(text: '12345678');
+  // Firebase instances
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   bool isPasswordVisible = false;
+  bool isLoading = false;
 
   @override
   void dispose() {
@@ -26,29 +33,161 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _handleSignIn() {
+  // Login with Firebase Auth, then read user role from Firestore
+  Future<void> _handleSignIn() async {
     final email = emailController.text.trim().toLowerCase();
     final password = passwordController.text.trim();
 
-    if (email == 'owner@shop.com' && password == '12345678') {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const OwnerHomeScreen(),
-        ),
-      );
-    } else if (email == 'cashier@shop.com' && password == '12345678') {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const CashierHomeScreen(),
-        ),
-      );
-    } else {
+    // Check empty fields
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Invalid email or password'),
+          content: Text('Please enter email and password'),
         ),
+      );
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      // Sign in with Firebase Authentication
+      final UserCredential userCredential =
+          await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      final String uid = userCredential.user!.uid;
+
+      // Get user document from Firestore
+      final DocumentSnapshot<Map<String, dynamic>> userDoc =
+          await _firestore.collection('users').doc(uid).get();
+
+      if (!userDoc.exists) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('User data not found in database'),
+          ),
+        );
+        return;
+      }
+
+      final Map<String, dynamic>? userData = userDoc.data();
+      final String role = userData?['role'] ?? '';
+
+      if (!mounted) return;
+
+      // Navigate based on role
+      if (role == 'cashier') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const CashierHomeScreen(),
+          ),
+        );
+      } else if (role == 'owner') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const OwnerHomeScreen(),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invalid user role'),
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      String message = 'Login failed';
+
+      if (e.code == 'user-not-found') {
+        message = 'No user found';
+      } else if (e.code == 'wrong-password') {
+        message = 'Wrong password';
+      } else if (e.code == 'invalid-email') {
+        message = 'Invalid email';
+      } else if (e.code == 'invalid-credential') {
+        message = 'Invalid email or password';
+      } else if (e.code == 'too-many-requests') {
+        message = 'Too many attempts. Try again later';
+      }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Something went wrong: $e')),
+      );
+    } finally {
+      if (!mounted) return;
+
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  // Send password reset email using Firebase
+  Future<void> _resetPassword() async {
+    final email = emailController.text.trim().toLowerCase();
+
+    // User must enter email first
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter your email first'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      await _auth.sendPasswordResetEmail(
+        email: email,
+        actionCodeSettings: ActionCodeSettings(
+          url: 'https://shoppad-f3d43.firebaseapp.com',
+          handleCodeInApp: false,
+        ),
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password reset email sent'),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      String message = 'Could not send reset email';
+
+      if (e.code == 'invalid-email') {
+        message = 'Invalid email';
+      } else if (e.code == 'user-not-found') {
+        message = 'No user found for this email';
+      }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Something went wrong: $e')),
       );
     }
   }
@@ -74,11 +213,14 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               children: [
                 const SizedBox(height: 10),
+
                 Image.asset(
                   'assets/logo.png',
                   height: 110,
                 ),
+
                 const SizedBox(height: 18),
+
                 const Text(
                   'Welcome Back',
                   style: TextStyle(
@@ -87,7 +229,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Color(0xFF2F4B73),
                   ),
                 ),
+
                 const SizedBox(height: 8),
+
                 const Text(
                   'Sign in to continue',
                   style: TextStyle(
@@ -95,7 +239,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Color(0xFF8B93A7),
                   ),
                 ),
+
                 const SizedBox(height: 28),
+
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
@@ -103,11 +249,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     vertical: 22,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.92),
+                    color: Colors.white.withValues(alpha: 0.92),
                     borderRadius: BorderRadius.circular(26),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF7FA6C9).withOpacity(0.16),
+                        color: const Color(0xFF7FA6C9).withValues(alpha: 0.16),
                         blurRadius: 24,
                         offset: const Offset(0, 10),
                       ),
@@ -124,7 +270,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: Color(0xFF344054),
                         ),
                       ),
+
                       const SizedBox(height: 10),
+
                       TextField(
                         controller: emailController,
                         decoration: InputDecoration(
@@ -157,7 +305,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
+
                       const SizedBox(height: 30),
+
                       const Text(
                         'Password',
                         style: TextStyle(
@@ -166,7 +316,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: Color(0xFF344054),
                         ),
                       ),
+
                       const SizedBox(height: 10),
+
                       TextField(
                         controller: passwordController,
                         obscureText: !isPasswordVisible,
@@ -213,48 +365,56 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
+
                       const SizedBox(height: 18),
+
                       Center(
                         child: RichText(
-                          text: const TextSpan(
-                            style: TextStyle(
+                          text: TextSpan(
+                            style: const TextStyle(
                               fontSize: 14,
                               color: Color(0xFF8B93A7),
                             ),
                             children: [
-                              TextSpan(text: 'Forgot password? '),
+                              const TextSpan(text: 'Forgot password? '),
                               TextSpan(
                                 text: 'Reset here',
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: Color(0xFF14B87A),
                                   fontWeight: FontWeight.w700,
                                 ),
+                                recognizer: TapGestureRecognizer()
+                                  ..onTap = _resetPassword,
                               ),
                             ],
                           ),
                         ),
                       ),
+
                       const SizedBox(height: 25),
+
                       SizedBox(
                         width: double.infinity,
                         height: 56,
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
-                                              colors: [Color.fromARGB(255, 164, 235, 213), Color.fromARGB(255, 5, 197, 245)],
-
+                              colors: [
+                                Color.fromARGB(255, 164, 235, 213),
+                                Color.fromARGB(255, 5, 197, 245),
+                              ],
                             ),
                             borderRadius: BorderRadius.circular(18),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF0F8DFF).withOpacity(0.22),
+                                color: const Color(0xFF0F8DFF).withValues(alpha: 0.22),
                                 blurRadius: 14,
                                 offset: const Offset(0, 6),
                               ),
                             ],
                           ),
                           child: ElevatedButton(
-                            onPressed: _handleSignIn,
+                            onPressed: isLoading ? null : _handleSignIn,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.transparent,
                               shadowColor: Colors.transparent,
@@ -262,18 +422,29 @@ class _LoginScreenState extends State<LoginScreen> {
                                 borderRadius: BorderRadius.circular(18),
                               ),
                             ),
-                            child: const Text(
-                              'Sign In',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                            child: isLoading
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2.5,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Sign In',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
                           ),
                         ),
                       ),
+
                       const SizedBox(height: 22),
+
                       Row(
                         children: const [
                           Expanded(
@@ -301,7 +472,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
+
                       const SizedBox(height: 22),
+
                       SizedBox(
                         width: double.infinity,
                         height: 56,
