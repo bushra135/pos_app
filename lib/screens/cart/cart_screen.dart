@@ -10,12 +10,11 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
+  // Navigate to checkout
   void _checkout() {
     if (CartManager.items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cart is empty'),
-        ),
+        const SnackBar(content: Text('Cart is empty')),
       );
       return;
     }
@@ -39,19 +38,54 @@ class _CartScreenState extends State<CartScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 14, 16, 10),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Cart',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+            // Header (back to scan + title + items count)
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context); // back to scan
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.arrow_back, size: 22),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Cart',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color.fromARGB(255, 70, 223, 175),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${cartItems.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
+
+            // Cart list
             Expanded(
               child: cartItems.isEmpty
                   ? const Center(
@@ -75,20 +109,24 @@ class _CartScreenState extends State<CartScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
                           ),
                           child: Row(
                             children: [
+                              // Product image
                               Container(
                                 width: 58,
                                 height: 58,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(12),
                                   color: const Color.fromARGB(
-                                    255,
-                                    199,
-                                    235,
-                                    245,
-                                  ),
+                                      255, 199, 235, 245),
                                 ),
                                 clipBehavior: Clip.antiAlias,
                                 child: item.image.isNotEmpty
@@ -100,28 +138,24 @@ class _CartScreenState extends State<CartScreen> {
                                           return const Icon(
                                             Icons.inventory,
                                             color: Color.fromARGB(
-                                              255,
-                                              5,
-                                              197,
-                                              245,
-                                            ),
+                                                255, 5, 197, 245),
                                           );
                                         },
                                       )
                                     : const Icon(
                                         Icons.inventory,
-                                        color: Color.fromARGB(
-                                          255,
-                                          5,
-                                          197,
-                                          245,
-                                        ),
+                                        color:
+                                            Color.fromARGB(255, 5, 197, 245),
                                       ),
                               ),
+
                               const SizedBox(width: 12),
+
+                              // Product info
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       item.name,
@@ -135,11 +169,7 @@ class _CartScreenState extends State<CartScreen> {
                                       'BD ${item.price.toStringAsFixed(3)}',
                                       style: const TextStyle(
                                         color: Color.fromARGB(
-                                          255,
-                                          5,
-                                          197,
-                                          245,
-                                        ),
+                                            255, 5, 197, 245),
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -154,6 +184,8 @@ class _CartScreenState extends State<CartScreen> {
                                   ],
                                 ),
                               ),
+
+                              // Quantity controls
                               Column(
                                 children: [
                                   IconButton(
@@ -165,11 +197,7 @@ class _CartScreenState extends State<CartScreen> {
                                     icon: const Icon(
                                       Icons.add_circle,
                                       color: Color.fromARGB(
-                                        255,
-                                        70,
-                                        223,
-                                        175,
-                                      ),
+                                          255, 70, 223, 175),
                                     ),
                                   ),
                                   Text(
@@ -192,6 +220,8 @@ class _CartScreenState extends State<CartScreen> {
                                   ),
                                 ],
                               ),
+
+                              // Delete item
                               IconButton(
                                 onPressed: () {
                                   setState(() {
@@ -209,6 +239,8 @@ class _CartScreenState extends State<CartScreen> {
                       },
                     ),
             ),
+
+            // Bottom section
             if (cartItems.isNotEmpty)
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
@@ -223,6 +255,7 @@ class _CartScreenState extends State<CartScreen> {
                 ),
                 child: Column(
                   children: [
+                    // Total
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -243,7 +276,11 @@ class _CartScreenState extends State<CartScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+
+                    const SizedBox(height: 12),
+
+
+                    // Checkout button
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
