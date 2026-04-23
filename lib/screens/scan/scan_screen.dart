@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 import '../cashier/cashier_home_screen.dart';
 import '../cart/cart_screen.dart';
@@ -20,38 +21,56 @@ class _ScanScreenState extends State<ScanScreen> {
     torchEnabled: false,
   );
 
-  bool _isHandled = false;
-  bool isLoadingProduct = false;
-  String scannedCode = '';
+  final AudioPlayer player = AudioPlayer();
 
-  Map<String, dynamic>? scannedProduct;
+  bool isLoadingProduct = false;
+
+  String scannedCode = '';
+  String lastScannedCode = '';
+  String lastScannedProductName = '';
+  DateTime? lastScanTime;
 
   @override
   void dispose() {
     controller.dispose();
+    player.dispose();
     super.dispose();
   }
 
-  Future<void> _onDetect(BarcodeCapture capture) async {
-    if (_isHandled) return;
+  // Play cashier beep sound after successful scan
+  Future<void> _playBeep() async {
+    await player.play(AssetSource('sounds/beep.mp3'));
+  }
 
+  Future<void> _onDetect(BarcodeCapture capture) async {
     final List<Barcode> barcodes = capture.barcodes;
     if (barcodes.isEmpty) return;
 
     final String? code = barcodes.first.rawValue;
     if (code == null || code.isEmpty) return;
 
+    final DateTime now = DateTime.now();
+
+    // Prevent instant duplicate scan from the same camera frame
+    if (lastScannedCode == code &&
+        lastScanTime != null &&
+        now.difference(lastScanTime!).inMilliseconds < 700) {
+      return;
+    }
+
+    if (isLoadingProduct) return;
+
     setState(() {
-      _isHandled = true;
-      scannedCode = code;
       isLoadingProduct = true;
-      scannedProduct = null;
+      scannedCode = code;
+      lastScannedCode = code;
+      lastScanTime = now;
     });
 
-    await _fetchProductByBarcode(code);
+    await _fetchAndAddProductByBarcode(code);
   }
 
-  Future<void> _fetchProductByBarcode(String code) async {
+  Future<void> _fetchAndAddProductByBarcode(String code) async {
     try {
       final querySnapshot = await FirebaseFirestore.instance
           .collection('products')
@@ -62,91 +81,85 @@ class _ScanScreenState extends State<ScanScreen> {
       if (querySnapshot.docs.isNotEmpty) {
         final productData = querySnapshot.docs.first.data();
 
-        setState(() {
-          scannedProduct = productData;
-          isLoadingProduct = false;
-        });
+        final String name = (productData['name'] ?? '').toString();
+        final double price = ((productData['price'] ?? 0) as num).toDouble();
+        final String barcode = (productData['barcode'] ?? '').toString();
+        final String image = (productData['image'] ?? '').toString();
 
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Product found: ${productData['name'] ?? 'Unknown'}',
-            ),
-            duration: const Duration(seconds: 2),
-          ),
+        CartManager.addItem(
+          name: name,
+          price: price,
+          barcode: barcode,
+          image: image,
         );
-      } else {
-        setState(() {
-          scannedProduct = null;
-          isLoadingProduct = false;
-        });
+
+        await _playBeep();
 
         if (!mounted) return;
+
+        setState(() {
+          lastScannedProductName = name;
+          isLoadingProduct = false;
+        });
+      } else {
+        if (!mounted) return;
+
+        setState(() {
+          lastScannedProductName = 'Product not found';
+          isLoadingProduct = false;
+        });
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Product not found'),
-            duration: Duration(seconds: 2),
+            duration: Duration(seconds: 1),
           ),
         );
       }
     } catch (e) {
-      setState(() {
-        isLoadingProduct = false;
-        scannedProduct = null;
-      });
-
       if (!mounted) return;
+
+      setState(() {
+        lastScannedProductName = 'Error loading product';
+        isLoadingProduct = false;
+      });
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error loading product: $e'),
-          duration: const Duration(seconds: 2),
+          duration: const Duration(seconds: 1),
         ),
       );
     }
   }
 
-  void _resetScanner() {
-    setState(() {
-      _isHandled = false;
-      scannedCode = '';
-      scannedProduct = null;
-      isLoadingProduct = false;
-    });
+  int get cartItemsCount {
+    int total = 0;
+    for (final item in CartManager.items) {
+      total += item.quantity;
+    }
+    return total;
   }
 
   void _goToCart() {
-    if (scannedProduct == null) {
+    if (CartManager.items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Scan a product first'),
+          content: Text('Cart is empty'),
         ),
       );
       return;
     }
-
-    final String name = (scannedProduct!['name'] ?? '').toString();
-    final double price =
-        ((scannedProduct!['price'] ?? 0) as num).toDouble();
-    final String barcode = (scannedProduct!['barcode'] ?? '').toString();
-    final String image = (scannedProduct!['image'] ?? '').toString();
-
-    CartManager.addItem(
-      name: name,
-      price: price,
-      barcode: barcode,
-      image: image,
-    );
 
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => const CartScreen(),
       ),
-    );
+    ).then((_) {
+      if (!mounted) return;
+      setState(() {});
+    });
   }
 
   @override
@@ -160,12 +173,15 @@ class _ScanScreenState extends State<ScanScreen> {
               controller: controller,
               onDetect: _onDetect,
             ),
+
             Container(
               color: Colors.black.withOpacity(0.35),
             ),
+
             Column(
               children: [
                 const SizedBox(height: 20),
+
                 const Text(
                   'Scan barcode',
                   style: TextStyle(
@@ -174,15 +190,19 @@ class _ScanScreenState extends State<ScanScreen> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+
                 const SizedBox(height: 8),
+
                 const Text(
-                  'Align the barcode inside the frame',
+                  'Scan all customer items, then go to cart',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 14,
                   ),
                 ),
+
                 const Spacer(),
+
                 Center(
                   child: Container(
                     width: 260,
@@ -207,28 +227,58 @@ class _ScanScreenState extends State<ScanScreen> {
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 24),
-                if (scannedCode.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.10),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        'Scanned code: $scannedCode',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        if (scannedCode.isNotEmpty)
+                          Text(
+                            'Last barcode: $scannedCode',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        if (scannedCode.isNotEmpty)
+                          const SizedBox(height: 8),
+                        Text(
+                          lastScannedProductName.isEmpty
+                              ? 'Ready to scan'
+                              : 'Last item: $lastScannedProductName',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Items in cart: $cartItemsCount',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                ),
+
                 const SizedBox(height: 12),
+
                 if (isLoadingProduct)
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20),
@@ -236,62 +286,9 @@ class _ScanScreenState extends State<ScanScreen> {
                       color: Colors.white,
                     ),
                   ),
-                if (scannedProduct != null && !isLoadingProduct)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.10),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            scannedProduct!['name'] ?? 'Unknown product',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Price: BD ${((scannedProduct!['price'] ?? 0) as num).toStringAsFixed(3)}',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+
                 const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _resetScanner,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey.shade800,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text(
-                            'Scan Again',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
+
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: SizedBox(
@@ -316,9 +313,11 @@ class _ScanScreenState extends State<ScanScreen> {
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 24),
               ],
             ),
+
             Positioned(
               top: 18,
               left: 16,
@@ -337,6 +336,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 ),
               ),
             ),
+
             Positioned(
               top: 18,
               right: 16,
