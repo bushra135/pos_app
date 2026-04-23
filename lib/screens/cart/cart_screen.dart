@@ -10,7 +10,6 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  // Open checkout and receipt screen
   void _checkout() {
     if (CartManager.items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -27,7 +26,6 @@ class _CartScreenState extends State<CartScreen> {
         builder: (_) => const CheckoutReceiptScreen(),
       ),
     ).then((_) {
-      // Refresh cart screen after returning
       setState(() {});
     });
   }
@@ -41,7 +39,6 @@ class _CartScreenState extends State<CartScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Screen title
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 14, 16, 10),
               child: Align(
@@ -55,8 +52,6 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ),
             ),
-
-            // Cart list or empty state
             Expanded(
               child: cartItems.isEmpty
                   ? const Center(
@@ -83,7 +78,6 @@ class _CartScreenState extends State<CartScreen> {
                           ),
                           child: Row(
                             children: [
-                              // Product image
                               Container(
                                 width: 58,
                                 height: 58,
@@ -124,10 +118,7 @@ class _CartScreenState extends State<CartScreen> {
                                         ),
                                       ),
                               ),
-
                               const SizedBox(width: 12),
-
-                              // Product details
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -163,8 +154,6 @@ class _CartScreenState extends State<CartScreen> {
                                   ],
                                 ),
                               ),
-
-                              // Quantity controls
                               Column(
                                 children: [
                                   IconButton(
@@ -203,8 +192,6 @@ class _CartScreenState extends State<CartScreen> {
                                   ),
                                 ],
                               ),
-
-                              // Delete item
                               IconButton(
                                 onPressed: () {
                                   setState(() {
@@ -222,8 +209,6 @@ class _CartScreenState extends State<CartScreen> {
                       },
                     ),
             ),
-
-            // Bottom total and checkout button
             if (cartItems.isNotEmpty)
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
@@ -238,7 +223,6 @@ class _CartScreenState extends State<CartScreen> {
                 ),
                 child: Column(
                   children: [
-                    // Total row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -259,10 +243,7 @@ class _CartScreenState extends State<CartScreen> {
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 14),
-
-                    // Checkout button
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(

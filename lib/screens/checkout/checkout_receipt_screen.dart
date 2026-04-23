@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -18,7 +21,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   String storeName = '';
   String cashierName = '';
   String benefitNumber = '';
-  String benefitQr = '';
+  String benefitQrBase64 = '';
   String storeCode = '';
 
   bool isLoading = true;
@@ -54,14 +57,14 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       }
 
       final userData = userDoc.data()!;
-      final String fullName = userData['fullName'] ?? '';
+      final String fullName = (userData['fullName'] ?? '').toString();
       final String firstName =
           fullName.isNotEmpty ? fullName.split(' ')[0] : '';
-      final String fetchedStoreCode = userData['storeCode'] ?? '';
+      final String fetchedStoreCode = (userData['storeCode'] ?? '').toString();
 
-      String fetchedStoreName = userData['storeName'] ?? '';
+      String fetchedStoreName = (userData['storeName'] ?? '').toString();
       String fetchedBenefitNumber = '';
-      String fetchedBenefitQr = '';
+      String fetchedBenefitQrBase64 = '';
 
       if (fetchedStoreCode.isNotEmpty) {
         final storeDoc = await FirebaseFirestore.instance
@@ -71,9 +74,12 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
         if (storeDoc.exists) {
           final storeData = storeDoc.data()!;
-          fetchedStoreName = storeData['storeName'] ?? fetchedStoreName;
-          fetchedBenefitNumber = storeData['benefitNumber'] ?? '';
-          fetchedBenefitQr = storeData['benefitQr'] ?? '';
+          fetchedStoreName =
+              (storeData['storeName'] ?? fetchedStoreName).toString();
+          fetchedBenefitNumber =
+              (storeData['benefitNumber'] ?? '').toString();
+          fetchedBenefitQrBase64 =
+              (storeData['benefitQrBase64'] ?? '').toString();
         }
       }
 
@@ -82,7 +88,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         storeName = fetchedStoreName;
         storeCode = fetchedStoreCode;
         benefitNumber = fetchedBenefitNumber;
-        benefitQr = fetchedBenefitQr;
+        benefitQrBase64 = fetchedBenefitQrBase64;
         isLoading = false;
       });
     } catch (e) {
@@ -221,7 +227,6 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   Widget _buildReceiptItem({
     required String name,
     required int quantity,
-    required double price,
     required double subtotal,
   }) {
     return Padding(
@@ -251,6 +256,67 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildQrPreview() {
+    if (benefitQrBase64.isEmpty) {
+      return Container(
+        height: 180,
+        width: 180,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Icon(
+          Icons.qr_code,
+          size: 70,
+          color: Colors.grey,
+        ),
+      );
+    }
+
+    try {
+      final Uint8List bytes = base64Decode(benefitQrBase64);
+
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Image.memory(
+          bytes,
+          height: 180,
+          width: 180,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              height: 180,
+              width: 180,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.qr_code,
+                size: 70,
+                color: Colors.grey,
+              ),
+            );
+          },
+        ),
+      );
+    } catch (e) {
+      return Container(
+        height: 180,
+        width: 180,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Icon(
+          Icons.qr_code,
+          size: 70,
+          color: Colors.grey,
+        ),
+      );
+    }
   }
 
   @override
@@ -432,7 +498,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                       ],
                                     ),
                                   ),
-                                if (benefitQr.isNotEmpty) ...[
+                                if (benefitQrBase64.isNotEmpty) ...[
                                   const SizedBox(height: 14),
                                   Container(
                                     width: double.infinity,
@@ -450,29 +516,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                           ),
                                         ),
                                         const SizedBox(height: 12),
-                                        ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(16),
-                                          child: Image.network(
-                                            benefitQr,
-                                            height: 180,
-                                            width: 180,
-                                            fit: BoxFit.cover,
-                                            errorBuilder:
-                                                (context, error, stackTrace) {
-                                              return Container(
-                                                height: 180,
-                                                width: 180,
-                                                color: Colors.grey.shade200,
-                                                child: const Icon(
-                                                  Icons.qr_code,
-                                                  size: 70,
-                                                  color: Colors.grey,
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ),
+                                        _buildQrPreview(),
                                       ],
                                     ),
                                   ),
@@ -558,7 +602,6 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                 (item) => _buildReceiptItem(
                                   name: item.name,
                                   quantity: item.quantity,
-                                  price: item.price,
                                   subtotal: item.totalPrice,
                                 ),
                               ),

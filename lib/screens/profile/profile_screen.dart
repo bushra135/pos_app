@@ -1,6 +1,10 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -16,17 +20,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String storeName = '';
   String storeCode = '';
   String benefitNumber = '';
-  String benefitQr = '';
+  String benefitQrBase64 = '';
 
   bool isLoading = true;
   bool isSaving = false;
 
   bool isPaymentExpanded = true;
-  bool isQrExpanded = false;
 
   final TextEditingController benefitNumberController =
       TextEditingController();
-  final TextEditingController benefitQrController = TextEditingController();
 
   @override
   void initState() {
@@ -37,40 +39,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void dispose() {
     benefitNumberController.dispose();
-    benefitQrController.dispose();
     super.dispose();
   }
 
   bool get isOwner => role.toLowerCase() == 'owner';
-  bool get isCashier => role.toLowerCase() == 'cashier';
-
-  // Try to convert Google Drive link to a direct previewable link
-  String convertDriveLink(String url) {
-    final trimmed = url.trim();
-    if (trimmed.isEmpty) return '';
-
-    if (trimmed.contains('drive.google.com')) {
-      final regExp1 = RegExp(r'/file/d/([^/]+)');
-      final match1 = regExp1.firstMatch(trimmed);
-      if (match1 != null) {
-        final fileId = match1.group(1);
-        if (fileId != null && fileId.isNotEmpty) {
-          return 'https://drive.google.com/thumbnail?id=$fileId&sz=w1000';
-        }
-      }
-
-      final regExp2 = RegExp(r'[?&]id=([^&]+)');
-      final match2 = regExp2.firstMatch(trimmed);
-      if (match2 != null) {
-        final fileId = match2.group(1);
-        if (fileId != null && fileId.isNotEmpty) {
-          return 'https://drive.google.com/thumbnail?id=$fileId&sz=w1000';
-        }
-      }
-    }
-
-    return trimmed;
-  }
 
   Future<void> _loadUserData() async {
     try {
@@ -100,7 +72,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final String fetchedStoreCode = userData['storeCode'] ?? '';
       String fetchedStoreName = userData['storeName'] ?? '';
       String fetchedBenefitNumber = '';
-      String fetchedBenefitQr = '';
+      String fetchedBenefitQrBase64 = '';
 
       if (fetchedStoreCode.isNotEmpty) {
         final storeDoc = await FirebaseFirestore.instance
@@ -112,7 +84,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final storeData = storeDoc.data()!;
           fetchedStoreName = storeData['storeName'] ?? fetchedStoreName;
           fetchedBenefitNumber = storeData['benefitNumber'] ?? '';
-          fetchedBenefitQr = storeData['benefitQr'] ?? '';
+          fetchedBenefitQrBase64 = storeData['benefitQrBase64'] ?? '';
         }
       }
 
@@ -123,15 +95,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
         storeName = fetchedStoreName;
         storeCode = fetchedStoreCode;
         benefitNumber = fetchedBenefitNumber;
-        benefitQr = fetchedBenefitQr;
+        benefitQrBase64 = fetchedBenefitQrBase64;
         benefitNumberController.text = fetchedBenefitNumber;
-        benefitQrController.text = fetchedBenefitQr;
         isLoading = false;
       });
     } catch (e) {
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+  Future<void> _pickQrImage() async {
+    if (!isOwner) return;
+
+    try {
+      final picker = ImagePicker();
+      final XFile? pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 40,
+      );
+
+      if (pickedFile == null) return;
+
+      setState(() {
+        isSaving = true;
+      });
+
+      final Uint8List bytes = await pickedFile.readAsBytes();
+      final String base64String = base64Encode(bytes);
+
+      await FirebaseFirestore.instance
+          .collection('stores')
+          .doc(storeCode)
+          .update({
+        'benefitQrBase64': base64String,
+      });
+
+      setState(() {
+        benefitQrBase64 = base64String;
+        isSaving = false;
+      });
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('QR uploaded successfully'),
+        ),
+      );
+    } catch (e) {
+      setState(() {
+        isSaving = false;
+      });
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to upload QR: $e'),
+        ),
+      );
     }
   }
 
@@ -144,26 +168,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
 
       final String newBenefitNumber = benefitNumberController.text.trim();
-      final String newBenefitQr = benefitQrController.text.trim();
 
       await FirebaseFirestore.instance
           .collection('stores')
           .doc(storeCode)
           .update({
         'benefitNumber': newBenefitNumber,
-        'benefitQr': newBenefitQr,
       });
 
       setState(() {
         benefitNumber = newBenefitNumber;
-        benefitQr = newBenefitQr;
         isSaving = false;
       });
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Payment settings saved')),
+        const SnackBar(
+          content: Text('Payment settings saved'),
+        ),
       );
     } catch (e) {
       setState(() {
@@ -173,7 +196,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save payment settings: $e')),
+        SnackBar(
+          content: Text('Failed to save payment settings: $e'),
+        ),
       );
     }
   }
@@ -185,16 +210,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.pushReplacementNamed(context, '/login');
   }
 
+  Widget _buildQrPreview() {
+    if (benefitQrBase64.isEmpty) {
+      return Container(
+        height: 160,
+        width: 160,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Icon(
+          Icons.qr_code_2,
+          size: 70,
+          color: Colors.grey,
+        ),
+      );
+    }
+
+    try {
+      final Uint8List bytes = base64Decode(benefitQrBase64);
+
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Image.memory(
+          bytes,
+          height: 160,
+          width: 160,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              height: 160,
+              width: 160,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(
+                Icons.qr_code_2,
+                size: 70,
+                color: Colors.grey,
+              ),
+            );
+          },
+        ),
+      );
+    } catch (e) {
+      return Container(
+        height: 160,
+        width: 160,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Icon(
+          Icons.qr_code_2,
+          size: 70,
+          color: Colors.grey,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final String qrPreviewLink = convertDriveLink(
-      isOwner ? benefitQrController.text.trim() : benefitQr.trim(),
-    );
-
     if (isLoading) {
       return const Scaffold(
         backgroundColor: Color(0xFFF6F8FC),
-        body: Center(child: CircularProgressIndicator()),
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
       );
     }
 
@@ -205,7 +289,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            Navigator.pop(context);
+          },
         ),
       ),
       body: SafeArea(
@@ -314,9 +400,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 2),
-
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
@@ -387,10 +471,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ),
                     ),
-
                     if (isPaymentExpanded) ...[
                       const SizedBox(height: 18),
-
                       TextField(
                         controller: benefitNumberController,
                         enabled: isOwner,
@@ -406,110 +488,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 16),
-
-                      if (isOwner) ...[
-                        InkWell(
-                          borderRadius: BorderRadius.circular(14),
-                          onTap: () {
-                            setState(() {
-                              isQrExpanded = !isQrExpanded;
-                            });
-                          },
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF6F8FC),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.qr_code_2,
-                                  color: Color(0xFF667085),
-                                ),
-                                const SizedBox(width: 10),
-                                const Expanded(
-                                  child: Text(
-                                    'QR Link (Optional)',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF1F2A44),
-                                    ),
-                                  ),
-                                ),
-                                Icon(
-                                  isQrExpanded
-                                      ? Icons.keyboard_arrow_up
-                                      : Icons.keyboard_arrow_down,
-                                  color: const Color(0xFF667085),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-
-                      if (isOwner && isQrExpanded) ...[
-                        const SizedBox(height: 14),
-
-                        TextField(
-                          controller: benefitQrController,
-                          enabled: true,
-                          onChanged: (_) {
-                            setState(() {});
-                          },
-                          decoration: InputDecoration(
-                            labelText: 'Paste QR link here',
-                            hintText: 'Google Drive link or direct image link',
-                            filled: true,
-                            fillColor: const Color(0xFFF6F8FC),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF6F8FC),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'How to add your QR:',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              SizedBox(height: 6),
-                              Text(
-                                '1. Save QR from Benefit app\n'
-                                '2. Upload it to Google Drive\n'
-                                '3. Change access to: Anyone with the link\n'
-                                '4. Copy the link and paste it here',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 14),
-                      ],
-
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(14),
@@ -520,57 +499,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Column(
                           children: [
                             const Text(
-                              'Benefit QR Preview',
+                              'Benefit QR',
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: Color(0xFF1F2A44),
                               ),
                             ),
                             const SizedBox(height: 12),
-                            qrPreviewLink.isNotEmpty
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(14),
-                                    child: Image.network(
-                                      qrPreviewLink,
-                                      height: 160,
-                                      width: 160,
-                                      fit: BoxFit.cover,
-                                      errorBuilder:
-                                          (context, error, stackTrace) {
-                                        return Container(
-                                          height: 160,
-                                          width: 160,
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius:
-                                                BorderRadius.circular(14),
-                                          ),
-                                          child: const Icon(
-                                            Icons.qr_code_2,
-                                            size: 70,
-                                            color: Colors.grey,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  )
-                                : Container(
-                                    height: 160,
-                                    width: 160,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    child: const Icon(
-                                      Icons.qr_code_2,
-                                      size: 70,
-                                      color: Colors.grey,
-                                    ),
+                            _buildQrPreview(),
+                            if (isOwner) ...[
+                              const SizedBox(height: 14),
+                              OutlinedButton.icon(
+                                onPressed: isSaving ? null : _pickQrImage,
+                                icon: const Icon(Icons.upload_outlined),
+                                label: const Text('Upload QR'),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(
+                                    color: Color(0xFF27BFA2),
                                   ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
-
                       if (isOwner) ...[
                         const SizedBox(height: 16),
                         SizedBox(
@@ -608,9 +563,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 18),
-
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 22),
@@ -645,9 +598,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 20),
-
               GestureDetector(
                 onTap: _logout,
                 child: Container(
