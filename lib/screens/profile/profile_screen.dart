@@ -1,10 +1,203 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String name = '';
+  String email = '';
+  String role = '';
+  String storeName = '';
+  String storeCode = '';
+  String benefitNumber = '';
+  String benefitQr = '';
+
+  bool isLoading = true;
+  bool isSaving = false;
+
+  bool isPaymentExpanded = true;
+  bool isQrExpanded = false;
+
+  final TextEditingController benefitNumberController =
+      TextEditingController();
+  final TextEditingController benefitQrController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  @override
+  void dispose() {
+    benefitNumberController.dispose();
+    benefitQrController.dispose();
+    super.dispose();
+  }
+
+  bool get isOwner => role.toLowerCase() == 'owner';
+  bool get isCashier => role.toLowerCase() == 'cashier';
+
+  // Try to convert Google Drive link to a direct previewable link
+  String convertDriveLink(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return '';
+
+    if (trimmed.contains('drive.google.com')) {
+      final regExp1 = RegExp(r'/file/d/([^/]+)');
+      final match1 = regExp1.firstMatch(trimmed);
+      if (match1 != null) {
+        final fileId = match1.group(1);
+        if (fileId != null && fileId.isNotEmpty) {
+          return 'https://drive.google.com/thumbnail?id=$fileId&sz=w1000';
+        }
+      }
+
+      final regExp2 = RegExp(r'[?&]id=([^&]+)');
+      final match2 = regExp2.firstMatch(trimmed);
+      if (match2 != null) {
+        final fileId = match2.group(1);
+        if (fileId != null && fileId.isNotEmpty) {
+          return 'https://drive.google.com/thumbnail?id=$fileId&sz=w1000';
+        }
+      }
+    }
+
+    return trimmed;
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+
+      if (user == null) {
+        setState(() {
+          isLoading = false;
+        });
+        return;
+      }
+
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (!userDoc.exists) {
+        setState(() {
+          isLoading = false;
+        });
+        return;
+      }
+
+      final userData = userDoc.data()!;
+
+      final String fetchedStoreCode = userData['storeCode'] ?? '';
+      String fetchedStoreName = userData['storeName'] ?? '';
+      String fetchedBenefitNumber = '';
+      String fetchedBenefitQr = '';
+
+      if (fetchedStoreCode.isNotEmpty) {
+        final storeDoc = await FirebaseFirestore.instance
+            .collection('stores')
+            .doc(fetchedStoreCode)
+            .get();
+
+        if (storeDoc.exists) {
+          final storeData = storeDoc.data()!;
+          fetchedStoreName = storeData['storeName'] ?? fetchedStoreName;
+          fetchedBenefitNumber = storeData['benefitNumber'] ?? '';
+          fetchedBenefitQr = storeData['benefitQr'] ?? '';
+        }
+      }
+
+      setState(() {
+        name = userData['fullName'] ?? '';
+        email = userData['email'] ?? '';
+        role = userData['role'] ?? '';
+        storeName = fetchedStoreName;
+        storeCode = fetchedStoreCode;
+        benefitNumber = fetchedBenefitNumber;
+        benefitQr = fetchedBenefitQr;
+        benefitNumberController.text = fetchedBenefitNumber;
+        benefitQrController.text = fetchedBenefitQr;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _savePaymentData() async {
+    if (!isOwner) return;
+
+    try {
+      setState(() {
+        isSaving = true;
+      });
+
+      final String newBenefitNumber = benefitNumberController.text.trim();
+      final String newBenefitQr = benefitQrController.text.trim();
+
+      await FirebaseFirestore.instance
+          .collection('stores')
+          .doc(storeCode)
+          .update({
+        'benefitNumber': newBenefitNumber,
+        'benefitQr': newBenefitQr,
+      });
+
+      setState(() {
+        benefitNumber = newBenefitNumber;
+        benefitQr = newBenefitQr;
+        isSaving = false;
+      });
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Payment settings saved')),
+      );
+    } catch (e) {
+      setState(() {
+        isSaving = false;
+      });
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save payment settings: $e')),
+      );
+    }
+  }
+
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, '/login');
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final String qrPreviewLink = convertDriveLink(
+      isOwner ? benefitQrController.text.trim() : benefitQr.trim(),
+    );
+
+    if (isLoading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF6F8FC),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
       appBar: AppBar(
@@ -12,9 +205,7 @@ class ProfileScreen extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: SafeArea(
@@ -25,8 +216,8 @@ class ProfileScreen extends StatelessWidget {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 30),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
                     colors: [
                       Color.fromARGB(255, 164, 235, 213),
                       Color.fromARGB(255, 5, 197, 245),
@@ -34,14 +225,14 @@ class ProfileScreen extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: const BorderRadius.only(
+                  borderRadius: BorderRadius.only(
                     bottomLeft: Radius.circular(26),
                     bottomRight: Radius.circular(26),
                   ),
                 ),
-                child: const Column(
+                child: Column(
                   children: [
-                    CircleAvatar(
+                    const CircleAvatar(
                       radius: 42,
                       backgroundColor: Colors.white24,
                       child: Icon(
@@ -50,19 +241,19 @@ class ProfileScreen extends StatelessWidget {
                         color: Colors.white,
                       ),
                     ),
-                    SizedBox(height: 14),
+                    const SizedBox(height: 14),
                     Text(
-                      'John Smith',
-                      style: TextStyle(
+                      name.isEmpty ? 'User' : name,
+                      style: const TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
-                    SizedBox(height: 6),
+                    const SizedBox(height: 6),
                     Text(
-                      'Owner',
-                      style: TextStyle(
+                      role.isEmpty ? 'User' : role,
+                      style: const TextStyle(
                         fontSize: 15,
                         color: Colors.white70,
                       ),
@@ -86,46 +277,340 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: const Column(
+                  child: Column(
                     children: [
                       _InfoRow(
                         icon: Icons.storefront_outlined,
-                        iconBg: Color(0xFFE7FAF4),
-                        iconColor: Color(0xFF27BFA2),
+                        iconBg: const Color(0xFFE7FAF4),
+                        iconColor: const Color(0xFF27BFA2),
                         title: 'Store Name',
-                        value: 'My Retail Shop',
+                        value: storeName.isEmpty ? 'No store' : storeName,
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       _InfoRow(
                         icon: Icons.tag_outlined,
-                        iconBg: Color(0xFFFFF3E2),
-                        iconColor: Color(0xFFF59E0B),
+                        iconBg: const Color(0xFFFFF3E2),
+                        iconColor: const Color(0xFFF59E0B),
                         title: 'Store Code',
-                        value: 'SHOP123',
+                        value: storeCode.isEmpty ? '-' : storeCode,
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       _InfoRow(
                         icon: Icons.email_outlined,
-                        iconBg: Color(0xFFEAF1FF),
-                        iconColor: Color(0xFF3B82F6),
+                        iconBg: const Color(0xFFEAF1FF),
+                        iconColor: const Color(0xFF3B82F6),
                         title: 'Email',
-                        value: 'admin@shop.com',
+                        value: email.isEmpty ? '-' : email,
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       _InfoRow(
-                        icon: Icons.phone_outlined,
-                        iconBg: Color(0xFFF6EAFE),
-                        iconColor: Color(0xFFA855F7),
-                        title: 'Phone',
-                        value: '+1 (555) 123-4567',
+                        icon: Icons.account_circle_outlined,
+                        iconBg: const Color(0xFFF6EAFE),
+                        iconColor: const Color(0xFFA855F7),
+                        title: 'Role',
+                        value: role.isEmpty ? '-' : role,
                       ),
                     ],
                   ),
                 ),
               ),
+
               const SizedBox(height: 2),
-              const _SettingsCard(),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 12,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () {
+                        setState(() {
+                          isPaymentExpanded = !isPaymentExpanded;
+                        });
+                      },
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 46,
+                            height: 46,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEAFBF4),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.payments_outlined,
+                              color: Color(0xFF27BFA2),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Payment Settings',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF1F2A44),
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Manage Benefit payment information',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF98A2B3),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            isPaymentExpanded
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                            color: const Color(0xFF667085),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    if (isPaymentExpanded) ...[
+                      const SizedBox(height: 18),
+
+                      TextField(
+                        controller: benefitNumberController,
+                        enabled: isOwner,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Benefit Number',
+                          hintText: 'Enter your Benefit number',
+                          filled: true,
+                          fillColor: const Color(0xFFF6F8FC),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      if (isOwner) ...[
+                        InkWell(
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: () {
+                            setState(() {
+                              isQrExpanded = !isQrExpanded;
+                            });
+                          },
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF6F8FC),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.qr_code_2,
+                                  color: Color(0xFF667085),
+                                ),
+                                const SizedBox(width: 10),
+                                const Expanded(
+                                  child: Text(
+                                    'QR Link (Optional)',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF1F2A44),
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  isQrExpanded
+                                      ? Icons.keyboard_arrow_up
+                                      : Icons.keyboard_arrow_down,
+                                  color: const Color(0xFF667085),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      if (isOwner && isQrExpanded) ...[
+                        const SizedBox(height: 14),
+
+                        TextField(
+                          controller: benefitQrController,
+                          enabled: true,
+                          onChanged: (_) {
+                            setState(() {});
+                          },
+                          decoration: InputDecoration(
+                            labelText: 'Paste QR link here',
+                            hintText: 'Google Drive link or direct image link',
+                            filled: true,
+                            fillColor: const Color(0xFFF6F8FC),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF6F8FC),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'How to add your QR:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              SizedBox(height: 6),
+                              Text(
+                                '1. Save QR from Benefit app\n'
+                                '2. Upload it to Google Drive\n'
+                                '3. Change access to: Anyone with the link\n'
+                                '4. Copy the link and paste it here',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 14),
+                      ],
+
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF6F8FC),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'Benefit QR Preview',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1F2A44),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            qrPreviewLink.isNotEmpty
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: Image.network(
+                                      qrPreviewLink,
+                                      height: 160,
+                                      width: 160,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        return Container(
+                                          height: 160,
+                                          width: 160,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                          ),
+                                          child: const Icon(
+                                            Icons.qr_code_2,
+                                            size: 70,
+                                            color: Colors.grey,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  )
+                                : Container(
+                                    height: 160,
+                                    width: 160,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: const Icon(
+                                      Icons.qr_code_2,
+                                      size: 70,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                          ],
+                        ),
+                      ),
+
+                      if (isOwner) ...[
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: isSaving ? null : _savePaymentData,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  const Color.fromARGB(255, 70, 223, 175),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: isSaving
+                                ? const SizedBox(
+                                    width: 22,
+                                    height: 22,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2.5,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Save Payment Settings',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ],
+                ),
+              ),
+
               const SizedBox(height: 18),
+
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 22),
@@ -160,11 +645,11 @@ class ProfileScreen extends StatelessWidget {
                   ],
                 ),
               ),
+
               const SizedBox(height: 20),
+
               GestureDetector(
-                onTap: () {
-                  Navigator.pushReplacementNamed(context, '/login');
-                },
+                onTap: _logout,
                 child: Container(
                   width: double.infinity,
                   height: 58,
@@ -258,108 +743,6 @@ class _InfoRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: const Column(
-        children: [
-          _SettingItem(
-            icon: Icons.settings_outlined,
-            iconBg: Color(0xFFF2F4F7),
-            iconColor: Color(0xFF667085),
-            title: 'Account Settings',
-          ),
-          Divider(height: 1),
-          _SettingItem(
-            icon: Icons.notifications_none,
-            iconBg: Color(0xFFEAF1FF),
-            iconColor: Color(0xFF3B82F6),
-            title: 'Notifications',
-          ),
-          Divider(height: 1),
-          _SettingItem(
-            icon: Icons.shield_outlined,
-            iconBg: Color(0xFFE7FAF0),
-            iconColor: Color(0xFF22C55E),
-            title: 'Privacy & Security',
-          ),
-          Divider(height: 1),
-          _SettingItem(
-            icon: Icons.help_outline,
-            iconBg: Color(0xFFF6EAFE),
-            iconColor: Color(0xFFA855F7),
-            title: 'Help & Support',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SettingItem extends StatelessWidget {
-  final IconData icon;
-  final Color iconBg;
-  final Color iconColor;
-  final String title;
-
-  const _SettingItem({
-    required this.icon,
-    required this.iconBg,
-    required this.iconColor,
-    required this.title,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-      child: Row(
-        children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: iconColor),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1F2A44),
-              ),
-            ),
-          ),
-          const Icon(
-            Icons.chevron_right,
-            color: Color(0xFF98A2B3),
-          ),
-        ],
-      ),
     );
   }
 }

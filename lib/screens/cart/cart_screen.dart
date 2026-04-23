@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/cart_manager.dart';
+import '../checkout/checkout_receipt_screen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -9,6 +10,7 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
+  // Open checkout and receipt screen
   void _checkout() {
     if (CartManager.items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -19,106 +21,15 @@ class _CartScreenState extends State<CartScreen> {
       return;
     }
 
-    final double total = CartManager.total;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(22),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Complete Sale',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF222222),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Total: BD ${total.toStringAsFixed(3)}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Color.fromARGB(255, 5, 197, 245),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Do you want to complete this sale?',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          setState(() {
-                            CartManager.clearCart();
-                          });
-
-                          Navigator.pop(context);
-
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Sale completed successfully'),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              const Color.fromARGB(255, 70, 223, 175),
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: const Text(
-                          'Confirm',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CheckoutReceiptScreen(),
+      ),
+    ).then((_) {
+      // Refresh cart screen after returning
+      setState(() {});
+    });
   }
 
   @override
@@ -130,6 +41,7 @@ class _CartScreenState extends State<CartScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            // Screen title
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 14, 16, 10),
               child: Align(
@@ -143,6 +55,8 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ),
             ),
+
+            // Cart list or empty state
             Expanded(
               child: cartItems.isEmpty
                   ? const Center(
@@ -169,6 +83,7 @@ class _CartScreenState extends State<CartScreen> {
                           ),
                           child: Row(
                             children: [
+                              // Product image
                               Container(
                                 width: 58,
                                 height: 58,
@@ -209,7 +124,10 @@ class _CartScreenState extends State<CartScreen> {
                                         ),
                                       ),
                               ),
+
                               const SizedBox(width: 12),
+
+                              // Product details
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,6 +163,8 @@ class _CartScreenState extends State<CartScreen> {
                                   ],
                                 ),
                               ),
+
+                              // Quantity controls
                               Column(
                                 children: [
                                   IconButton(
@@ -283,6 +203,8 @@ class _CartScreenState extends State<CartScreen> {
                                   ),
                                 ],
                               ),
+
+                              // Delete item
                               IconButton(
                                 onPressed: () {
                                   setState(() {
@@ -300,6 +222,8 @@ class _CartScreenState extends State<CartScreen> {
                       },
                     ),
             ),
+
+            // Bottom total and checkout button
             if (cartItems.isNotEmpty)
               Container(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
@@ -314,6 +238,7 @@ class _CartScreenState extends State<CartScreen> {
                 ),
                 child: Column(
                   children: [
+                    // Total row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -334,7 +259,10 @@ class _CartScreenState extends State<CartScreen> {
                         ),
                       ],
                     ),
+
                     const SizedBox(height: 14),
+
+                    // Checkout button
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
