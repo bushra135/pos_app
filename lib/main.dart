@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // 👈 أضيفي هذا
 
-import 'screens/auth/login_screen.dart';
+import 'firebase_options.dart';
+import 'screens/auth/auth_wrapper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -10,6 +11,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  await FirebaseAuth.instance.setPersistence(Persistence.LOCAL);
 
   runApp(const MyApp());
 }
@@ -19,14 +22,9 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       debugShowCheckedModeBanner: false,
-
-      initialRoute: '/login',
-
-      routes: {
-        '/login': (context) => const LoginScreen(),
-      },
+      home: AuthWrapper(),
     );
   }
 }

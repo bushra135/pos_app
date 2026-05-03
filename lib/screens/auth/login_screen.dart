@@ -35,109 +35,65 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // Login with Firebase Auth, then read user role from Firestore
   Future<void> _handleSignIn() async {
-    final email = emailController.text.trim().toLowerCase();
-    final password = passwordController.text.trim();
+  final email = emailController.text.trim().toLowerCase();
+  final password = passwordController.text.trim();
 
-    // Check empty fields
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter email and password'),
-        ),
-      );
-      return;
+  if (email.isEmpty || password.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please enter email and password'),
+      ),
+    );
+    return;
+  }
+
+  setState(() {
+    isLoading = true;
+  });
+
+  try {
+    await _auth.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+
+    // لا تحطين Navigator هنا
+    // AuthWrapper بيحول المستخدم تلقائيًا حسب role
+
+  } on FirebaseAuthException catch (e) {
+    String message = 'Login failed';
+
+    if (e.code == 'user-not-found') {
+      message = 'No user found';
+    } else if (e.code == 'wrong-password') {
+      message = 'Wrong password';
+    } else if (e.code == 'invalid-email') {
+      message = 'Invalid email';
+    } else if (e.code == 'invalid-credential') {
+      message = 'Invalid email or password';
+    } else if (e.code == 'too-many-requests') {
+      message = 'Too many attempts. Try again later';
     }
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Something went wrong: $e')),
+    );
+  } finally {
+    if (!mounted) return;
 
     setState(() {
-      isLoading = true;
+      isLoading = false;
     });
-
-    try {
-      // Sign in with Firebase Authentication
-      final UserCredential userCredential =
-          await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      final String uid = userCredential.user!.uid;
-
-      // Get user document from Firestore
-      final DocumentSnapshot<Map<String, dynamic>> userDoc =
-          await _firestore.collection('users').doc(uid).get();
-
-      if (!userDoc.exists) {
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('User data not found in database'),
-          ),
-        );
-        return;
-      }
-
-      final Map<String, dynamic>? userData = userDoc.data();
-      final String role = userData?['role'] ?? '';
-
-      if (!mounted) return;
-
-      // Navigate based on role
-      if (role == 'cashier') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const CashierHomeScreen(),
-          ),
-        );
-      } else if (role == 'owner') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const OwnerHomeScreen(),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Invalid user role'),
-          ),
-        );
-      }
-    } on FirebaseAuthException catch (e) {
-      String message = 'Login failed';
-
-      if (e.code == 'user-not-found') {
-        message = 'No user found';
-      } else if (e.code == 'wrong-password') {
-        message = 'Wrong password';
-      } else if (e.code == 'invalid-email') {
-        message = 'Invalid email';
-      } else if (e.code == 'invalid-credential') {
-        message = 'Invalid email or password';
-      } else if (e.code == 'too-many-requests') {
-        message = 'Too many attempts. Try again later';
-      }
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Something went wrong: $e')),
-      );
-    } finally {
-      if (!mounted) return;
-
-      setState(() {
-        isLoading = false;
-      });
-    }
   }
+}
 
   // Send password reset email using Firebase
   Future<void> _resetPassword() async {

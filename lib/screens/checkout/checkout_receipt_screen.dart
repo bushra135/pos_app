@@ -6,7 +6,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../utils/cart_manager.dart';
-import '../cashier/cashier_home_screen.dart';
 
 class CheckoutReceiptScreen extends StatefulWidget {
   const CheckoutReceiptScreen({super.key});
@@ -38,9 +37,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       final user = FirebaseAuth.instance.currentUser;
 
       if (user == null) {
-        setState(() {
-          isLoading = false;
-        });
+        setState(() => isLoading = false);
         return;
       }
 
@@ -50,9 +47,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
           .get();
 
       if (!userDoc.exists) {
-        setState(() {
-          isLoading = false;
-        });
+        setState(() => isLoading = false);
         return;
       }
 
@@ -92,9 +87,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         isLoading = false;
       });
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
+      debugPrint('Error loading payment data: $e');
+      setState(() => isLoading = false);
     }
   }
 
@@ -103,77 +97,90 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     return 'RCPT${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _confirmPayment() async {
-    if (CartManager.items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cart is empty'),
-        ),
-      );
-      return;
-    }
+Future<void> _confirmPayment() async {
+  if (CartManager.items.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Cart is empty')),
+    );
+    return;
+  }
 
-    setState(() {
-      isSavingSale = true;
-    });
+  setState(() {
+    isSavingSale = true;
+  });
 
-    try {
-      final items = CartManager.items.map((item) {
-        return {
-          'name': item.name,
-          'price': item.price,
-          'quantity': item.quantity,
-          'barcode': item.barcode,
-          'image': item.image,
-          'subtotal': item.totalPrice,
-        };
-      }).toList();
+  try {
+    final firestore = FirebaseFirestore.instance;
+    final double saleTotal = CartManager.total;
 
-      await FirebaseFirestore.instance.collection('sales').add({
+    final items = CartManager.items.map((item) {
+      return {
+        'name': item.name,
+        'price': item.price,
+        'quantity': item.quantity,
+        'barcode': item.barcode,
+        'image': item.image,
+        'subtotal': item.totalPrice,
+      };
+    }).toList();
+
+    await firestore.runTransaction((transaction) async {
+      final saleRef = firestore.collection('sales').doc();
+
+      transaction.set(saleRef, {
         'storeCode': storeCode,
         'storeName': storeName,
         'cashierUid': FirebaseAuth.instance.currentUser?.uid ?? '',
         'cashierName': cashierName,
         'paymentMethod': selectedPaymentMethod,
-        'total': CartManager.total,
+        'total': saleTotal,
         'receiptNumber': receiptNumber,
         'items': items,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      CartManager.clearCart();
+      for (final item in CartManager.items) {
+        final productQuery = await firestore
+            .collection('products')
+            .where('barcode', isEqualTo: item.barcode)
+            .limit(1)
+            .get();
 
-      if (!mounted) return;
+        if (productQuery.docs.isNotEmpty) {
+          final productDoc = productQuery.docs.first;
+          final productRef = productDoc.reference;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Sale saved successfully'),
-        ),
-      );
+          final currentStock =
+              ((productDoc.data()['stock'] ?? 0) as num).toInt();
 
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const CashierHomeScreen(),
-        ),
-        (route) => false,
-      );
-    } catch (e) {
-      if (!mounted) return;
+          transaction.update(productRef, {
+            'stock': currentStock - item.quantity,
+          });
+        }
+      }
+    });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save sale: $e'),
-        ),
-      );
-    } finally {
-      if (!mounted) return;
+    CartManager.clearCart();
 
-      setState(() {
-        isSavingSale = false;
-      });
-    }
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Sale saved successfully')),
+    );
+
+    Navigator.pop(context, true);
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to save sale: $e')),
+    );
+
+    setState(() {
+      isSavingSale = false;
+    });
   }
+}
 
   Widget _buildPaymentOption({
     required String title,
@@ -183,7 +190,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   }) {
     return Expanded(
       child: GestureDetector(
-        onTap: onTap,
+        onTap: isSavingSale ? null : onTap,
         child: Container(
           height: 74,
           decoration: BoxDecoration(
@@ -237,21 +244,14 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
           Expanded(
             child: Text(
               name,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
-          Text(
-            'x$quantity',
-            style: const TextStyle(color: Colors.grey),
-          ),
+          Text('x$quantity', style: const TextStyle(color: Colors.grey)),
           const SizedBox(width: 12),
           Text(
             'BD ${subtotal.toStringAsFixed(3)}',
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -267,11 +267,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
           color: Colors.grey.shade200,
           borderRadius: BorderRadius.circular(16),
         ),
-        child: const Icon(
-          Icons.qr_code,
-          size: 70,
-          color: Colors.grey,
-        ),
+        child: const Icon(Icons.qr_code, size: 70, color: Colors.grey),
       );
     }
 
@@ -293,11 +289,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                 color: Colors.grey.shade200,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(
-                Icons.qr_code,
-                size: 70,
-                color: Colors.grey,
-              ),
+              child: const Icon(Icons.qr_code, size: 70, color: Colors.grey),
             );
           },
         ),
@@ -310,11 +302,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
           color: Colors.grey.shade200,
           borderRadius: BorderRadius.circular(16),
         ),
-        child: const Icon(
-          Icons.qr_code,
-          size: 70,
-          color: Colors.grey,
-        ),
+        child: const Icon(Icons.qr_code, size: 70, color: Colors.grey),
       );
     }
   }
@@ -327,9 +315,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       backgroundColor: const Color(0xFFF6F8FC),
       body: SafeArea(
         child: isLoading
-            ? const Center(
-                child: CircularProgressIndicator(),
-              )
+            ? const Center(child: CircularProgressIndicator())
             : Column(
                 children: [
                   Container(
@@ -354,7 +340,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                         CircleAvatar(
                           backgroundColor: Colors.white.withOpacity(0.25),
                           child: IconButton(
-                            onPressed: () => Navigator.pop(context),
+                            onPressed:
+                                isSavingSale ? null : () => Navigator.pop(context),
                             icon: const Icon(
                               Icons.arrow_back,
                               color: Colors.white,
@@ -414,8 +401,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                   _buildPaymentOption(
                                     title: 'Cash',
                                     icon: Icons.payments_outlined,
-                                    isSelected:
-                                        selectedPaymentMethod == 'Cash',
+                                    isSelected: selectedPaymentMethod == 'Cash',
                                     onTap: () {
                                       setState(() {
                                         selectedPaymentMethod = 'Cash';
@@ -639,7 +625,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor:
                                   const Color.fromARGB(255, 70, 223, 175),
-                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 18),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
