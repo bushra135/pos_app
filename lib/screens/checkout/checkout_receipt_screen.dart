@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -26,10 +28,32 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   bool isLoading = true;
   bool isSavingSale = false;
 
+  final AudioPlayer _successPlayer = AudioPlayer();
+
   @override
   void initState() {
     super.initState();
+    _successPlayer.setReleaseMode(ReleaseMode.stop);
     _loadStorePaymentData();
+  }
+
+  @override
+  void dispose() {
+    _successPlayer.dispose();
+    super.dispose();
+  }
+
+  Future<void> _playPaymentSuccessSound() async {
+    try {
+      await HapticFeedback.lightImpact();
+      await _successPlayer.stop();
+      await _successPlayer.play(
+        AssetSource('sounds/payment_success.mp3'),
+        volume: 1,
+      );
+    } catch (e) {
+      debugPrint('Error playing payment success sound: $e');
+    }
   }
 
   Future<void> _loadStorePaymentData() async {
@@ -37,6 +61,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       final user = FirebaseAuth.instance.currentUser;
 
       if (user == null) {
+        if (!mounted) return;
         setState(() => isLoading = false);
         return;
       }
@@ -47,6 +72,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
           .get();
 
       if (!userDoc.exists) {
+        if (!mounted) return;
         setState(() => isLoading = false);
         return;
       }
@@ -55,7 +81,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       final String fullName = (userData['fullName'] ?? '').toString();
       final String firstName =
           fullName.isNotEmpty ? fullName.split(' ')[0] : '';
-      final String fetchedStoreCode = (userData['storeCode'] ?? '').toString();
+      final String fetchedStoreCode =
+          (userData['storeCode'] ?? '').toString().trim();
 
       String fetchedStoreName = (userData['storeName'] ?? '').toString();
       String fetchedBenefitNumber = '';
@@ -78,6 +105,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         }
       }
 
+      if (!mounted) return;
+
       setState(() {
         cashierName = firstName;
         storeName = fetchedStoreName;
@@ -88,6 +117,9 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       });
     } catch (e) {
       debugPrint('Error loading payment data: $e');
+
+      if (!mounted) return;
+
       setState(() => isLoading = false);
     }
   }
@@ -187,11 +219,17 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
       CartManager.clearCart();
 
+      await _playPaymentSuccessSound();
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sale saved successfully')),
       );
+
+      await Future.delayed(const Duration(milliseconds: 650));
+
+      if (!mounted) return;
 
       Navigator.pop(context, true);
     } catch (e) {

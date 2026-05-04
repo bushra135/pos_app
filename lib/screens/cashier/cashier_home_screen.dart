@@ -456,7 +456,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                       color: Colors.black, fontWeight: FontWeight.w600)),
               if (subtitle != null)
                 Text(subtitle,
-                    style: const TextStyle(color: Colors.blue, fontSize: 12)),
+                    style: const TextStyle(color: Colors.black, fontSize: 12)),
             ],
           ),
         ),
