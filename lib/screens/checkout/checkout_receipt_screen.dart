@@ -94,93 +94,118 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
   String get receiptNumber {
     final now = DateTime.now();
-    return 'RCPT${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+    return 'RCPT${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
   }
 
-Future<void> _confirmPayment() async {
-  if (CartManager.items.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Cart is empty')),
-    );
-    return;
-  }
+  Future<void> _confirmPayment() async {
+    if (CartManager.items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cart is empty')),
+      );
+      return;
+    }
 
-  setState(() {
-    isSavingSale = true;
-  });
-
-  try {
-    final firestore = FirebaseFirestore.instance;
-    final double saleTotal = CartManager.total;
-
-    final items = CartManager.items.map((item) {
-      return {
-        'name': item.name,
-        'price': item.price,
-        'quantity': item.quantity,
-        'barcode': item.barcode,
-        'image': item.image,
-        'subtotal': item.totalPrice,
-      };
-    }).toList();
-
-    await firestore.runTransaction((transaction) async {
-      final saleRef = firestore.collection('sales').doc();
-
-      transaction.set(saleRef, {
-        'storeCode': storeCode,
-        'storeName': storeName,
-        'cashierUid': FirebaseAuth.instance.currentUser?.uid ?? '',
-        'cashierName': cashierName,
-        'paymentMethod': selectedPaymentMethod,
-        'total': saleTotal,
-        'receiptNumber': receiptNumber,
-        'items': items,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      for (final item in CartManager.items) {
-        final productQuery = await firestore
-            .collection('products')
-            .where('barcode', isEqualTo: item.barcode)
-            .limit(1)
-            .get();
-
-        if (productQuery.docs.isNotEmpty) {
-          final productDoc = productQuery.docs.first;
-          final productRef = productDoc.reference;
-
-          final currentStock =
-              ((productDoc.data()['stock'] ?? 0) as num).toInt();
-
-          transaction.update(productRef, {
-            'stock': currentStock - item.quantity,
-          });
-        }
-      }
-    });
-
-    CartManager.clearCart();
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Sale saved successfully')),
-    );
-
-    Navigator.pop(context, true);
-  } catch (e) {
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Failed to save sale: $e')),
-    );
+    if (storeCode.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Store code not found')),
+      );
+      return;
+    }
 
     setState(() {
-      isSavingSale = false;
+      isSavingSale = true;
     });
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final currentUser = FirebaseAuth.instance.currentUser;
+      final String saleReceiptNumber = receiptNumber;
+
+      final items = CartManager.items.map((item) {
+        return {
+          'name': item.name,
+          'price': item.price,
+          'quantity': item.quantity,
+          'barcode': item.barcode,
+          'image': item.image,
+          'subtotal': item.totalPrice,
+        };
+      }).toList();
+
+      final double subtotal = CartManager.items.fold<double>(
+        0,
+        (sum, item) => sum + item.totalPrice,
+      );
+
+      const double discount = 0;
+      const double refund = 0;
+      const double tax = 0;
+
+      final double total = subtotal - discount + tax;
+
+      await firestore.runTransaction((transaction) async {
+        final saleRef = firestore.collection('sales').doc();
+
+        transaction.set(saleRef, {
+          'storeCode': storeCode,
+          'storeName': storeName,
+          'cashierUid': currentUser?.uid ?? '',
+          'cashierName': cashierName,
+          'paymentMethod': selectedPaymentMethod,
+          'receiptNumber': saleReceiptNumber,
+          'items': items,
+          'subtotal': subtotal,
+          'discount': discount,
+          'refund': refund,
+          'tax': tax,
+          'total': total,
+          'status': 'completed',
+          'type': 'sale',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        for (final item in CartManager.items) {
+          final productQuery = await firestore
+              .collection('products')
+              .where('barcode', isEqualTo: item.barcode)
+              .limit(1)
+              .get();
+
+          if (productQuery.docs.isNotEmpty) {
+            final productDoc = productQuery.docs.first;
+            final productRef = productDoc.reference;
+
+            final currentStock =
+                ((productDoc.data()['stock'] ?? 0) as num).toInt();
+
+            transaction.update(productRef, {
+              'stock': currentStock - item.quantity,
+            });
+          }
+        }
+      });
+
+      CartManager.clearCart();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sale saved successfully')),
+      );
+
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save sale: $e')),
+      );
+
+      setState(() {
+        isSavingSale = false;
+      });
+    }
   }
-}
 
   Widget _buildPaymentOption({
     required String title,
@@ -340,8 +365,9 @@ Future<void> _confirmPayment() async {
                         CircleAvatar(
                           backgroundColor: Colors.white.withOpacity(0.25),
                           child: IconButton(
-                            onPressed:
-                                isSavingSale ? null : () => Navigator.pop(context),
+                            onPressed: isSavingSale
+                                ? null
+                                : () => Navigator.pop(context),
                             icon: const Icon(
                               Icons.arrow_back,
                               color: Colors.white,
@@ -592,6 +618,66 @@ Future<void> _confirmPayment() async {
                                 ),
                               ),
                               Divider(color: Colors.grey.shade300),
+                              const SizedBox(height: 10),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Subtotal',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    'BD ${CartManager.total.toStringAsFixed(3)}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              const Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Discount',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    'BD 0.000',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              const Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Tax',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    'BD 0.000',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                               const SizedBox(height: 10),
                               Row(
                                 mainAxisAlignment:
