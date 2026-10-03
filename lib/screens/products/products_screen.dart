@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -25,7 +27,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
   static const double _minimumCardWidth = 160;
   static const double _cardPadding = 10;
   static const double _gridSpacing = 8;
-  static const double _actionExtent = 48;
+  static const double _actionExtent = 28;
+  static const double _imageHeight = 120;
   static const Duration _requestTimeout = Duration(seconds: 20);
   static const TextStyle _productNameStyle = TextStyle(
     fontFamily: AppTypography.family,
@@ -1104,24 +1107,74 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
-  Widget _productImage(String imageUrl) {
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        color: AppColors.accentSoft,
-        borderRadius: BorderRadius.circular(10),
+  Widget _productImage(String imageUrl, {bool expanded = false}) {
+    final image = ProductImage(
+      source: imageUrl,
+      fit: BoxFit.contain,
+      placeholder: const Icon(
+        Icons.inventory_2_outlined,
+        color: AppColors.muted,
+        size: 36,
       ),
-      clipBehavior: Clip.antiAlias,
-      child: ProductImage(
-        source: imageUrl,
-        fit: BoxFit.contain,
-        placeholder: const Icon(
-          Icons.inventory_2,
-          color: AppColors.primaryDark,
-          size: 32,
+    );
+
+    if (!expanded) {
+      return SizedBox(width: 80, height: 80, child: image);
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        width: double.infinity,
+        height: _imageHeight,
+        child: image,
+      ),
+    );
+  }
+
+  Widget _productCardHeader(
+    String name, {
+    required VoidCallback onEdit,
+    required VoidCallback onDelete,
+  }) {
+    final actionStyle = IconButton.styleFrom(
+      minimumSize: const Size(_actionExtent, _actionExtent),
+      maximumSize: const Size(_actionExtent, _actionExtent),
+      padding: EdgeInsets.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.standard,
+    );
+    return Row(
+      children: [
+        Expanded(
+          child: Tooltip(
+            message: name,
+            child: Text(
+              name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: _productNameStyle,
+            ),
+          ),
         ),
-      ),
+        const SizedBox(width: 4),
+        IconButton(
+          tooltip: 'Edit product',
+          iconSize: 15,
+          color: AppColors.primaryDark,
+          style: actionStyle,
+          onPressed: onEdit,
+          icon: const Icon(Icons.edit_outlined),
+        ),
+        IconButton(
+          tooltip: 'Delete product',
+          iconSize: 15,
+          color: AppColors.danger,
+          style: actionStyle,
+          onPressed: onDelete,
+          icon: const Icon(Icons.delete_outline_rounded),
+        ),
+      ],
     );
   }
 
@@ -1134,11 +1187,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
       textScaler: MediaQuery.textScalerOf(context),
       locale: Localizations.maybeLocaleOf(context),
     );
-    final contentWidth = cardWidth - _cardPadding * 2;
+    final contentWidth = cardWidth - _cardPadding * 2 - 2;
 
-    double measure(String text, TextStyle style) {
+    double measure(
+      String text,
+      TextStyle style, {
+      double inset = 0,
+      int? maxLines,
+    }) {
+      painter.maxLines = maxLines;
       painter.text = TextSpan(text: text, style: style);
-      painter.layout(maxWidth: contentWidth);
+      painter.layout(maxWidth: math.max(1, contentWidth - inset));
       return painter.height;
     }
 
@@ -1152,13 +1211,21 @@ class _ProductsScreenState extends State<ProductsScreen> {
             ? FontWeight.w600
             : FontWeight.w400,
       );
+      final headerHeight = math.max(
+        _actionExtent,
+        measure(
+          (item['name'] ?? '').toString(),
+          _productNameStyle,
+          inset: _actionExtent * 2 + 4,
+          maxLines: 2,
+        ),
+      );
+      final footerHeight = math.max(
+        measure('\$${item['price']}', _productPriceStyle),
+        measure(_stockText(item), stockStyle, inset: 16) + 8,
+      );
       final height =
-          _cardPadding * 2 +
-          _actionExtent * 2 +
-          20 +
-          measure((item['name'] ?? '').toString(), _productNameStyle) +
-          measure('\$${item['price']}', _productPriceStyle) +
-          measure(_stockText(item), stockStyle);
+          _cardPadding * 2 + _imageHeight + headerHeight + footerHeight + 18;
       if (height > extent) extent = height;
     }
     painter.dispose();
@@ -1328,85 +1395,76 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                   return Container(
                                     padding: const EdgeInsets.all(_cardPadding),
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(
-                                        AppSpacing.controlRadius,
+                                      color: AppColors.surface,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: AppColors.border.withValues(
+                                          alpha: 0.35,
+                                        ),
                                       ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppColors.text.withValues(
+                                            alpha: 0.04,
+                                          ),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
                                     ),
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
+                                        _productCardHeader(
+                                          name,
+                                          onEdit: () => _showProductDialog(
+                                            docId: docId,
+                                            product: item,
+                                          ),
+                                          onDelete: () =>
+                                              _showDeleteDialog(docId, name),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        _productImage(image, expanded: true),
+                                        const SizedBox(height: 8),
                                         Row(
                                           children: [
-                                            _productImage(image),
-                                            const Spacer(),
-                                            Column(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                IconButton(
-                                                  tooltip: 'Edit product',
-                                                  iconSize: 20,
-                                                  visualDensity:
-                                                      VisualDensity.standard,
-                                                  padding: EdgeInsets.zero,
-                                                  constraints:
-                                                      const BoxConstraints.tightFor(
-                                                        width: _actionExtent,
-                                                        height: _actionExtent,
-                                                      ),
-                                                  onPressed: () {
-                                                    _showProductDialog(
-                                                      docId: docId,
-                                                      product: item,
-                                                    );
-                                                  },
-                                                  icon: const Icon(
-                                                    Icons.edit,
-                                                    color: AppColors.primaryDark,
-                                                  ),
+                                            Expanded(
+                                              child: Text(
+                                                '\$${item['price']}',
+                                                style: _productPriceStyle,
+                                              ),
                                             ),
-                                                IconButton(
-                                                  tooltip: 'Delete product',
-                                                  iconSize: 20,
-                                                  visualDensity:
-                                                      VisualDensity.standard,
-                                                  padding: EdgeInsets.zero,
-                                                  constraints:
-                                                      const BoxConstraints.tightFor(
-                                                        width: _actionExtent,
-                                                        height: _actionExtent,
-                                                      ),
-                                                  onPressed: () {
-                                                    _showDeleteDialog(docId, name);
-                                                  },
-                                                  icon: const Icon(
-                                                    Icons.delete,
-                                                    color: AppColors.danger,
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
                                                   ),
-                                            ),
-                                              ],
+                                              decoration: BoxDecoration(
+                                                color: stockColor.withValues(
+                                                  alpha: 0.1,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                stockText,
+                                                style: _productStockStyle
+                                                    .copyWith(
+                                                      color: stockColor,
+                                                      fontWeight:
+                                                          _stockFrom(item) <=
+                                                              _minStockFrom(
+                                                                item,
+                                                              )
+                                                          ? FontWeight.w600
+                                                          : FontWeight.w400,
+                                                    ),
+                                              ),
                                             ),
                                           ],
-                                        ),
-                                        const SizedBox(height: 10),
-                                        Text(name, style: _productNameStyle),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          '\$${item['price']}',
-                                          style: _productPriceStyle,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          stockText,
-                                          style: _productStockStyle.copyWith(
-                                            color: stockColor,
-                                            fontWeight:
-                                                _stockFrom(item) <=
-                                                    _minStockFrom(item)
-                                                ? FontWeight.w600
-                                                : FontWeight.w400,
-                                          ),
                                         ),
                                       ],
                                     ),
