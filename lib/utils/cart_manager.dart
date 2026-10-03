@@ -1,6 +1,8 @@
 import '../models/cart_item.dart';
 
-class CartManager {
+/// In-memory cart shared by scanning, cart, and checkout screens.
+/// Checkout saves the sale to Firestore before clearing these items.
+abstract final class CartManager {
   static final List<CartItem> items = [];
 
   static void addItem({
@@ -9,20 +11,14 @@ class CartManager {
     required String barcode,
     required String image,
   }) {
-    final int existingIndex = items.indexWhere(
-      (item) => item.barcode == barcode,
-    );
+    // Barcode identifies a cart item; adding it again increases its quantity.
+    final existingIndex = items.indexWhere((item) => item.barcode == barcode);
 
     if (existingIndex != -1) {
       items[existingIndex].quantity++;
     } else {
       items.add(
-        CartItem(
-          name: name,
-          price: price,
-          barcode: barcode,
-          image: image,
-        ),
+        CartItem(name: name, price: price, barcode: barcode, image: image),
       );
     }
   }
@@ -32,6 +28,7 @@ class CartManager {
   }
 
   static void decreaseQuantity(int index) {
+    // Removing the last unit removes the item instead of leaving a zero row.
     if (items[index].quantity > 1) {
       items[index].quantity--;
     } else {
@@ -44,11 +41,11 @@ class CartManager {
   }
 
   static double get total {
-    double sum = 0;
+    var subtotal = 0.0;
     for (final item in items) {
-      sum += item.totalPrice;
+      subtotal += item.totalPrice;
     }
-    return sum;
+    return subtotal;
   }
 
   static void clearCart() {

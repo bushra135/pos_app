@@ -1,11 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 
-import '../products/products_screen.dart';
-import '../scan/scan_screen.dart';
+import '../../utils/app_colors.dart';
+import '../../utils/app_spacing.dart';
+import '../../utils/app_typography.dart';
 import '../cart/cart_screen.dart';
+import '../products/products_screen.dart';
 import '../profile/profile_screen.dart';
+import '../scan/scan_screen.dart';
 
 class CashierHomeScreen extends StatefulWidget {
   const CashierHomeScreen({super.key});
@@ -23,7 +26,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
 
   double todaySales = 0.0;
   int todayTransactions = 0;
-  bool isActive = false; // 🔹 حالة المستخدم
+  bool isActive = false;
 
   @override
   void initState() {
@@ -35,6 +38,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
+        if (!mounted) return;
         setState(() => isLoading = false);
         return;
       }
@@ -45,6 +49,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
           .get();
 
       if (!userDoc.exists) {
+        if (!mounted) return;
         setState(() => isLoading = false);
         return;
       }
@@ -66,21 +71,24 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       }
 
       await _loadTodayStats(user.uid);
+      if (!mounted) return;
 
       setState(() {
         cashierName = firstName;
         storeName = fetchedStoreName;
-        isActive = userData['isActive'] == true; // 🔹 تحميل الحالة الحقيقية
+        isActive = userData['isActive'] == true;
         isLoading = false;
       });
     } catch (e) {
       debugPrint('Error loading user data: $e');
+      if (!mounted) return;
       setState(() => isLoading = false);
     }
   }
 
   Future<void> _loadTodayStats(String cashierUid) async {
     try {
+      // Include this cashier's sales for the local day, excluding tomorrow.
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
       final endOfDay = startOfDay.add(const Duration(days: 1));
@@ -98,7 +106,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
         final createdAt = data['createdAt'];
         if (createdAt is Timestamp) {
           final saleDate = createdAt.toDate();
-          if (saleDate.isAfter(startOfDay) && saleDate.isBefore(endOfDay)) {
+          if (!saleDate.isBefore(startOfDay) && saleDate.isBefore(endOfDay)) {
             total += ((data['total'] ?? 0) as num).toDouble();
             count++;
           }
@@ -120,12 +128,13 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
+      // Cashier management shares this field; update the UI after Firestore saves it.
       final newStatus = !isActive;
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .update({'isActive': newStatus});
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update(
+        {'isActive': newStatus},
+      );
 
+      if (!mounted) return;
       setState(() => isActive = newStatus);
     } catch (e) {
       debugPrint('Error toggling user status: $e');
@@ -162,7 +171,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -178,12 +187,18 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
           }
         },
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF2F80FF),
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: AppColors.primaryDark,
+        unselectedItemColor: AppColors.muted,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.qr_code_scanner), label: "Scan"),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: "Cart"),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.qr_code_scanner),
+            label: "Scan",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_cart),
+            label: "Cart",
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
         ],
       ),
@@ -194,16 +209,11 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     return SingleChildScrollView(
       child: Column(
         children: [
-          // ===== HEADER =====
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFA4EBD5), Color(0xFF05C5F5)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              gradient: AppColors.brandGradient,
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(30),
                 bottomRight: Radius.circular(30),
@@ -219,40 +229,51 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                       children: [
                         const Text(
                           "Welcome back, ",
-                          style: TextStyle(color: Colors.white70, fontSize: 16),
+                          style: TextStyle(
+                            color: AppColors.onBrand,
+                            fontSize: AppTypography.body,
+                          ),
                         ),
                         Text(
                           cashierName.isEmpty ? "Cashier" : cashierName,
                           style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
+                            color: AppColors.onBrand,
+                            fontSize: AppTypography.body,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
                     ),
                     GestureDetector(
-                      onTap: _toggleUserStatus, // 🔹 الضغط لتبديل الحالة
+                      onTap: _toggleUserStatus,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                          color: isActive
-                              ? Colors.green.shade100
-                              : Colors.red.shade100,
-                          borderRadius: BorderRadius.circular(20),
+                          // Keep status readable over the colored header.
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(
+                            AppSpacing.cardRadius,
+                          ),
                           border: Border.all(
-                            color:
-                                isActive ? Colors.green : Colors.red,
-                            width: 1,
+                            color: isActive
+                                ? AppColors.success
+                                : AppColors.danger,
+                            width: 1.5,
                           ),
                         ),
                         child: Row(
                           children: [
-                            CircleAvatar(
-                              radius: 6,
-                              backgroundColor:
-                                  isActive ? Colors.green : Colors.red,
+                            Icon(
+                              isActive
+                                  ? Icons.check_circle_rounded
+                                  : Icons.pause_circle_filled_rounded,
+                              size: 16,
+                              color: isActive
+                                  ? AppColors.success
+                                  : AppColors.danger,
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -261,10 +282,10 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                                   : "Inactive • Offline",
                               style: TextStyle(
                                 color: isActive
-                                    ? Colors.green[900]
-                                    : Colors.red[900],
-                                fontWeight: FontWeight.w600,
-                                fontSize: 13,
+                                    ? AppColors.success
+                                    : AppColors.danger,
+                                fontWeight: FontWeight.w700,
+                                fontSize: AppTypography.caption,
                               ),
                             ),
                           ],
@@ -277,9 +298,9 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                 Text(
                   storeName.isEmpty ? "My Store" : storeName,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
+                    color: AppColors.onBrand,
+                    fontSize: AppTypography.brand,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -288,15 +309,14 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
 
           const SizedBox(height: 20),
 
-          // ===== STATS =====
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
             child: Row(
               children: [
                 Expanded(
                   child: _buildStatCard(
                     icon: Icons.attach_money,
-                    iconColor: Colors.green,
+                    iconColor: AppColors.success,
                     value: "BD ${todaySales.toStringAsFixed(3)}",
                     label: "My Sales Today",
                   ),
@@ -305,7 +325,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                 Expanded(
                   child: _buildStatCard(
                     icon: Icons.receipt,
-                    iconColor: Colors.blue,
+                    iconColor: AppColors.primaryDark,
                     value: todayTransactions.toString(),
                     label: "Transactions",
                   ),
@@ -316,15 +336,18 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
 
           const SizedBox(height: 25),
 
-          // ===== QUICK ACTIONS =====
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Quick Actions",
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text(
+                  "Quick Actions",
+                  style: TextStyle(
+                    fontSize: AppTypography.section,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(height: 15),
                 Row(
                   children: [
@@ -357,7 +380,8 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (_) => const ProductsScreen()),
+                              builder: (_) => const ProductsScreen(),
+                            ),
                           );
                         },
                       ),
@@ -385,17 +409,21 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: iconColor),
           const SizedBox(height: 10),
-          Text(value,
-              style:
-                  const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          Text(label),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: AppTypography.metric,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          Text(label, style: const TextStyle(fontSize: AppTypography.label)),
         ],
       ),
     );
@@ -411,18 +439,23 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       child: Container(
         height: 100,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFA4EBD5), Color(0xFF05C5F5)],
-          ),
-          borderRadius: BorderRadius.circular(20),
+          gradient: AppColors.brandGradient,
+          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         ),
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: Colors.white),
+              Icon(icon, color: AppColors.onBrand),
               const SizedBox(height: 8),
-              Text(label, style: const TextStyle(color: Colors.white)),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.onBrand,
+                  fontSize: AppTypography.button,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ),
@@ -442,21 +475,31 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
         height: 100,
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         ),
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: Colors.black),
+              Icon(icon, color: AppColors.primaryDark),
               const SizedBox(height: 8),
-              Text(label,
-                  style: const TextStyle(
-                      color: Colors.black, fontWeight: FontWeight.w600)),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.text,
+                  fontSize: AppTypography.button,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               if (subtitle != null)
-                Text(subtitle,
-                    style: const TextStyle(color: Colors.black, fontSize: 12)),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: AppColors.text,
+                    fontSize: AppTypography.caption,
+                  ),
+                ),
             ],
           ),
         ),

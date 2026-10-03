@@ -1,19 +1,19 @@
+import 'package:audioplayers/audioplayers.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:audioplayers/audioplayers.dart';
 
+import '../../utils/app_colors.dart';
+import '../../utils/app_spacing.dart';
+import '../../utils/app_typography.dart';
 import '../../utils/cart_manager.dart';
 
+/// Adds products to the cart using camera scans or manual barcode entry.
 class ScanScreen extends StatefulWidget {
   final VoidCallback? onGoToCart;
   final VoidCallback? onBackToHome;
 
-  const ScanScreen({
-    super.key,
-    this.onGoToCart,
-    this.onBackToHome,
-  });
+  const ScanScreen({super.key, this.onGoToCart, this.onBackToHome});
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
@@ -27,8 +27,7 @@ class _ScanScreenState extends State<ScanScreen> {
   );
 
   final AudioPlayer player = AudioPlayer();
-  final TextEditingController manualBarcodeController =
-      TextEditingController();
+  final TextEditingController manualBarcodeController = TextEditingController();
 
   bool isLoadingProduct = false;
   bool isTorchOn = false;
@@ -56,12 +55,14 @@ class _ScanScreenState extends State<ScanScreen> {
 
     final now = DateTime.now();
 
+    // Ignore repeat detections of the same barcode within 900 milliseconds.
     if (lastScannedCode == code &&
         lastScanTime != null &&
         now.difference(lastScanTime!).inMilliseconds < 900) {
       return;
     }
 
+    // Handle one lookup at a time to prevent duplicate additions while waiting.
     if (isLoadingProduct) return;
 
     setState(() {
@@ -77,9 +78,9 @@ class _ScanScreenState extends State<ScanScreen> {
     final code = manualBarcodeController.text.trim();
 
     if (code.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter barcode first')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enter barcode first')));
       return;
     }
 
@@ -95,6 +96,7 @@ class _ScanScreenState extends State<ScanScreen> {
     manualBarcodeController.clear();
   }
 
+  // Camera scans and manual entry share product lookup and result messages.
   Future<void> _fetchAndAddProductByBarcode(String code) async {
     try {
       final querySnapshot = await FirebaseFirestore.instance
@@ -164,6 +166,7 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   int get cartItemsCount {
+    // Count all units, including multiple quantities of the same product.
     int total = 0;
     for (final item in CartManager.items) {
       total += item.quantity;
@@ -173,9 +176,9 @@ class _ScanScreenState extends State<ScanScreen> {
 
   void _goToCart() {
     if (CartManager.items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cart is empty')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Cart is empty')));
       return;
     }
 
@@ -198,18 +201,15 @@ class _ScanScreenState extends State<ScanScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            MobileScanner(
-              controller: controller,
-              onDetect: _onDetect,
-            ),
+            MobileScanner(controller: controller, onDetect: _onDetect),
 
-            Container(color: Colors.black.withOpacity(0.28)),
+            Container(color: Colors.black.withValues(alpha: 0.28)),
 
             Positioned(
               top: 18,
               left: 16,
               child: CircleAvatar(
-                backgroundColor: Colors.black.withOpacity(0.45),
+                backgroundColor: Colors.black.withValues(alpha: 0.45),
                 child: IconButton(
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
                   onPressed: () {
@@ -223,12 +223,13 @@ class _ScanScreenState extends State<ScanScreen> {
               top: 18,
               right: 16,
               child: CircleAvatar(
-                backgroundColor:
-                    isTorchOn ? const Color.fromARGB(255, 70, 223, 175) : Colors.black.withOpacity(0.45),
+                backgroundColor: isTorchOn
+                    ? AppColors.primary
+                    : Colors.black.withValues(alpha: 0.45),
                 child: IconButton(
                   icon: Icon(
                     isTorchOn ? Icons.flash_on : Icons.flash_off,
-                    color: Colors.white,
+                    color: isTorchOn ? AppColors.onBrand : Colors.white,
                   ),
                   onPressed: _toggleFlash,
                 ),
@@ -243,7 +244,7 @@ class _ScanScreenState extends State<ScanScreen> {
                   'Scan barcode',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 24,
+                    fontSize: AppTypography.title,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -254,7 +255,7 @@ class _ScanScreenState extends State<ScanScreen> {
                   'Scan item or enter barcode manually',
                   style: TextStyle(
                     color: Colors.white70,
-                    fontSize: 14,
+                    fontSize: AppTypography.body,
                   ),
                 ),
 
@@ -265,17 +266,13 @@ class _ScanScreenState extends State<ScanScreen> {
                     width: 260,
                     height: 180,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: const Color.fromARGB(255, 164, 235, 213),
-                        width: 3,
+                      borderRadius: BorderRadius.circular(
+                        AppSpacing.cardRadius,
                       ),
+                      border: Border.all(color: AppColors.primary, width: 3),
                     ),
                     child: Center(
-                      child: Container(
-                        height: 2,
-                        color: const Color.fromARGB(255, 164, 235, 213),
-                      ),
+                      child: Container(height: 2, color: AppColors.primary),
                     ),
                   ),
                 ),
@@ -300,13 +297,15 @@ class _ScanScreenState extends State<ScanScreen> {
                             hintText: 'Enter barcode',
                             hintStyle: const TextStyle(color: Colors.white54),
                             filled: true,
-                            fillColor: Colors.black.withOpacity(0.45),
+                            fillColor: Colors.black.withValues(alpha: 0.45),
                             prefixIcon: const Icon(
                               Icons.keyboard,
                               color: Colors.white70,
                             ),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.controlRadius,
+                              ),
                               borderSide: BorderSide.none,
                             ),
                           ),
@@ -317,20 +316,21 @@ class _ScanScreenState extends State<ScanScreen> {
                       ElevatedButton(
                         onPressed: isLoadingProduct ? null : _manualAddBarcode,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              const Color.fromARGB(255, 70, 223, 175),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 18,
                             vertical: 17,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(
+                              AppSpacing.controlRadius,
+                            ),
                           ),
                         ),
                         child: const Text(
                           'Add',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppColors.onBrand,
+                            fontSize: AppTypography.button,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -349,21 +349,22 @@ class _ScanScreenState extends State<ScanScreen> {
                       onPressed: _goToCart,
                       icon: const Icon(
                         Icons.shopping_cart,
-                        color: Colors.white,
+                        color: AppColors.onBrand,
                       ),
                       label: Text(
                         'Go to Cart ($cartItemsCount)',
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: AppColors.onBrand,
+                          fontSize: AppTypography.button,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            const Color.fromARGB(255, 70, 223, 175),
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(
+                            AppSpacing.controlRadius,
+                          ),
                         ),
                       ),
                     ),

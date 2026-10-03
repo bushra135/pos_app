@@ -4,6 +4,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../utils/app_colors.dart';
+import '../../utils/app_spacing.dart';
+import '../../utils/app_typography.dart';
+
 class AIScreen extends StatefulWidget {
   const AIScreen({super.key});
 
@@ -18,7 +22,6 @@ class _AIScreenState extends State<AIScreen> {
   final ScrollController _scrollController = ScrollController();
 
   bool isThinking = false;
-  String ownerFirstName = 'Store Owner';
 
   final List<_ChatMessage> messages = [
     const _ChatMessage(
@@ -67,11 +70,10 @@ class _AIScreenState extends State<AIScreen> {
       if (!mounted) return;
 
       setState(() {
-        ownerFirstName = firstName;
         messages[0] = _ChatMessage(
           isUser: false,
           text:
-              "Hello $ownerFirstName! I can analyze your POS data, sales, inventory, payment methods, and product performance. What would you like to know?",
+              "Hello $firstName! I can analyze your POS data, sales, inventory, payment methods, and product performance. What would you like to know?",
         );
       });
     } catch (e) {
@@ -126,11 +128,17 @@ class _AIScreenState extends State<AIScreen> {
     }
   }
 
+  // Analyze locally: match ordered keyword rules and calculate answers from store data.
   Future<String> _buildAnswer(String question) async {
     final data = await _loadStoreData();
     final q = question.toLowerCase();
 
-    if (_containsAny(q, ['low stock', 'stock alert', 'out of stock', 'empty stock'])) {
+    if (_containsAny(q, [
+      'low stock',
+      'stock alert',
+      'out of stock',
+      'empty stock',
+    ])) {
       return _lowStockAlerts(data);
     }
 
@@ -154,7 +162,12 @@ class _AIScreenState extends State<AIScreen> {
       return _paymentSummary(data);
     }
 
-    if (_containsAny(q, ['best hour', 'busy hour', 'peak hour', 'sales hour'])) {
+    if (_containsAny(q, [
+      'best hour',
+      'busy hour',
+      'peak hour',
+      'sales hour',
+    ])) {
       return _bestSalesHourToday(data);
     }
 
@@ -180,10 +193,6 @@ class _AIScreenState extends State<AIScreen> {
 
     if (_containsAny(q, ['today', 'sales summary', 'daily summary'])) {
       return _todaySalesSummary(data);
-    }
-
-    if (_containsAny(q, ['overview', 'analyze', 'store performance', 'status'])) {
-      return _storeOverview(data);
     }
 
     return _storeOverview(data);
@@ -213,8 +222,8 @@ class _AIScreenState extends State<AIScreen> {
 
     final products = productDocs.map((doc) {
       final item = doc.data();
-      final name =
-          (item['name'] ?? item['productName'] ?? 'Unknown Product').toString();
+      final name = (item['name'] ?? item['productName'] ?? 'Unknown Product')
+          .toString();
 
       final hasMinStock = _hasAnyKey(item, [
         'minStock',
@@ -233,10 +242,10 @@ class _AIScreenState extends State<AIScreen> {
                 'minimumStock',
               ]).toInt()
             : 5,
-        price: _numFromKeys(item, ['price', 'salePrice', 'unitPrice']),
       );
     }).toList();
 
+    // Later calculations require valid dates, so skip records with missing timestamps.
     final sales = salesSnapshot.docs
         .map((doc) => _SaleInfo.fromMap(doc.data()))
         .where((sale) => sale.createdAt != null)
@@ -250,8 +259,14 @@ class _AIScreenState extends State<AIScreen> {
     final sales = _salesInRange(data.sales, range);
     final validSales = sales.where((sale) => !sale.isRefund).toList();
 
-    final total = sales.fold<double>(0, (sum, sale) => sum + sale.netTotal);
-    final gross = sales.fold<double>(0, (sum, sale) => sum + sale.grossTotal);
+    final total = sales.fold<double>(
+      0,
+      (subtotal, sale) => subtotal + sale.netTotal,
+    );
+    final gross = sales.fold<double>(
+      0,
+      (subtotal, sale) => subtotal + sale.grossTotal,
+    );
     final orders = validSales.length;
     final averageOrder = orders == 0 ? 0.0 : total / orders;
 
@@ -281,10 +296,22 @@ class _AIScreenState extends State<AIScreen> {
     final sales = _salesInRange(data.sales, range);
     final validSales = sales.where((sale) => !sale.isRefund).toList();
 
-    final total = sales.fold<double>(0, (sum, sale) => sum + sale.netTotal);
-    final gross = sales.fold<double>(0, (sum, sale) => sum + sale.grossTotal);
-    final discounts = sales.fold<double>(0, (sum, sale) => sum + sale.discount);
-    final refunds = sales.fold<double>(0, (sum, sale) => sum + sale.refund);
+    final total = sales.fold<double>(
+      0,
+      (subtotal, sale) => subtotal + sale.netTotal,
+    );
+    final gross = sales.fold<double>(
+      0,
+      (subtotal, sale) => subtotal + sale.grossTotal,
+    );
+    final discounts = sales.fold<double>(
+      0,
+      (subtotal, sale) => subtotal + sale.discount,
+    );
+    final refunds = sales.fold<double>(
+      0,
+      (subtotal, sale) => subtotal + sale.refund,
+    );
     final orders = validSales.length;
     final averageOrder = orders == 0 ? 0.0 : total / orders;
 
@@ -302,18 +329,19 @@ class _AIScreenState extends State<AIScreen> {
 
   String _topProductsThisWeek(_StoreData data) {
     final range = _currentWeekRange();
-    final sales = _salesInRange(data.sales, range)
-        .where((sale) => !sale.isRefund)
-        .toList();
+    final sales = _salesInRange(
+      data.sales,
+      range,
+    ).where((sale) => !sale.isRefund).toList();
 
-    final products = _aggregateProducts(sales).values.where((product) {
-      return product.quantity > 0;
-    }).toList()
-      ..sort((a, b) {
-        final quantityCompare = b.quantity.compareTo(a.quantity);
-        if (quantityCompare != 0) return quantityCompare;
-        return b.revenue.compareTo(a.revenue);
-      });
+    final products =
+        _aggregateProducts(sales).values.where((product) {
+          return product.quantity > 0;
+        }).toList()..sort((a, b) {
+          final quantityCompare = b.quantity.compareTo(a.quantity);
+          if (quantityCompare != 0) return quantityCompare;
+          return b.revenue.compareTo(a.revenue);
+        });
 
     if (products.isEmpty) {
       return "No products have been sold this week yet.";
@@ -326,23 +354,19 @@ class _AIScreenState extends State<AIScreen> {
       return "$index. ${product.name}: ${product.quantity.toStringAsFixed(0)} sold (${_money(product.revenue)})";
     });
 
-    return [
-      "Top selling products this week:",
-      "",
-      ...lines,
-    ].join('\n');
+    return ["Top selling products this week:", "", ...lines].join('\n');
   }
 
   String _topRevenueProducts(_StoreData data) {
     final range = _currentMonthRange();
-    final sales = _salesInRange(data.sales, range)
-        .where((sale) => !sale.isRefund)
-        .toList();
+    final sales = _salesInRange(
+      data.sales,
+      range,
+    ).where((sale) => !sale.isRefund).toList();
 
     final products = _aggregateProducts(sales).values.where((product) {
       return product.revenue > 0;
-    }).toList()
-      ..sort((a, b) => b.revenue.compareTo(a.revenue));
+    }).toList()..sort((a, b) => b.revenue.compareTo(a.revenue));
 
     if (products.isEmpty) {
       return "No product revenue data found this month.";
@@ -355,36 +379,32 @@ class _AIScreenState extends State<AIScreen> {
       return "$index. ${product.name}: ${_money(product.revenue)} (${product.quantity.toStringAsFixed(0)} sold)";
     });
 
-    return [
-      "Top revenue products this month:",
-      "",
-      ...lines,
-    ].join('\n');
+    return ["Top revenue products this month:", "", ...lines].join('\n');
   }
 
   String _slowMovingProducts(_StoreData data) {
     final range = _currentMonthRange();
-    final sales = _salesInRange(data.sales, range)
-        .where((sale) => !sale.isRefund)
-        .toList();
+    final sales = _salesInRange(
+      data.sales,
+      range,
+    ).where((sale) => !sale.isRefund).toList();
 
     final metrics = _aggregateProducts(sales);
 
-    final products = data.products.map((product) {
-      final metric = metrics[product.key];
+    final products =
+        data.products.map((product) {
+          final metric = metrics[product.key];
 
-      return _ProductMetric(
-        key: product.key,
-        name: product.name,
-        quantity: metric?.quantity ?? 0,
-        revenue: metric?.revenue ?? 0,
-      );
-    }).toList()
-      ..sort((a, b) {
-        final quantityCompare = a.quantity.compareTo(b.quantity);
-        if (quantityCompare != 0) return quantityCompare;
-        return a.revenue.compareTo(b.revenue);
-      });
+          return _ProductMetric(
+            name: product.name,
+            quantity: metric?.quantity ?? 0,
+            revenue: metric?.revenue ?? 0,
+          );
+        }).toList()..sort((a, b) {
+          final quantityCompare = a.quantity.compareTo(b.quantity);
+          if (quantityCompare != 0) return quantityCompare;
+          return a.revenue.compareTo(b.revenue);
+        });
 
     if (products.isEmpty) {
       return "No products found in your inventory.";
@@ -397,11 +417,7 @@ class _AIScreenState extends State<AIScreen> {
       return "$index. ${product.name}: ${product.quantity.toStringAsFixed(0)} sold";
     });
 
-    return [
-      "Slow moving products this month:",
-      "",
-      ...lines,
-    ].join('\n');
+    return ["Slow moving products this month:", "", ...lines].join('\n');
   }
 
   String _lowStockAlerts(_StoreData data) {
@@ -411,8 +427,7 @@ class _AIScreenState extends State<AIScreen> {
 
     final lowStock = data.products.where((product) {
       return product.stock <= product.minStock;
-    }).toList()
-      ..sort((a, b) => a.stock.compareTo(b.stock));
+    }).toList()..sort((a, b) => a.stock.compareTo(b.stock));
 
     if (lowStock.isEmpty) {
       return "No low stock products were found right now.";
@@ -423,11 +438,7 @@ class _AIScreenState extends State<AIScreen> {
       return "- ${product.name}: ${product.stock} left ($status, minimum ${product.minStock})";
     });
 
-    return [
-      "Low stock alerts:",
-      "",
-      ...lines,
-    ].join('\n');
+    return ["Low stock alerts:", "", ...lines].join('\n');
   }
 
   String _restockRecommendations(_StoreData data) {
@@ -444,6 +455,7 @@ class _AIScreenState extends State<AIScreen> {
 
     for (final product in data.products) {
       final monthlySold = metrics[product.key]?.quantity ?? 0;
+      // Target the greater of the last 30 days' sales or twice the minimum stock.
       final targetStock = math.max(product.minStock * 2, monthlySold.ceil());
       final reorderQty = math.max(0, targetStock - product.stock);
 
@@ -470,18 +482,15 @@ class _AIScreenState extends State<AIScreen> {
       return "- ${item.name}: current ${item.currentStock}, recommended reorder ${item.recommendedQty}";
     });
 
-    return [
-      "Restock recommendations:",
-      "",
-      ...lines,
-    ].join('\n');
+    return ["Restock recommendations:", "", ...lines].join('\n');
   }
 
   String _paymentSummary(_StoreData data) {
     final range = _currentMonthRange();
-    final sales = _salesInRange(data.sales, range)
-        .where((sale) => !sale.isRefund)
-        .toList();
+    final sales = _salesInRange(
+      data.sales,
+      range,
+    ).where((sale) => !sale.isRefund).toList();
 
     final payments = <String, double>{};
 
@@ -497,25 +506,25 @@ class _AIScreenState extends State<AIScreen> {
     final entries = payments.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    final total = entries.fold<double>(0, (sum, entry) => sum + entry.value);
+    final total = entries.fold<double>(
+      0,
+      (subtotal, entry) => subtotal + entry.value,
+    );
 
     final lines = entries.map((entry) {
       final percent = total == 0 ? 0 : (entry.value / total) * 100;
       return "- ${entry.key}: ${_money(entry.value)} (${percent.toStringAsFixed(1)}%)";
     });
 
-    return [
-      "Payment methods this month:",
-      "",
-      ...lines,
-    ].join('\n');
+    return ["Payment methods this month:", "", ...lines].join('\n');
   }
 
   String _bestSalesHourToday(_StoreData data) {
     final range = _todayRange();
-    final sales = _salesInRange(data.sales, range)
-        .where((sale) => !sale.isRefund)
-        .toList();
+    final sales = _salesInRange(
+      data.sales,
+      range,
+    ).where((sale) => !sale.isRefund).toList();
 
     final hourlySales = List<double>.filled(24, 0);
     final hourlyOrders = List<int>.filled(24, 0);
@@ -553,10 +562,22 @@ class _AIScreenState extends State<AIScreen> {
     final range = _currentMonthRange();
     final sales = _salesInRange(data.sales, range);
 
-    final gross = sales.fold<double>(0, (sum, sale) => sum + sale.grossTotal);
-    final discounts = sales.fold<double>(0, (sum, sale) => sum + sale.discount);
-    final refunds = sales.fold<double>(0, (sum, sale) => sum + sale.refund);
-    final net = sales.fold<double>(0, (sum, sale) => sum + sale.netTotal);
+    final gross = sales.fold<double>(
+      0,
+      (subtotal, sale) => subtotal + sale.grossTotal,
+    );
+    final discounts = sales.fold<double>(
+      0,
+      (subtotal, sale) => subtotal + sale.discount,
+    );
+    final refunds = sales.fold<double>(
+      0,
+      (subtotal, sale) => subtotal + sale.refund,
+    );
+    final net = sales.fold<double>(
+      0,
+      (subtotal, sale) => subtotal + sale.netTotal,
+    );
 
     return [
       "Net sales summary this month:",
@@ -572,10 +593,14 @@ class _AIScreenState extends State<AIScreen> {
     final today = _salesInRange(data.sales, _todayRange());
     final month = _salesInRange(data.sales, _currentMonthRange());
 
-    final todaySales =
-        today.fold<double>(0, (sum, sale) => sum + sale.netTotal);
-    final monthSales =
-        month.fold<double>(0, (sum, sale) => sum + sale.netTotal);
+    final todaySales = today.fold<double>(
+      0,
+      (subtotal, sale) => subtotal + sale.netTotal,
+    );
+    final monthSales = month.fold<double>(
+      0,
+      (subtotal, sale) => subtotal + sale.netTotal,
+    );
 
     final todayOrders = today.where((sale) => !sale.isRefund).length;
     final monthOrders = month.where((sale) => !sale.isRefund).length;
@@ -586,8 +611,7 @@ class _AIScreenState extends State<AIScreen> {
 
     final topProducts = _aggregateProducts(
       month.where((sale) => !sale.isRefund).toList(),
-    ).values.toList()
-      ..sort((a, b) => b.quantity.compareTo(a.quantity));
+    ).values.toList()..sort((a, b) => b.quantity.compareTo(a.quantity));
 
     final topProduct = topProducts.isEmpty ? null : topProducts.first;
 
@@ -617,11 +641,7 @@ class _AIScreenState extends State<AIScreen> {
 
     for (final sale in sales) {
       for (final item in sale.items) {
-        final metric = metrics[item.key] ??
-            _ProductMetric(
-              key: item.key,
-              name: item.name,
-            );
+        final metric = metrics[item.key] ?? _ProductMetric(name: item.name);
 
         metric.quantity += item.quantity;
         metric.revenue += item.subtotal;
@@ -636,22 +656,17 @@ class _AIScreenState extends State<AIScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    return _DateRange(
-      start: today,
-      end: today.add(const Duration(days: 1)),
-    );
+    return _DateRange(start: today, end: today.add(const Duration(days: 1)));
   }
 
   _DateRange _currentWeekRange() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+    // Begin the week on Sunday to match the reports screen.
     final daysSinceSunday = now.weekday % 7;
     final start = today.subtract(Duration(days: daysSinceSunday));
 
-    return _DateRange(
-      start: start,
-      end: start.add(const Duration(days: 7)),
-    );
+    return _DateRange(start: start, end: start.add(const Duration(days: 7)));
   }
 
   _DateRange _currentMonthRange() {
@@ -686,7 +701,7 @@ class _AIScreenState extends State<AIScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -695,7 +710,12 @@ class _AIScreenState extends State<AIScreen> {
             Expanded(
               child: ListView.builder(
                 controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.page,
+                  14,
+                  AppSpacing.page,
+                  18,
+                ),
                 itemCount: messages.length + (isThinking ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index == messages.length) {
@@ -718,24 +738,15 @@ class _AIScreenState extends State<AIScreen> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(24, 25, 24, 26),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color.fromARGB(255, 164, 235, 213),
-            Color.fromARGB(255, 5, 197, 245),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(28),
-        ),
+        gradient: AppColors.brandGradient,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
       child: const Row(
         children: [
           CircleAvatar(
             radius: 24,
-            backgroundColor: Colors.white24,
-            child: Icon(Icons.smart_toy, color: Colors.white),
+            backgroundColor: AppColors.surface,
+            child: Icon(Icons.smart_toy, color: AppColors.primaryDark),
           ),
           SizedBox(width: 12),
           Expanded(
@@ -745,16 +756,17 @@ class _AIScreenState extends State<AIScreen> {
                 Text(
                   "AI Assistant",
                   style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 21,
+                    color: AppColors.onBrand,
+                    fontWeight: FontWeight.w700,
+                    fontSize: AppTypography.title,
                   ),
                 ),
                 SizedBox(height: 4),
                 Text(
                   "Store insights from your POS data",
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: AppColors.onBrand,
+                    fontSize: AppTypography.body,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -769,7 +781,12 @@ class _AIScreenState extends State<AIScreen> {
   Widget _buildSuggestions() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.page,
+        14,
+        AppSpacing.page,
+        8,
+      ),
       child: Wrap(
         spacing: 10,
         runSpacing: 10,
@@ -778,9 +795,10 @@ class _AIScreenState extends State<AIScreen> {
             onPressed: isThinking ? null : () => _sendMessage(text),
             label: Text(text),
             backgroundColor: Colors.white,
-            side: BorderSide(color: Colors.grey.shade300),
+            side: BorderSide(color: AppColors.border),
             labelStyle: const TextStyle(
-              color: Color(0xFF4B5565),
+              color: AppColors.muted,
+              fontSize: AppTypography.label,
               fontWeight: FontWeight.w600,
             ),
           );
@@ -796,7 +814,7 @@ class _AIScreenState extends State<AIScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1B2940).withOpacity(0.06),
+            color: AppColors.text.withValues(alpha: 0.06),
             blurRadius: 14,
             offset: const Offset(0, -4),
           ),
@@ -808,7 +826,7 @@ class _AIScreenState extends State<AIScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0F2F5),
+                color: AppColors.background,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: TextField(
@@ -828,17 +846,12 @@ class _AIScreenState extends State<AIScreen> {
           const SizedBox(width: 10),
           Container(
             decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color.fromARGB(255, 164, 235, 213),
-                  Color.fromARGB(255, 5, 197, 245),
-                ],
-              ),
+              gradient: AppColors.brandGradient,
               shape: BoxShape.circle,
             ),
             child: IconButton(
               onPressed: isThinking ? null : () => _sendMessage(),
-              icon: const Icon(Icons.send_rounded, color: Colors.white),
+              icon: const Icon(Icons.send_rounded, color: AppColors.onBrand),
             ),
           ),
         ],
@@ -859,15 +872,24 @@ class _MessageBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
-        mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!isUser) ...[
-            const CircleAvatar(
-              radius: 20,
-              backgroundColor: Color.fromARGB(255, 5, 197, 245),
-              child: Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+            Container(
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                gradient: AppColors.brandGradient,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.auto_awesome,
+                color: AppColors.onBrand,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 10),
           ],
@@ -875,13 +897,12 @@ class _MessageBubble extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: isUser
-                    ? const Color.fromARGB(255, 5, 197, 245)
-                    : Colors.white,
-                borderRadius: BorderRadius.circular(18),
+                color: isUser ? null : Colors.white,
+                gradient: isUser ? AppColors.brandGradient : null,
+                borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF1B2940).withOpacity(0.05),
+                    color: AppColors.text.withValues(alpha: 0.05),
                     blurRadius: 12,
                     offset: const Offset(0, 6),
                   ),
@@ -890,9 +911,10 @@ class _MessageBubble extends StatelessWidget {
               child: Text(
                 message.text,
                 style: TextStyle(
-                  color: isUser ? Colors.white : const Color(0xFF2D313A),
+                  color: isUser ? AppColors.onBrand : AppColors.text,
+                  fontSize: AppTypography.body,
                   height: 1.35,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ),
@@ -901,12 +923,8 @@ class _MessageBubble extends StatelessWidget {
             const SizedBox(width: 10),
             const CircleAvatar(
               radius: 20,
-              backgroundColor: Color(0xFFE6F8FF),
-              child: Icon(
-                Icons.person,
-                color: Color.fromARGB(255, 5, 197, 245),
-                size: 20,
-              ),
+              backgroundColor: AppColors.accentSoft,
+              child: Icon(Icons.person, color: AppColors.primaryDark, size: 20),
             ),
           ],
         ],
@@ -920,21 +938,30 @@ class _TypingBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.only(bottom: 14),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: Color.fromARGB(255, 5, 197, 245),
-            child: Icon(Icons.auto_awesome, color: Colors.white, size: 20),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: const BoxDecoration(
+              gradient: AppColors.brandGradient,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.auto_awesome,
+              color: AppColors.onBrand,
+              size: 20,
+            ),
           ),
-          SizedBox(width: 10),
-          Text(
+          const SizedBox(width: 10),
+          const Text(
             "Analyzing store data...",
             style: TextStyle(
-              color: Color(0xFF98A2B3),
-              fontWeight: FontWeight.w700,
+              color: AppColors.muted,
+              fontSize: AppTypography.body,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -947,20 +974,14 @@ class _ChatMessage {
   final bool isUser;
   final String text;
 
-  const _ChatMessage({
-    required this.isUser,
-    required this.text,
-  });
+  const _ChatMessage({required this.isUser, required this.text});
 }
 
 class _StoreData {
   final List<_ProductInfo> products;
   final List<_SaleInfo> sales;
 
-  const _StoreData({
-    required this.products,
-    required this.sales,
-  });
+  const _StoreData({required this.products, required this.sales});
 }
 
 class _ProductInfo {
@@ -968,14 +989,12 @@ class _ProductInfo {
   final String name;
   final int stock;
   final int minStock;
-  final double price;
 
   const _ProductInfo({
     required this.key,
     required this.name,
     required this.stock,
     required this.minStock,
-    required this.price,
   });
 }
 
@@ -1005,10 +1024,12 @@ class _SaleInfo {
         .toString()
         .toLowerCase();
 
-    final isRefund = status.contains('refund') ||
+    final isRefund =
+        status.contains('refund') ||
         status.contains('return') ||
         status.contains('cancel');
 
+    // Support current and older field names in the listed priority order.
     final total = _numFromKeys(data, [
       'netTotal',
       'grandTotal',
@@ -1033,8 +1054,8 @@ class _SaleInfo {
     final refund = refundAmount > 0
         ? refundAmount
         : isRefund
-            ? total.abs()
-            : 0.0;
+        ? total.abs()
+        : 0.0;
 
     final explicitGross = _numFromKeys(data, [
       'grossTotal',
@@ -1047,9 +1068,10 @@ class _SaleInfo {
     final grossTotal = isRefund
         ? 0.0
         : explicitGross > 0
-            ? explicitGross
-            : total + discount;
+        ? explicitGross
+        : total + discount;
 
+    // Standalone refunds reduce net sales; refunds within a sale reduce that sale's total.
     final netTotal = isRefund ? -refund : math.max(0.0, total - refund);
 
     final rawItems = data['items'] ?? data['cartItems'] ?? data['products'];
@@ -1060,20 +1082,18 @@ class _SaleInfo {
         final item = _asMap(rawItem);
         if (item.isEmpty) continue;
 
-        final name = (item['name'] ??
-                item['productName'] ??
-                item['title'] ??
-                'Unknown Product')
-            .toString();
+        final name =
+            (item['name'] ??
+                    item['productName'] ??
+                    item['title'] ??
+                    'Unknown Product')
+                .toString();
 
         final quantity = _numFromKeys(item, ['quantity', 'qty', 'count']);
         final price = _numFromKeys(item, ['price', 'unitPrice', 'salePrice']);
-        final subtotal = _numFromKeys(item, [
-          'subtotal',
-          'total',
-          'lineTotal',
-        ]);
+        final subtotal = _numFromKeys(item, ['subtotal', 'total', 'lineTotal']);
 
+        // For missing values, assume one unit and calculate the subtotal from its price.
         final safeQuantity = quantity <= 0 ? 1.0 : quantity;
 
         items.add(
@@ -1117,17 +1137,11 @@ class _SaleItem {
 }
 
 class _ProductMetric {
-  final String key;
   final String name;
   double quantity;
   double revenue;
 
-  _ProductMetric({
-    required this.key,
-    required this.name,
-    this.quantity = 0,
-    this.revenue = 0,
-  });
+  _ProductMetric({required this.name, this.quantity = 0, this.revenue = 0});
 }
 
 class _RestockRecommendation {
@@ -1146,10 +1160,7 @@ class _DateRange {
   final DateTime start;
   final DateTime end;
 
-  const _DateRange({
-    required this.start,
-    required this.end,
-  });
+  const _DateRange({required this.start, required this.end});
 }
 
 DateTime? _dateFromValue(dynamic value) {
@@ -1173,6 +1184,7 @@ String _productKey(Map<String, dynamic> data, String fallbackName) {
   final barcode = (data['barcode'] ?? '').toString().trim();
   final productId = (data['productId'] ?? data['id'] ?? '').toString().trim();
 
+  // A shared key links sale items to inventory across different field names.
   if (barcode.isNotEmpty) return barcode;
   if (productId.isNotEmpty) return productId;
 
@@ -1204,9 +1216,7 @@ String _paymentLabel(dynamic value) {
   if (raw.isEmpty) return 'Unknown';
   if (raw.contains('cash')) return 'Cash';
   if (raw.contains('benefit')) return 'BenefitPay';
-  if (raw.contains('card') ||
-      raw.contains('visa') ||
-      raw.contains('mada')) {
+  if (raw.contains('card') || raw.contains('visa') || raw.contains('mada')) {
     return 'Card';
   }
   if (raw.contains('apple')) return 'Apple Pay';

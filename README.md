@@ -1,17 +1,72 @@
-# pos_app
+# ShopPad — تطبيق نقطة البيع
 
-A new Flutter project.
+تطبيق Flutter لإدارة المتجر والمنتجات والكاشير والمبيعات، مع Firebase لتسجيل الدخول وتخزين البيانات.
 
-## Getting Started
+## تشغيل المشروع
 
-This project is a starting point for a Flutter application.
+- استخدم Flutter بإصدار يحتوي Dart 3.11 أو أحدث، بما يتوافق مع `pubspec.yaml`.
+- إعدادات Firebase الحالية موجودة في `lib/firebase_options.dart` و`firebase.json` وملفات المنصات؛ استخدم مشروع الفريق أو إعدادات بيئتك المعتمدة.
+- يحتاج الاختبار الفعلي لتسجيل الدخول والبيع إلى اتصال Firebase وصلاحيات Firestore المناسبة.
 
-A few resources to get you started if this is your first Flutter project:
+```sh
+flutter pub get
+flutter run -d chrome
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+صور الجهاز تُحفظ مباشرة في حقل `products/{id}.image` بصيغة `data:image/png;base64,...`، مع استمرار دعم روابط الصور القديمة. هذا المسار لا يعتمد على Firebase Storage. يُحوّل `ProductImageData` الصورة محليًا إلى PNG بطول أقصى 640 بكسل، ويقلل الأبعاد عند الحاجة حتى يصبح الحجم قبل Base64 أقل من أو يساوي 180 KiB، مع إبقاء مساحة لبقية حقول وثيقة المنتج. الصور المتحركة تُحفظ كصورة ثابتة من الإطار الأول.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+تُرفض الصور الأصلية الأكبر من 20 MiB. إعداد الصورة وفحص الباركود وتأكيد كتابة المنتج لها مهلة 20 ثانية لكل عملية. قد تُكمل Firestore كتابة متأخرة بعد المهلة؛ إعادة المحاولة داخل النافذة نفسها تستخدم الوثيقة نفسها لتجنب إنشاء منتج مكرر. يستخدم عرض المنتجات والسلة `ProductImage` لقراءة صور Base64 من الذاكرة والروابط من الشبكة.
+
+تبقى الصور المضمنة في وثائق المنتجات ولا تُنسخ إلى عناصر وثيقة البيع، حتى لا تتجاوز فاتورة تحتوي عدة منتجات حد حجم الوثيقة. يحتفظ البيع ببيانات الصنف والسعر والكمية والباركود، وتبقى روابط الصور القديمة مدعومة.
+
+لاختبار الكاميرا، شغّل التطبيق على جهاز يدعمها ويمنح صلاحيتها.
+
+## خريطة الكود
+
+| المسار | المسؤولية |
+| --- | --- |
+| `lib/main.dart` | تهيئة Firebase وتشغيل التطبيق |
+| `lib/app/theme.dart` | تنسيق مكونات الواجهة المشترك |
+| `lib/utils/app_colors.dart` و`app_spacing.dart` و`app_typography.dart` | الألوان والمقاسات وأحجام الخطوط المشتركة |
+| `lib/screens/auth/` | الدخول وإنشاء الحساب والتحقق من البريد وتحديد الدور |
+| `lib/screens/owner/` | لوحة المالك وإدارة دعوات الكاشير |
+| `lib/screens/cashier/` | لوحة الكاشير والتنقل إلى المسح والسلة |
+| `lib/screens/products/` | إضافة المنتجات وتعديلها وحذفها ومتابعة المخزون |
+| `lib/screens/scan/` و`cart/` و`checkout/` | مسح المنتجات وتعديل السلة وتأكيد البيع وعرض الإيصال |
+| `lib/screens/profile/` | بيانات الحساب والمتجر وإعدادات دفع Benefit |
+| `lib/screens/reports/` | تجميع المبيعات والرسوم البيانية حسب الفترة |
+| `lib/screens/ai/` | إجابات محلية مبنية على بيانات المتجر؛ لا يوجد اتصال بنموذج خارجي |
+| `lib/models/cart_item.dart` و`utils/cart_manager.dart` | عناصر السلة وإدارتها في الذاكرة |
+| `lib/utils/product_image_data.dart` و`lib/widgets/product_image.dart` | تصغير صور المنتجات وحفظها داخل الوثيقة، وعرض الصور المضمنة والروابط |
+| `test/widget_test.dart` | اختبارات السلة والكمية والتخطيط بعرض 320 و800 بكسل |
+| `test/product_image_test.dart` | اختبارات حجم الصور، وفكها، وعرض الصور المضمنة، والتعامل مع الملفات غير الصالحة |
+
+## تدفق التطبيق والبيانات
+
+1. `AuthWrapper` يراقب جلسة Firebase، ويعرض التحقق من البريد قبل الانتقال إلى واجهة المستخدم.
+2. دور الحساب و`storeCode` يأتيان من `users/{uid}`. يستخدم المالك صفحات الإدارة، ويستخدم الكاشير المسح والسلة.
+3. صفحات المنتجات والمسح تضيف إلى `CartManager`. السلة مؤقتة في الذاكرة ولا تستمر بعد إعادة تشغيل التطبيق.
+4. صفحة الدفع تسجل البيع في `sales` وتعدّل مخزون `products` قبل إفراغ السلة وإرجاع نتيجة نجاح.
+5. التقارير والتحليل المحلي يقرآن بيانات المتجر ويجمعان النتائج حسب الفترة المطلوبة.
+
+المجموعات الأساسية في Firestore هي `users` و`stores` و`products` و`sales`. توجد قراءة متوافقة مع بعض أسماء الحقول القديمة مثل `stock`/`quantity` و`minStock`/`minQuantity`؛ راجع مواضع القراءة والكتابة قبل توحيدها أو حذفها. دعوات الكاشير محفوظة أيضاً داخل `users` بوثائق مستقلة وحقل `uid` فارغ؛ التسجيل الحالي ينشئ `users/{uid}` ولا يدمج الدعوة تلقائياً. إخفاء عناصر الواجهة حسب الدور لا يغني عن قواعد صلاحيات Firebase.
+
+## العمل ضمن الفريق
+
+- عدّل الألوان والتنسيق المشترك من ملفات الثيم، والمسافات المشتركة من `AppSpacing` وأحجام الخطوط من `AppTypography`. رؤوس الصفحات والأزرار تستخدم `AppColors.brandGradient` نفسه.
+- رتّب الاستيراد: مكتبات Dart، ثم الحزم، ثم ملفات المشروع، مع سطر فارغ بين المجموعات.
+- أضف تعليقاً عندما يحتاج المنطق إلى تفسير: سبب شرط، علاقة بين مجموعات Firestore، أو دعم بيانات قديمة. تجنب وصف السطر أو تسجيل تاريخ التعديلات في التعليقات.
+- `firebase_options.dart` وملفات تسجيل الإضافات الخاصة بالمنصات ملفات مولّدة؛ حدّثها بأدواتها عند الحاجة.
+- حدّث `pubspec.lock` مع أي تغيير في الاعتماديات، ولا تحذف مجلد منصة اعتماداً على عدم تشغيله على جهازك.
+
+قبل تسليم التعديل:
+
+```sh
+dart format lib test
+flutter analyze
+flutter test
+```
+
+الاختبارات الحالية لا تتصل بـFirebase. جرّب تسجيل الدخول والمسح وحفظ البيع ورفع الصور على البيئة والجهاز المناسبين عند تعديل هذه المسارات.
+
+خط Cairo مضمّن داخل `assets/fonts/`، مع رخصته في `OFL-Cairo.txt`. مصدره [مستودع Google Fonts الرسمي](https://github.com/google/fonts/tree/main/ofl/cairo).

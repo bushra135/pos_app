@@ -1,11 +1,16 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../utils/app_colors.dart';
+import '../../utils/app_spacing.dart';
+import '../../utils/app_typography.dart';
+
+/// Shows user details and payment settings shared by store employees.
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -27,8 +32,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   bool isPaymentExpanded = true;
 
-  final TextEditingController benefitNumberController =
-      TextEditingController();
+  final TextEditingController benefitNumberController = TextEditingController();
 
   @override
   void initState() {
@@ -42,6 +46,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
+  // Only the store owner can edit payment settings in this screen.
   bool get isOwner => role.toLowerCase() == 'owner';
 
   Future<void> _loadUserData() async {
@@ -123,14 +128,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
 
       final Uint8List bytes = await pickedFile.readAsBytes();
+      // The receipt screen reads this Base64 payment image from the store record.
       final String base64String = base64Encode(bytes);
 
       await FirebaseFirestore.instance
           .collection('stores')
           .doc(storeCode)
-          .update({
-        'benefitQrBase64': base64String,
-      });
+          .update({'benefitQrBase64': base64String});
 
       setState(() {
         benefitQrBase64 = base64String;
@@ -139,11 +143,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('QR uploaded successfully'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('QR uploaded successfully')));
     } catch (e) {
       setState(() {
         isSaving = false;
@@ -151,11 +153,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to upload QR: $e'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to upload QR: $e')));
     }
   }
 
@@ -172,9 +172,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await FirebaseFirestore.instance
           .collection('stores')
           .doc(storeCode)
-          .update({
-        'benefitNumber': newBenefitNumber,
-      });
+          .update({'benefitNumber': newBenefitNumber});
 
       setState(() {
         benefitNumber = newBenefitNumber;
@@ -183,11 +181,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Payment settings saved'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Payment settings saved')));
     } catch (e) {
       setState(() {
         isSaving = false;
@@ -196,78 +192,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to save payment settings: $e'),
-        ),
+        SnackBar(content: Text('Failed to save payment settings: $e')),
       );
     }
   }
 
   Future<void> _logout() async {
+    // AuthWrapper shows the login screen when the session ends.
     await FirebaseAuth.instance.signOut();
+  }
 
-    if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/login');
+  Widget _buildQrPlaceholder() {
+    return Container(
+      height: 160,
+      width: 160,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+      ),
+      child: const Icon(Icons.qr_code_2, size: 70, color: AppColors.muted),
+    );
   }
 
   Widget _buildQrPreview() {
-    if (benefitQrBase64.isEmpty) {
-      return Container(
-        height: 160,
-        width: 160,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: const Icon(
-          Icons.qr_code_2,
-          size: 70,
-          color: Colors.grey,
-        ),
-      );
-    }
+    if (benefitQrBase64.isEmpty) return _buildQrPlaceholder();
 
     try {
       final Uint8List bytes = base64Decode(benefitQrBase64);
 
       return ClipRRect(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
         child: Image.memory(
           bytes,
           height: 160,
           width: 160,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
-            return Container(
-              height: 160,
-              width: 160,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Icon(
-                Icons.qr_code_2,
-                size: 70,
-                color: Colors.grey,
-              ),
-            );
+            return _buildQrPlaceholder();
           },
         ),
       );
-    } catch (e) {
-      return Container(
-        height: 160,
-        width: 160,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: const Icon(
-          Icons.qr_code_2,
-          size: 70,
-          color: Colors.grey,
-        ),
-      );
+    } catch (_) {
+      // Invalid data and unsupported images use the same placeholder.
+      return _buildQrPlaceholder();
     }
   }
 
@@ -275,33 +242,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     if (isLoading) {
       return const Scaffold(
-        backgroundColor: Color(0xFFF6F8FC),
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
+        backgroundColor: AppColors.background,
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
-      // ✅ أزلنا الـ AppBar لأن الصفحة تُعرض ضمن BottomNavigationBar
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.page,
+            0,
+            AppSpacing.page,
+            24,
+          ),
           child: Column(
             children: [
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 30),
                 decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color.fromARGB(255, 164, 235, 213),
-                      Color.fromARGB(255, 5, 197, 245),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  gradient: AppColors.brandGradient,
                   borderRadius: BorderRadius.only(
                     bottomLeft: Radius.circular(26),
                     bottomRight: Radius.circular(26),
@@ -311,28 +273,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     const CircleAvatar(
                       radius: 42,
-                      backgroundColor: Colors.white24,
+                      backgroundColor: AppColors.surface,
                       child: Icon(
                         Icons.person_outline,
                         size: 42,
-                        color: Colors.white,
+                        color: AppColors.primaryDark,
                       ),
                     ),
                     const SizedBox(height: 14),
                     Text(
                       name.isEmpty ? 'User' : name,
                       style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        fontSize: AppTypography.title,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.onBrand,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       role.isEmpty ? 'User' : role,
                       style: const TextStyle(
-                        fontSize: 15,
-                        color: Colors.white70,
+                        fontSize: AppTypography.label,
+                        color: AppColors.onBrand,
                       ),
                     ),
                   ],
@@ -345,10 +307,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: AppColors.text.withValues(alpha: 0.05),
                         blurRadius: 14,
                         offset: const Offset(0, 6),
                       ),
@@ -358,32 +320,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       _InfoRow(
                         icon: Icons.storefront_outlined,
-                        iconBg: const Color(0xFFE7FAF4),
-                        iconColor: const Color(0xFF27BFA2),
+                        iconBg: AppColors.soft,
+                        iconColor: AppColors.primaryDark,
                         title: 'Store Name',
                         value: storeName.isEmpty ? 'No store' : storeName,
                       ),
                       const SizedBox(height: 16),
                       _InfoRow(
                         icon: Icons.tag_outlined,
-                        iconBg: const Color(0xFFFFF3E2),
-                        iconColor: const Color(0xFFF59E0B),
+                        iconBg: AppColors.warningSoft,
+                        iconColor: AppColors.warning,
                         title: 'Store Code',
                         value: storeCode.isEmpty ? '-' : storeCode,
                       ),
                       const SizedBox(height: 16),
                       _InfoRow(
                         icon: Icons.email_outlined,
-                        iconBg: const Color(0xFFEAF1FF),
-                        iconColor: const Color(0xFF3B82F6),
+                        iconBg: AppColors.accentSoft,
+                        iconColor: AppColors.primaryDark,
                         title: 'Email',
                         value: email.isEmpty ? '-' : email,
                       ),
                       const SizedBox(height: 16),
                       _InfoRow(
                         icon: Icons.account_circle_outlined,
-                        iconBg: const Color(0xFFF6EAFE),
-                        iconColor: const Color(0xFFA855F7),
+                        iconBg: AppColors.accentSoft,
+                        iconColor: AppColors.primaryDark,
                         title: 'Role',
                         value: role.isEmpty ? '-' : role,
                       ),
@@ -400,7 +362,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   borderRadius: BorderRadius.circular(22),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
+                      color: AppColors.text.withValues(alpha: 0.04),
                       blurRadius: 12,
                       offset: const Offset(0, 5),
                     ),
@@ -409,7 +371,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   children: [
                     InkWell(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(
+                        AppSpacing.controlRadius,
+                      ),
                       onTap: () {
                         setState(() {
                           isPaymentExpanded = !isPaymentExpanded;
@@ -421,12 +385,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             width: 46,
                             height: 46,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEAFBF4),
-                              borderRadius: BorderRadius.circular(14),
+                              color: AppColors.soft,
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.controlRadius,
+                              ),
                             ),
                             child: const Icon(
                               Icons.payments_outlined,
-                              color: Color(0xFF27BFA2),
+                              color: AppColors.primaryDark,
                             ),
                           ),
                           const SizedBox(width: 14),
@@ -437,17 +403,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 Text(
                                   'Payment Settings',
                                   style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1F2A44),
+                                    fontSize: AppTypography.section,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.text,
                                   ),
                                 ),
                                 SizedBox(height: 4),
                                 Text(
                                   'Manage Benefit payment information',
                                   style: TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF98A2B3),
+                                    fontSize: AppTypography.caption,
+                                    color: AppColors.muted,
                                   ),
                                 ),
                               ],
@@ -457,7 +423,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             isPaymentExpanded
                                 ? Icons.keyboard_arrow_up
                                 : Icons.keyboard_arrow_down,
-                            color: const Color(0xFF667085),
+                            color: AppColors.muted,
                           ),
                         ],
                       ),
@@ -472,9 +438,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           labelText: 'Benefit Number',
                           hintText: 'Enter your Benefit number',
                           filled: true,
-                          fillColor: const Color(0xFFF6F8FC),
+                          fillColor: AppColors.background,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(
+                              AppSpacing.controlRadius,
+                            ),
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -484,7 +452,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF6F8FC),
+                          color: AppColors.background,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Column(
@@ -493,7 +461,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               'Benefit QR',
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF1F2A44),
+                                color: AppColors.text,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -506,7 +474,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 label: const Text('Upload QR'),
                                 style: OutlinedButton.styleFrom(
                                   side: const BorderSide(
-                                    color: Color(0xFF27BFA2),
+                                    color: AppColors.primaryDark,
                                   ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
@@ -524,11 +492,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: ElevatedButton(
                             onPressed: isSaving ? null : _savePaymentData,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  const Color.fromARGB(255, 70, 223, 175),
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(
+                                  AppSpacing.controlRadius,
+                                ),
                               ),
                             ),
                             child: isSaving
@@ -536,14 +504,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     width: 22,
                                     height: 22,
                                     child: CircularProgressIndicator(
-                                      color: Colors.white,
+                                      color: AppColors.onBrand,
                                       strokeWidth: 2.5,
                                     ),
                                   )
                                 : const Text(
                                     'Save Payment Settings',
                                     style: TextStyle(
-                                      color: Colors.white,
+                                      color: AppColors.onBrand,
+                                      fontSize: AppTypography.button,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
@@ -563,7 +532,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   borderRadius: BorderRadius.circular(22),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
+                      color: AppColors.text.withValues(alpha: 0.04),
                       blurRadius: 12,
                       offset: const Offset(0, 5),
                     ),
@@ -574,16 +543,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Text(
                       'AI Assisted Pocket Register',
                       style: TextStyle(
-                        fontSize: 15,
-                        color: Color(0xFF667085),
+                        fontSize: AppTypography.caption,
+                        color: AppColors.muted,
                       ),
                     ),
                     SizedBox(height: 6),
                     Text(
                       'Version 1.0.0',
                       style: TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF98A2B3),
+                        fontSize: AppTypography.caption,
+                        color: AppColors.muted,
                       ),
                     ),
                   ],
@@ -597,23 +566,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   height: 58,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: const Color(0xFFEF4444),
-                      width: 1.6,
-                    ),
+                    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                    border: Border.all(color: AppColors.danger, width: 1.6),
                   ),
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.logout, color: Color(0xFFEF4444)),
+                      Icon(Icons.logout, color: AppColors.danger),
                       SizedBox(width: 10),
                       Text(
                         'Logout',
                         style: TextStyle(
-                          color: Color(0xFFEF4444),
+                          color: AppColors.danger,
                           fontWeight: FontWeight.w700,
-                          fontSize: 17,
+                          fontSize: AppTypography.button,
                         ),
                       ),
                     ],
@@ -654,11 +620,7 @@ class _InfoRow extends StatelessWidget {
             color: iconBg,
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Icon(
-            icon,
-            color: iconColor,
-            size: 26,
-          ),
+          child: Icon(icon, color: iconColor, size: 26),
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -668,16 +630,16 @@ class _InfoRow extends StatelessWidget {
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF98A2B3),
+                  fontSize: AppTypography.caption,
+                  color: AppColors.muted,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 value,
                 style: const TextStyle(
-                  fontSize: 18,
-                  color: Color(0xFF1F2A44),
+                  fontSize: AppTypography.body,
+                  color: AppColors.text,
                   fontWeight: FontWeight.w600,
                 ),
               ),

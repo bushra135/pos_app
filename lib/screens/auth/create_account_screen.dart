@@ -1,158 +1,193 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 
-import '../cashier/cashier_home_screen.dart';
-import '../owner/owner_home_screen.dart';
+import '../../utils/app_colors.dart';
+import '../../utils/app_spacing.dart';
+import '../../utils/app_typography.dart';
+import 'verify_email_screen.dart';
 
 class CreateAccountScreen extends StatefulWidget {
-  const CreateAccountScreen({super.key});
+  const CreateAccountScreen({
+    super.key,
+    this.initialFullName = '',
+    this.initialEmail = '',
+    this.initialPassword = '',
+    this.initialConfirmPassword = '',
+    this.initialStoreName = '',
+    this.initialStoreCode = '',
+    this.initialIsOwner = true,
+  });
+
+  final String initialFullName;
+  final String initialEmail;
+  final String initialPassword;
+  final String initialConfirmPassword;
+  final String initialStoreName;
+  final String initialStoreCode;
+  final bool initialIsOwner;
 
   @override
   State<CreateAccountScreen> createState() => _CreateAccountScreenState();
 }
 
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
-  bool isOwner = true;
-  bool isLoading = false;
-  bool isPasswordVisible = false;
-  bool isConfirmPasswordVisible = false;
+  late bool _isOwner;
+  bool _isLoading = false;
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
+  bool _hasStartedPassword = false;
+  bool _hasAttemptedSubmit = false;
 
-  // Text controllers
-  final TextEditingController fullNameController = TextEditingController();
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmPasswordController =
+  final TextEditingController _fullNameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
       TextEditingController();
-  final TextEditingController storeNameController = TextEditingController();
-  final TextEditingController storeCodeController = TextEditingController();
+  final TextEditingController _storeNameController = TextEditingController();
+  final TextEditingController _storeCodeController = TextEditingController();
 
-  // Firebase instances
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   @override
+  void initState() {
+    super.initState();
+    // Restore the registration draft when returning from verification.
+    _isOwner = widget.initialIsOwner;
+    _fullNameController.text = widget.initialFullName;
+    _emailController.text = widget.initialEmail;
+    _passwordController.text = widget.initialPassword;
+    _confirmPasswordController.text = widget.initialConfirmPassword;
+    _storeNameController.text = widget.initialStoreName;
+    _storeCodeController.text = widget.initialStoreCode;
+    _hasStartedPassword = widget.initialPassword.isNotEmpty;
+  }
+
+  @override
   void dispose() {
-    fullNameController.dispose();
-    emailController.dispose();
-    passwordController.dispose();
-    confirmPasswordController.dispose();
-    storeNameController.dispose();
-    storeCodeController.dispose();
+    _fullNameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _storeNameController.dispose();
+    _storeCodeController.dispose();
     super.dispose();
   }
 
-  // Generate store code for owner account
+  // The store code is the stores document ID used by cashiers to join.
   String _generateStoreCode() {
     final milliseconds = DateTime.now().millisecondsSinceEpoch.toString();
     return 'SHOP${milliseconds.substring(milliseconds.length - 6)}';
   }
 
-  // Check if password is strong
-  bool isStrongPassword(String password) {
-    final regex = RegExp(r'^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9]).{6,}$');
-    return regex.hasMatch(password);
+  bool _hasMinimumLength(String password) => password.length >= 8;
+  bool _hasUppercase(String password) => RegExp(r'[A-Z]').hasMatch(password);
+  bool _hasLowercase(String password) => RegExp(r'[a-z]').hasMatch(password);
+  bool _hasNumber(String password) => RegExp(r'[0-9]').hasMatch(password);
+  bool _hasSpecialCharacter(String password) =>
+      RegExp(r'[^A-Za-z0-9]').hasMatch(password);
+
+  // Validation uses the same requirements shown below the password field.
+  bool _isStrongPassword(String password) {
+    return _hasMinimumLength(password) &&
+        _hasUppercase(password) &&
+        _hasLowercase(password) &&
+        _hasNumber(password) &&
+        _hasSpecialCharacter(password);
   }
 
-  // Create account using Firebase Auth and Firestore
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _sendVerificationAndContinue(User user) async {
+    try {
+      await user.sendEmailVerification();
+    } on FirebaseAuthException {
+      // The account already exists; the verification screen can retry sending.
+    }
+
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => VerifyEmailScreen(
+          draftFullName: _fullNameController.text,
+          draftEmail: _emailController.text,
+          draftPassword: _passwordController.text,
+          draftConfirmPassword: _confirmPasswordController.text,
+          draftStoreName: _storeNameController.text,
+          draftStoreCode: _storeCodeController.text,
+          draftIsOwner: _isOwner,
+        ),
+      ),
+      (route) => false,
+    );
+  }
+
   Future<void> _handleCreateAccount() async {
-    final fullName = fullNameController.text.trim();
-    final email = emailController.text.trim().toLowerCase();
-    final password = passwordController.text.trim();
-    final confirmPassword = confirmPasswordController.text.trim();
-    final storeName = storeNameController.text.trim();
-    final storeCode = storeCodeController.text.trim().toUpperCase();
+    final fullName = _fullNameController.text.trim();
+    final email = _emailController.text.trim().toLowerCase();
+    final password = _passwordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+    final storeName = _storeNameController.text.trim();
+    final storeCode = _storeCodeController.text.trim().toUpperCase();
 
-    // Validate required fields
     if (fullName.isEmpty || email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields'),
-        ),
-      );
+      _showMessage('Please fill in all required fields');
       return;
     }
 
-    // Validate strong password
-    if (!isStrongPassword(password)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Password must contain upper case, lower case and a number',
-          ),
-        ),
-      );
+    if (!_isStrongPassword(password)) {
+      setState(() {
+        _hasStartedPassword = true;
+        _hasAttemptedSubmit = true;
+      });
       return;
     }
 
-    // Validate confirm password
     if (password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Passwords do not match'),
-        ),
-      );
+      _showMessage('Passwords do not match');
       return;
     }
 
-    // Owner must enter store name
-    if (isOwner && storeName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter your store name'),
-        ),
-      );
+    if (_isOwner && storeName.isEmpty) {
+      _showMessage('Please enter your store name');
       return;
     }
 
-    // Cashier must enter store code
-    if (!isOwner && storeCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter store code'),
-        ),
-      );
+    if (!_isOwner && storeCode.isEmpty) {
+      _showMessage('Please enter store code');
       return;
     }
 
     setState(() {
-      isLoading = true;
+      _isLoading = true;
     });
 
     try {
-      // If cashier, check whether the store code exists
+      // Verify the store exists before creating a cashier account.
       DocumentSnapshot<Map<String, dynamic>>? storeDoc;
-      if (!isOwner) {
+      if (!_isOwner) {
         storeDoc = await _firestore.collection('stores').doc(storeCode).get();
 
         if (!storeDoc.exists) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Invalid store code'),
-            ),
-          );
-          setState(() {
-            isLoading = false;
-          });
+          _showMessage('Invalid store code');
           return;
         }
       }
 
-      // Create user in Firebase Authentication
-      final UserCredential userCredential =
-          await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final UserCredential userCredential = await _auth
+          .createUserWithEmailAndPassword(email: email, password: password);
 
       final String uid = userCredential.user!.uid;
 
-      if (isOwner) {
-        // Generate a new store code for owner
+      if (_isOwner) {
         final String newStoreCode = _generateStoreCode();
 
-        // Save owner profile in Firestore
         await _firestore.collection('users').doc(uid).set({
           'uid': uid,
           'fullName': fullName,
@@ -163,7 +198,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           'createdAt': FieldValue.serverTimestamp(),
         });
 
-        // Save store data in Firestore
         await _firestore.collection('stores').doc(newStoreCode).set({
           'storeCode': newStoreCode,
           'storeName': storeName,
@@ -171,17 +205,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           'ownerEmail': email,
           'createdAt': FieldValue.serverTimestamp(),
         });
-
-        if (!mounted) return;
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const OwnerHomeScreen(),
-          ),
-        );
       } else {
-        // Save cashier profile in Firestore
+        // The cashier profile uses the auth uid and links to the store by code.
         await _firestore.collection('users').doc(uid).set({
           'uid': uid,
           'fullName': fullName,
@@ -192,16 +217,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           'ownerUid': storeDoc.data()?['ownerUid'] ?? '',
           'createdAt': FieldValue.serverTimestamp(),
         });
-
-        if (!mounted) return;
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const CashierHomeScreen(),
-          ),
-        );
       }
+
+      await _sendVerificationAndContinue(userCredential.user!);
     } on FirebaseAuthException catch (e) {
       String message = 'Account creation failed';
 
@@ -213,56 +231,133 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         message = 'Password is too weak';
       }
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      _showMessage(message);
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Something went wrong: $e')),
-      );
+      _showMessage('Something went wrong: $e');
     } finally {
-      if (!mounted) return;
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-  // Reusable input decoration
   InputDecoration _inputDecoration({
     required String hintText,
     required IconData icon,
     Widget? suffixIcon,
+    String? errorText,
   }) {
     return InputDecoration(
       hintText: hintText,
-      prefixIcon: Icon(icon),
+      prefixIcon: Icon(icon, color: AppColors.primaryDark),
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: Colors.grey[100],
+      fillColor: AppColors.background,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+        borderSide: const BorderSide(color: AppColors.border),
+      ),
+      errorText: errorText,
+      errorMaxLines: 2,
+    );
+  }
+
+  Widget _passwordRequirement(String label, bool isMet) {
+    final color = isMet ? AppColors.primaryDark : AppColors.muted;
+    return Padding(
+      padding: const EdgeInsets.only(top: 5),
+      child: Row(
+        children: [
+          Icon(
+            isMet ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 17,
+            color: color,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(fontSize: AppTypography.caption, color: color),
+          ),
+        ],
       ),
     );
   }
+
+  Widget _passwordRequirements(String password) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Use a strong password',
+            style: TextStyle(
+              fontSize: AppTypography.caption,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          _passwordRequirement(
+            'At least 8 characters',
+            _hasMinimumLength(password),
+          ),
+          _passwordRequirement('One uppercase letter', _hasUppercase(password)),
+          _passwordRequirement('One lowercase letter', _hasLowercase(password)),
+          _passwordRequirement('One number', _hasNumber(password)),
+          _passwordRequirement(
+            'One special character',
+            _hasSpecialCharacter(password),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _roleOption({required bool owner}) {
+    final selected = _isOwner == owner;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _isOwner = owner),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: selected ? null : AppColors.background,
+            gradient: selected ? AppColors.brandGradient : null,
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            owner ? 'Owner' : 'Cashier',
+            style: TextStyle(
+              color: selected ? AppColors.onBrand : AppColors.text,
+              fontSize: AppTypography.label,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _fieldLabel(String label) => Text(
+    label,
+    style: const TextStyle(
+      fontSize: AppTypography.label,
+      fontWeight: FontWeight.w600,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color.fromARGB(255, 164, 235, 213),
-              Color.fromARGB(255, 5, 197, 245),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppColors.brandGradient),
         child: SafeArea(
           child: SingleChildScrollView(
             child: Container(
@@ -281,75 +376,27 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 children: [
                   const Text(
                     'I am a...',
-                    style: TextStyle(fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                      fontSize: AppTypography.section,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 10),
 
-                  // Role selector
                   Row(
                     children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              isOwner = true;
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            decoration: BoxDecoration(
-                              color: isOwner
-                                  ? const Color.fromARGB(255, 138, 231, 206)
-                                  : Colors.grey[200],
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              'Owner',
-                              style: TextStyle(
-                                color: isOwner ? Colors.white : Colors.black,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      _roleOption(owner: true),
                       const SizedBox(width: 10),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              isOwner = false;
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            decoration: BoxDecoration(
-                              color: !isOwner
-                                  ? const Color.fromARGB(255, 64, 197, 221)
-                                  : Colors.grey[200],
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              'Cashier',
-                              style: TextStyle(
-                                color: !isOwner ? Colors.white : Colors.black,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      _roleOption(owner: false),
                     ],
                   ),
 
                   const SizedBox(height: 30),
 
-                  const Text('Full Name'),
+                  _fieldLabel('Full Name'),
                   const SizedBox(height: 8),
                   TextField(
-                    controller: fullNameController,
+                    controller: _fullNameController,
                     decoration: _inputDecoration(
                       hintText: 'Enter your full name',
                       icon: Icons.person_outline,
@@ -358,10 +405,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
                   const SizedBox(height: 20),
 
-                  const Text('Email'),
+                  _fieldLabel('Email'),
                   const SizedBox(height: 8),
                   TextField(
-                    controller: emailController,
+                    controller: _emailController,
                     decoration: _inputDecoration(
                       hintText: 'Enter your email',
                       icon: Icons.email_outlined,
@@ -370,22 +417,33 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
                   const SizedBox(height: 20),
 
-                  const Text('Password'),
+                  _fieldLabel('Password'),
                   const SizedBox(height: 8),
                   TextField(
-                    controller: passwordController,
-                    obscureText: !isPasswordVisible,
+                    controller: _passwordController,
+                    obscureText: !_isPasswordVisible,
+                    onChanged: (_) {
+                      setState(() {
+                        _hasStartedPassword = true;
+                      });
+                    },
                     decoration: _inputDecoration(
                       hintText: 'Create a password',
                       icon: Icons.lock_outline,
+                      errorText:
+                          _hasAttemptedSubmit &&
+                              !_isStrongPassword(_passwordController.text)
+                          ? 'Please meet all password requirements.'
+                          : null,
                       suffixIcon: IconButton(
+                        color: AppColors.primaryDark,
                         onPressed: () {
                           setState(() {
-                            isPasswordVisible = !isPasswordVisible;
+                            _isPasswordVisible = !_isPasswordVisible;
                           });
                         },
                         icon: Icon(
-                          isPasswordVisible
+                          _isPasswordVisible
                               ? Icons.visibility_outlined
                               : Icons.visibility_off_outlined,
                         ),
@@ -393,25 +451,37 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     ),
                   ),
 
+                  if (_hasStartedPassword)
+                    _passwordRequirements(_passwordController.text),
+
                   const SizedBox(height: 20),
 
-                  const Text('Confirm Password'),
+                  _fieldLabel('Confirm Password'),
                   const SizedBox(height: 8),
                   TextField(
-                    controller: confirmPasswordController,
-                    obscureText: !isConfirmPasswordVisible,
+                    controller: _confirmPasswordController,
+                    obscureText: !_isConfirmPasswordVisible,
+                    onChanged: (_) => setState(() {}),
                     decoration: _inputDecoration(
                       hintText: 'Confirm your password',
                       icon: Icons.lock_outline,
+                      errorText:
+                          _hasAttemptedSubmit &&
+                              _confirmPasswordController.text.isNotEmpty &&
+                              _confirmPasswordController.text !=
+                                  _passwordController.text
+                          ? 'Passwords do not match.'
+                          : null,
                       suffixIcon: IconButton(
+                        color: AppColors.primaryDark,
                         onPressed: () {
                           setState(() {
-                            isConfirmPasswordVisible =
-                                !isConfirmPasswordVisible;
+                            _isConfirmPasswordVisible =
+                                !_isConfirmPasswordVisible;
                           });
                         },
                         icon: Icon(
-                          isConfirmPasswordVisible
+                          _isConfirmPasswordVisible
                               ? Icons.visibility_outlined
                               : Icons.visibility_off_outlined,
                         ),
@@ -421,11 +491,11 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
                   const SizedBox(height: 20),
 
-                  if (isOwner) ...[
-                    const Text('Store Name'),
+                  if (_isOwner) ...[
+                    _fieldLabel('Store Name'),
                     const SizedBox(height: 8),
                     TextField(
-                      controller: storeNameController,
+                      controller: _storeNameController,
                       decoration: _inputDecoration(
                         hintText: 'Enter your store name',
                         icon: Icons.store_outlined,
@@ -435,15 +505,15 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     const Text(
                       "You'll create a new store and receive a store code",
                       style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
+                        fontSize: AppTypography.caption,
+                        color: AppColors.muted,
                       ),
                     ),
                   ] else ...[
-                    const Text('Store Code'),
+                    _fieldLabel('Store Code'),
                     const SizedBox(height: 8),
                     TextField(
-                      controller: storeCodeController,
+                      controller: _storeCodeController,
                       decoration: _inputDecoration(
                         hintText: 'Enter store code',
                         icon: Icons.numbers,
@@ -453,8 +523,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     const Text(
                       "Ask your store owner for the store code",
                       style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
+                        fontSize: AppTypography.caption,
+                        color: AppColors.muted,
                       ),
                     ),
                   ],
@@ -462,34 +532,32 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                   const SizedBox(height: 30),
 
                   GestureDetector(
-                    onTap: isLoading ? null : _handleCreateAccount,
+                    onTap: _isLoading ? null : _handleCreateAccount,
                     child: Container(
                       width: double.infinity,
                       height: 50,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color.fromARGB(255, 164, 235, 213),
-                            Color.fromARGB(255, 5, 197, 245),
-                          ],
+                        gradient: AppColors.brandGradient,
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.controlRadius,
                         ),
-                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Center(
-                        child: isLoading
+                        child: _isLoading
                             ? const SizedBox(
                                 width: 24,
                                 height: 24,
                                 child: CircularProgressIndicator(
-                                  color: Colors.white,
+                                  color: AppColors.onBrand,
                                   strokeWidth: 2.5,
                                 ),
                               )
                             : const Text(
                                 'Create Account',
                                 style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.onBrand,
+                                  fontSize: AppTypography.button,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                       ),
@@ -510,12 +578,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                             TextSpan(
                               text: "Sign in",
                               style: TextStyle(
-                                color: Color(0xFF08C08C),
-                                fontWeight: FontWeight.bold,
+                                color: AppColors.primaryDark,
+                                fontSize: AppTypography.button,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
                         ),
+                        style: TextStyle(fontSize: AppTypography.body),
                       ),
                     ),
                   ),

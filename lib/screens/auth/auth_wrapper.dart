@@ -1,11 +1,14 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
 
-import 'login_screen.dart';
+import '../../utils/app_colors.dart';
 import '../cashier/cashier_home_screen.dart';
 import '../owner/owner_home_screen.dart';
+import 'login_screen.dart';
+import 'verify_email_screen.dart';
 
+/// Selects the screen from the Firebase session, verification, and Firestore role.
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
@@ -16,7 +19,9 @@ class AuthWrapper extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: Center(
+              child: CircularProgressIndicator(color: AppColors.primaryDark),
+            ),
           );
         }
 
@@ -26,6 +31,11 @@ class AuthWrapper extends StatelessWidget {
 
         final user = snapshot.data!;
 
+        if (!user.emailVerified) {
+          return const VerifyEmailScreen();
+        }
+
+        // Load the user profile before choosing the owner or cashier screen.
         return FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
           future: FirebaseFirestore.instance
               .collection('users')
@@ -34,7 +44,11 @@ class AuthWrapper extends StatelessWidget {
           builder: (context, userSnapshot) {
             if (userSnapshot.connectionState == ConnectionState.waiting) {
               return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
+                body: Center(
+                  child: CircularProgressIndicator(
+                    color: AppColors.primaryDark,
+                  ),
+                ),
               );
             }
 

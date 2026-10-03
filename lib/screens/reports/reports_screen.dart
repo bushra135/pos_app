@@ -5,6 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../../utils/app_colors.dart';
+import '../../utils/app_spacing.dart';
+import '../../utils/app_typography.dart';
+
 enum ReportPeriod { today, week, month, year }
 
 class ReportsScreen extends StatefulWidget {
@@ -57,8 +61,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
       final productsSnapshot = await _firestore.collection('products').get();
 
       final storeProducts = productsSnapshot.docs.where((doc) {
-        final productStoreCode =
-            (doc.data()['storeCode'] ?? '').toString().trim();
+        final productStoreCode = (doc.data()['storeCode'] ?? '')
+            .toString()
+            .trim();
         return productStoreCode == storeCode;
       }).toList();
 
@@ -94,16 +99,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final paymentMethods = <String, double>{};
     final productSales = <String, _ProductSales>{};
 
+    // Seed inventory first so unsold products appear among the least-selling items.
     for (final doc in productDocs) {
       final data = doc.data();
-      final name =
-          (data['name'] ?? data['productName'] ?? 'Unknown Product').toString();
+      final name = (data['name'] ?? data['productName'] ?? 'Unknown Product')
+          .toString();
 
       final key = _productKey(data, name);
-      productSales[key] = _ProductSales(
-        key: key,
-        name: name,
-      );
+      productSales[key] = _ProductSales(name: name);
     }
 
     for (final doc in salesDocs) {
@@ -120,6 +123,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       discounts += sale.discount;
       refunds += sale.refund;
 
+      // Refunds affect net sales but do not count as orders or new product sales.
       if (!sale.isRefund) ordersCount++;
 
       final bucketIndex = _bucketIndex(createdAt, selectedPeriod);
@@ -132,11 +136,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
             (paymentMethods[sale.paymentMethod] ?? 0) + sale.netSales;
 
         for (final item in sale.items) {
-          final name = (item['name'] ??
-                  item['productName'] ??
-                  item['title'] ??
-                  'Unknown Product')
-              .toString();
+          final name =
+              (item['name'] ??
+                      item['productName'] ??
+                      item['title'] ??
+                      'Unknown Product')
+                  .toString();
 
           final key = _productKey(item, name);
           final quantity = _numFromKeys(item, ['quantity', 'qty', 'count']);
@@ -150,11 +155,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           final safeQuantity = quantity <= 0 ? 1.0 : quantity;
           final revenue = itemTotal > 0 ? itemTotal : price * safeQuantity;
 
-          final product = productSales[key] ??
-              _ProductSales(
-                key: key,
-                name: name,
-              );
+          final product = productSales[key] ?? _ProductSales(name: name);
 
           product.quantity += safeQuantity;
           product.revenue += revenue;
@@ -182,10 +183,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final topRevenue = productSales.values.toList()
       ..sort((a, b) => b.revenue.compareTo(a.revenue));
 
-    final paymentReports = paymentMethods.entries
-        .map((entry) => _PaymentReport(entry.key, entry.value))
-        .toList()
-      ..sort((a, b) => b.amount.compareTo(a.amount));
+    final paymentReports =
+        paymentMethods.entries
+            .map((entry) => _PaymentReport(entry.key, entry.value))
+            .toList()
+          ..sort((a, b) => b.amount.compareTo(a.amount));
 
     return _ReportsData(
       grossSales: grossSales,
@@ -208,37 +210,42 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final data = _calculateReports();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FB),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
             : errorMessage != null
-                ? _ErrorState(message: errorMessage!, onRetry: _loadReports)
-                : RefreshIndicator(
-                    onRefresh: _loadReports,
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildHeader(),
-                          const SizedBox(height: 16),
-                          _buildPeriodSelector(),
-                          const SizedBox(height: 16),
-                          _buildTrendChart(data),
-                          const SizedBox(height: 16),
-                          _buildSummaryCards(data),
-                          const SizedBox(height: 16),
-                          _buildProductCards(data),
-                          const SizedBox(height: 16),
-                          _buildNetSalesSection(data),
-                          const SizedBox(height: 16),
-                          _buildPaymentMethodsSection(data),
-                        ],
-                      ),
-                    ),
+            ? _ErrorState(message: errorMessage!, onRetry: _loadReports)
+            : RefreshIndicator(
+                onRefresh: _loadReports,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.page,
+                    16,
+                    AppSpacing.page,
+                    24,
                   ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(),
+                      const SizedBox(height: 16),
+                      _buildPeriodSelector(),
+                      const SizedBox(height: 16),
+                      _buildTrendChart(data),
+                      const SizedBox(height: 16),
+                      _buildSummaryCards(data),
+                      const SizedBox(height: 16),
+                      _buildProductCards(data),
+                      const SizedBox(height: 16),
+                      _buildNetSalesSection(data),
+                      const SizedBox(height: 16),
+                      _buildPaymentMethodsSection(data),
+                    ],
+                  ),
+                ),
+              ),
       ),
     );
   }
@@ -253,17 +260,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
               Text(
                 'POS Reports',
                 style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1F2A44),
+                  fontSize: AppTypography.title,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.text,
                 ),
               ),
               SizedBox(height: 4),
               Text(
                 'Sales, payments, and product performance',
                 style: TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF98A2B3),
+                  fontSize: AppTypography.caption,
+                  color: AppColors.muted,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -273,7 +280,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         IconButton(
           onPressed: _loadReports,
           icon: const Icon(Icons.refresh_rounded),
-          color: Color(0xFF2F80FF),
+          color: AppColors.primaryDark,
         ),
       ],
     );
@@ -283,8 +290,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return Container(
       padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
-        color: const Color(0xFFE9EEF7),
-        borderRadius: BorderRadius.circular(18),
+        color: AppColors.border,
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
       ),
       child: Row(
         children: [
@@ -308,11 +315,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
           padding: const EdgeInsets.symmetric(vertical: 11),
           decoration: BoxDecoration(
             color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF1B2940).withOpacity(0.08),
+                      color: AppColors.text.withValues(alpha: 0.08),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -323,11 +330,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
           child: Text(
             label,
             style: TextStyle(
-              color: isSelected
-                  ? const Color(0xFF2F80FF)
-                  : const Color(0xFF667085),
-              fontWeight: FontWeight.w800,
-              fontSize: 13,
+              color: isSelected ? AppColors.primaryDark : AppColors.muted,
+              fontWeight: FontWeight.w700,
+              fontSize: AppTypography.label,
             ),
           ),
         ),
@@ -373,8 +378,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       child: Text(
                         data.chartLabels[index],
                         style: const TextStyle(
-                          color: Color(0xFF98A2B3),
-                          fontSize: 10,
+                          color: AppColors.muted,
+                          fontSize: AppTypography.caption,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -392,7 +397,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     toY: math.max(0.0, data.chartValues[index]),
                     width: _barWidth(selectedPeriod),
                     borderRadius: BorderRadius.circular(7),
-                    color: const Color(0xFF5AC8B5),
+                    gradient: AppColors.brandGradient,
                   ),
                 ],
               ),
@@ -414,42 +419,42 @@ class _ReportsScreenState extends State<ReportsScreen> {
       children: [
         _TopStatCard(
           icon: Icons.payments_rounded,
-          color: const Color(0xFF4FD1A5),
+          color: AppColors.success,
           title: 'Sales',
           value: _money(data.grossSales),
           subtitle: _periodLabel(selectedPeriod),
         ),
         _TopStatCard(
           icon: Icons.account_balance_wallet_rounded,
-          color: const Color(0xFF2F80FF),
+          color: AppColors.primaryDark,
           title: 'Net Sales',
           value: _money(data.netSales),
           subtitle: 'After discounts/refunds',
         ),
         _TopStatCard(
           icon: Icons.receipt_long_rounded,
-          color: const Color(0xFFFFA726),
+          color: AppColors.warning,
           title: 'Orders',
           value: '${data.ordersCount}',
           subtitle: 'Invoices count',
         ),
         _TopStatCard(
           icon: Icons.calculate_rounded,
-          color: const Color(0xFF00A6A6),
+          color: AppColors.primaryDark,
           title: 'Avg Order',
           value: _money(data.averageOrder),
           subtitle: 'Sales / orders',
         ),
         _TopStatCard(
           icon: Icons.local_offer_rounded,
-          color: const Color(0xFFFF9800),
+          color: AppColors.warning,
           title: 'Discounts',
           value: _money(data.discounts),
           subtitle: _periodLabel(selectedPeriod),
         ),
         _TopStatCard(
           icon: Icons.undo_rounded,
-          color: const Color(0xFFFF5252),
+          color: AppColors.danger,
           title: 'Refunds',
           value: _money(data.refunds),
           subtitle: _periodLabel(selectedPeriod),
@@ -460,8 +465,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Widget _buildProductCards(_ReportsData data) {
     final topSeller = data.topSelling.isEmpty ? null : data.topSelling.first;
-    final leastSeller =
-        data.leastSelling.isEmpty ? null : data.leastSelling.first;
+    final leastSeller = data.leastSelling.isEmpty
+        ? null
+        : data.leastSelling.first;
     final topRevenue = data.topRevenue.isEmpty ? null : data.topRevenue.first;
 
     return Column(
@@ -471,7 +477,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             Expanded(
               child: _InsightCard(
                 icon: Icons.trending_up_rounded,
-                color: const Color(0xFF49C59D),
+                color: AppColors.primaryDark,
                 title: 'Top Sellers',
                 value: topSeller?.name ?? 'No data',
                 subtitle: topSeller == null
@@ -490,7 +496,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             Expanded(
               child: _InsightCard(
                 icon: Icons.south_rounded,
-                color: const Color(0xFFFF9800),
+                color: AppColors.warning,
                 title: 'Least Selling',
                 value: leastSeller?.name ?? 'No data',
                 subtitle: leastSeller == null
@@ -510,7 +516,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         const SizedBox(height: 12),
         _InsightCard(
           icon: Icons.workspace_premium_rounded,
-          color: const Color(0xFF2F80FF),
+          color: AppColors.primaryDark,
           title: 'Top Revenue Products',
           value: topRevenue?.name ?? 'No data',
           subtitle: topRevenue == null
@@ -538,11 +544,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           _AmountRow('Discounts', '- ${_money(data.discounts)}'),
           _AmountRow('Refunds', '- ${_money(data.refunds)}'),
           const Divider(height: 24),
-          _AmountRow(
-            'Net Sales',
-            _money(data.netSales),
-            highlighted: true,
-          ),
+          _AmountRow('Net Sales', _money(data.netSales), highlighted: true),
         ],
       ),
     );
@@ -551,7 +553,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget _buildPaymentMethodsSection(_ReportsData data) {
     final total = data.paymentMethods.fold<double>(
       0,
-      (sum, method) => sum + method.amount,
+      (subtotal, method) => subtotal + method.amount,
     );
 
     return _SectionCard(
@@ -569,7 +571,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     title: method.name,
                     trailing: _money(method.amount),
                     progress: progress,
-                    color: const Color(0xFF4C6FFF),
+                    color: AppColors.accent,
                   ),
                 );
               }).toList(),
@@ -597,7 +599,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             return Container(
               padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
               decoration: const BoxDecoration(
-                color: Color(0xFFF5F7FB),
+                color: AppColors.background,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
               ),
               child: Column(
@@ -606,7 +608,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     width: 42,
                     height: 5,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD0D5DD),
+                      color: AppColors.border,
                       borderRadius: BorderRadius.circular(99),
                     ),
                   ),
@@ -617,9 +619,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         child: Text(
                           title,
                           style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF1F2A44),
+                            fontSize: AppTypography.title,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.text,
                           ),
                         ),
                       ),
@@ -636,7 +638,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         : ListView.separated(
                             controller: scrollController,
                             itemCount: list.length,
-                            separatorBuilder: (_, __) =>
+                            separatorBuilder: (_, _) =>
                                 const SizedBox(height: 10),
                             itemBuilder: (context, index) {
                               final product = list[index];
@@ -698,8 +700,8 @@ class _TopStatCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 13,
-              color: Color(0xFF98A2B3),
+              fontSize: AppTypography.label,
+              color: AppColors.muted,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -710,9 +712,9 @@ class _TopStatCard extends StatelessWidget {
             child: Text(
               value,
               style: const TextStyle(
-                fontSize: 21,
-                color: Color(0xFF1F2A44),
-                fontWeight: FontWeight.w800,
+                fontSize: AppTypography.metric,
+                color: AppColors.text,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -722,7 +724,7 @@ class _TopStatCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: AppTypography.caption,
               color: color,
               fontWeight: FontWeight.w700,
             ),
@@ -772,8 +774,8 @@ class _InsightCard extends StatelessWidget {
                     Text(
                       title,
                       style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF98A2B3),
+                        fontSize: AppTypography.label,
+                        color: AppColors.muted,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -783,9 +785,9 @@ class _InsightCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 16,
-                        color: Color(0xFF1F2A44),
-                        fontWeight: FontWeight.w800,
+                        fontSize: AppTypography.section,
+                        color: AppColors.text,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -794,7 +796,7 @@ class _InsightCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: AppTypography.caption,
                         color: color,
                         fontWeight: FontWeight.w700,
                       ),
@@ -802,10 +804,7 @@ class _InsightCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Color(0xFF98A2B3),
-              ),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
             ],
           ),
         ),
@@ -837,18 +836,18 @@ class _SectionCard extends StatelessWidget {
           Text(
             title,
             style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1F2A44),
+              fontSize: AppTypography.section,
+              fontWeight: FontWeight.w700,
+              color: AppColors.text,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: AppTypography.caption,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF98A2B3),
+              color: AppColors.muted,
             ),
           ),
           const SizedBox(height: 16),
@@ -863,10 +862,7 @@ class _IconBadge extends StatelessWidget {
   final IconData icon;
   final Color color;
 
-  const _IconBadge({
-    required this.icon,
-    required this.color,
-  });
+  const _IconBadge({required this.icon, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -874,8 +870,8 @@ class _IconBadge extends StatelessWidget {
       width: 38,
       height: 38,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.14),
-        borderRadius: BorderRadius.circular(14),
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
       ),
       child: Icon(icon, color: color, size: 22),
     );
@@ -887,11 +883,7 @@ class _AmountRow extends StatelessWidget {
   final String value;
   final bool highlighted;
 
-  const _AmountRow(
-    this.label,
-    this.value, {
-    this.highlighted = false,
-  });
+  const _AmountRow(this.label, this.value, {this.highlighted = false});
 
   @override
   Widget build(BuildContext context) {
@@ -903,20 +895,18 @@ class _AmountRow extends StatelessWidget {
             child: Text(
               label,
               style: TextStyle(
-                color: highlighted
-                    ? const Color(0xFF1F2A44)
-                    : const Color(0xFF667085),
-                fontWeight: highlighted ? FontWeight.w800 : FontWeight.w600,
+                color: highlighted ? AppColors.text : AppColors.muted,
+                fontSize: AppTypography.label,
+                fontWeight: highlighted ? FontWeight.w700 : FontWeight.w600,
               ),
             ),
           ),
           Text(
             value,
             style: TextStyle(
-              color: highlighted
-                  ? const Color(0xFF2F80FF)
-                  : const Color(0xFF1F2A44),
-              fontWeight: FontWeight.w800,
+              color: highlighted ? AppColors.primaryDark : AppColors.text,
+              fontSize: AppTypography.label,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -952,8 +942,8 @@ class _ProgressRow extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 14,
-                  color: Color(0xFF4B5565),
+                  fontSize: AppTypography.body,
+                  color: AppColors.muted,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -962,8 +952,8 @@ class _ProgressRow extends StatelessWidget {
             Text(
               trailing,
               style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF98A2B3),
+                fontSize: AppTypography.label,
+                color: AppColors.muted,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -975,7 +965,7 @@ class _ProgressRow extends StatelessWidget {
           child: LinearProgressIndicator(
             value: safeProgress,
             minHeight: 8,
-            backgroundColor: const Color(0xFFE9EEF5),
+            backgroundColor: AppColors.border,
             valueColor: AlwaysStoppedAnimation(color),
           ),
         ),
@@ -1009,14 +999,15 @@ class _RankedProductTile extends StatelessWidget {
             height: 34,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: const Color(0xFF2F80FF).withOpacity(0.12),
+              color: AppColors.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               '$rank',
               style: const TextStyle(
-                color: Color(0xFF2F80FF),
-                fontWeight: FontWeight.w900,
+                color: AppColors.primaryDark,
+                fontSize: AppTypography.label,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -1030,8 +1021,9 @@ class _RankedProductTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xFF1F2A44),
-                    fontWeight: FontWeight.w800,
+                    color: AppColors.text,
+                    fontSize: AppTypography.label,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -1040,8 +1032,8 @@ class _RankedProductTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xFF98A2B3),
-                    fontSize: 12,
+                    color: AppColors.muted,
+                    fontSize: AppTypography.caption,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -1052,8 +1044,9 @@ class _RankedProductTile extends StatelessWidget {
           Text(
             trailing,
             style: const TextStyle(
-              color: Color(0xFF2F80FF),
-              fontWeight: FontWeight.w800,
+              color: AppColors.primaryDark,
+              fontSize: AppTypography.label,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -1075,8 +1068,9 @@ class _EmptyState extends StatelessWidget {
         child: Text(
           text,
           style: const TextStyle(
-            color: Color(0xFF98A2B3),
-            fontWeight: FontWeight.w700,
+            color: AppColors.muted,
+            fontSize: AppTypography.body,
+            fontWeight: FontWeight.w400,
           ),
         ),
       ),
@@ -1088,10 +1082,7 @@ class _ErrorState extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
 
-  const _ErrorState({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ErrorState({required this.message, required this.onRetry});
 
   @override
   Widget build(BuildContext context) {
@@ -1103,22 +1094,20 @@ class _ErrorState extends StatelessWidget {
           children: [
             const Icon(
               Icons.error_outline_rounded,
-              color: Colors.red,
+              color: AppColors.danger,
               size: 42,
             ),
             const SizedBox(height: 12),
             Text(
               message,
               style: const TextStyle(
-                color: Color(0xFF1F2A44),
-                fontWeight: FontWeight.w700,
+                color: AppColors.text,
+                fontSize: AppTypography.body,
+                fontWeight: FontWeight.w400,
               ),
             ),
             const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: onRetry,
-              child: const Text('Try Again'),
-            ),
+            ElevatedButton(onPressed: onRetry, child: const Text('Try Again')),
           ],
         ),
       ),
@@ -1176,6 +1165,7 @@ class _SaleRecord {
   });
 
   factory _SaleRecord.fromMap(Map<String, dynamic> data) {
+    // Read field names in priority order to support current and older Firestore records.
     final explicitTotal = _numFromKeys(data, [
       'netTotal',
       'grandTotal',
@@ -1190,10 +1180,12 @@ class _SaleRecord {
       'totalDiscount',
     ]).abs();
 
-    final status =
-        (data['status'] ?? data['type'] ?? '').toString().toLowerCase();
+    final status = (data['status'] ?? data['type'] ?? '')
+        .toString()
+        .toLowerCase();
 
-    final isRefund = status.contains('refund') ||
+    final isRefund =
+        status.contains('refund') ||
         status.contains('return') ||
         status.contains('cancel');
 
@@ -1207,8 +1199,8 @@ class _SaleRecord {
     final refund = refundAmount > 0
         ? refundAmount
         : isRefund
-            ? explicitTotal.abs()
-            : 0.0;
+        ? explicitTotal.abs()
+        : 0.0;
 
     final explicitGross = _numFromKeys(data, [
       'grossTotal',
@@ -1221,11 +1213,13 @@ class _SaleRecord {
     final grossSales = isRefund
         ? 0.0
         : explicitGross > 0
-            ? explicitGross
-            : explicitTotal + discount;
+        ? explicitGross
+        : explicitTotal + discount;
 
-    final double netSales =
-        isRefund ? -refund : math.max(0.0, explicitTotal - refund);
+    // Refund documents reduce net sales; refunds within a sale reduce that sale's total.
+    final double netSales = isRefund
+        ? -refund
+        : math.max(0.0, explicitTotal - refund);
 
     final rawItems = data['items'] ?? data['cartItems'] ?? data['products'];
     final items = <Map<String, dynamic>>[];
@@ -1252,17 +1246,11 @@ class _SaleRecord {
 }
 
 class _ProductSales {
-  final String key;
   final String name;
   double quantity;
   double revenue;
 
-  _ProductSales({
-    required this.key,
-    required this.name,
-    this.quantity = 0,
-    this.revenue = 0,
-  });
+  _ProductSales({required this.name}) : quantity = 0, revenue = 0;
 }
 
 class _PaymentReport {
@@ -1276,20 +1264,14 @@ class _PeriodRange {
   final DateTime start;
   final DateTime end;
 
-  const _PeriodRange({
-    required this.start,
-    required this.end,
-  });
+  const _PeriodRange({required this.start, required this.end});
 }
 
 class _ChartBuckets {
   final List<String> labels;
   final List<double> values;
 
-  const _ChartBuckets({
-    required this.labels,
-    required this.values,
-  });
+  const _ChartBuckets({required this.labels, required this.values});
 }
 
 enum _ProductSheetMode { quantity, revenue }
@@ -1298,10 +1280,10 @@ BoxDecoration _cardDecoration() {
   return BoxDecoration(
     color: Colors.white,
     borderRadius: BorderRadius.circular(22),
-    border: Border.all(color: const Color(0xFFEFF3F8)),
+    border: Border.all(color: AppColors.border),
     boxShadow: [
       BoxShadow(
-        color: const Color(0xFF1B2940).withOpacity(0.06),
+        color: AppColors.text.withValues(alpha: 0.06),
         blurRadius: 16,
         offset: const Offset(0, 9),
       ),
@@ -1310,6 +1292,7 @@ BoxDecoration _cardDecoration() {
 }
 
 _PeriodRange _periodRange(ReportPeriod period) {
+  // Use local time, inclusive starts and exclusive ends; weeks begin on Sunday.
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
 
@@ -1460,6 +1443,7 @@ String _productKey(Map<String, dynamic> data, String fallbackName) {
   final barcode = (data['barcode'] ?? '').toString().trim();
   final productId = (data['productId'] ?? data['id'] ?? '').toString().trim();
 
+  // Match inventory to sale items by a shared key, falling back to the name when no ID exists.
   if (barcode.isNotEmpty) return barcode;
   if (productId.isNotEmpty) return productId;
 
@@ -1487,9 +1471,7 @@ String _paymentLabel(dynamic value) {
   if (raw.isEmpty) return 'Unknown';
   if (raw.contains('cash')) return 'Cash';
   if (raw.contains('benefit')) return 'BenefitPay';
-  if (raw.contains('card') ||
-      raw.contains('visa') ||
-      raw.contains('mada')) {
+  if (raw.contains('card') || raw.contains('visa') || raw.contains('mada')) {
     return 'Card';
   }
   if (raw.contains('apple')) return 'Apple Pay';
@@ -1507,10 +1489,10 @@ FlGridData _gridData(double maxY) {
     horizontalInterval: maxY / 4,
     verticalInterval: 1,
     getDrawingHorizontalLine: (_) {
-      return const FlLine(color: Color(0xFFE8EDF5), strokeWidth: 1);
+      return const FlLine(color: AppColors.border, strokeWidth: 1);
     },
     getDrawingVerticalLine: (_) {
-      return const FlLine(color: Color(0xFFE8EDF5), strokeWidth: 1);
+      return const FlLine(color: AppColors.border, strokeWidth: 1);
     },
   );
 }
@@ -1519,8 +1501,8 @@ FlBorderData _chartBorder() {
   return FlBorderData(
     show: true,
     border: const Border(
-      left: BorderSide(color: Color(0xFFD9E2EF)),
-      bottom: BorderSide(color: Color(0xFFD9E2EF)),
+      left: BorderSide(color: AppColors.border),
+      bottom: BorderSide(color: AppColors.border),
     ),
   );
 }
@@ -1535,8 +1517,8 @@ AxisTitles _leftTitles(double maxY) {
         return Text(
           _compactNumber(value),
           style: const TextStyle(
-            color: Color(0xFF98A2B3),
-            fontSize: 11,
+            color: AppColors.muted,
+            fontSize: AppTypography.caption,
           ),
         );
       },
@@ -1545,26 +1527,25 @@ AxisTitles _leftTitles(double maxY) {
 }
 
 double _niceMax(List<double> values) {
-  final value = values.fold<double>(
-    0,
-    (max, item) => math.max(max, item),
-  );
+  final value = values.fold<double>(0, (max, item) => math.max(max, item));
 
   if (value <= 0) return 100;
 
+  // Add headroom above the tallest bar and round the axis limit to an easy-to-read value.
   final padded = value * 1.2;
-  final magnitude =
-      math.pow(10, (math.log(padded) / math.ln10).floor()).toDouble();
+  final magnitude = math
+      .pow(10, (math.log(padded) / math.ln10).floor())
+      .toDouble();
 
   final normalized = padded / magnitude;
 
   final double niceNormalized = normalized <= 1
       ? 1.0
       : normalized <= 2
-          ? 2.0
-          : normalized <= 5
-              ? 5.0
-              : 10.0;
+      ? 2.0
+      : normalized <= 5
+      ? 5.0
+      : 10.0;
 
   return niceNormalized * magnitude;
 }

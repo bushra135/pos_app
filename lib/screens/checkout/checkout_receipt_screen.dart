@@ -1,14 +1,17 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../utils/app_colors.dart';
+import '../../utils/app_spacing.dart';
+import '../../utils/app_typography.dart';
 import '../../utils/cart_manager.dart';
 
+/// Reviews the receipt, confirms payment, saves the sale, and updates stock.
 class CheckoutReceiptScreen extends StatefulWidget {
   const CheckoutReceiptScreen({super.key});
 
@@ -52,6 +55,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         volume: 1,
       );
     } catch (e) {
+      // Audio failure must not undo a successfully saved sale.
       debugPrint('Error playing payment success sound: $e');
     }
   }
@@ -79,10 +83,12 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
       final userData = userDoc.data()!;
       final String fullName = (userData['fullName'] ?? '').toString();
-      final String firstName =
-          fullName.isNotEmpty ? fullName.split(' ')[0] : '';
-      final String fetchedStoreCode =
-          (userData['storeCode'] ?? '').toString().trim();
+      final String firstName = fullName.isNotEmpty
+          ? fullName.split(' ')[0]
+          : '';
+      final String fetchedStoreCode = (userData['storeCode'] ?? '')
+          .toString()
+          .trim();
 
       String fetchedStoreName = (userData['storeName'] ?? '').toString();
       String fetchedBenefitNumber = '';
@@ -96,12 +102,11 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
         if (storeDoc.exists) {
           final storeData = storeDoc.data()!;
-          fetchedStoreName =
-              (storeData['storeName'] ?? fetchedStoreName).toString();
-          fetchedBenefitNumber =
-              (storeData['benefitNumber'] ?? '').toString();
-          fetchedBenefitQrBase64 =
-              (storeData['benefitQrBase64'] ?? '').toString();
+          fetchedStoreName = (storeData['storeName'] ?? fetchedStoreName)
+              .toString();
+          fetchedBenefitNumber = (storeData['benefitNumber'] ?? '').toString();
+          fetchedBenefitQrBase64 = (storeData['benefitQrBase64'] ?? '')
+              .toString();
         }
       }
 
@@ -131,16 +136,16 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
   Future<void> _confirmPayment() async {
     if (CartManager.items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cart is empty')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Cart is empty')));
       return;
     }
 
     if (storeCode.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Store code not found')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Store code not found')));
       return;
     }
 
@@ -151,22 +156,14 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     try {
       final firestore = FirebaseFirestore.instance;
       final currentUser = FirebaseAuth.instance.currentUser;
+      // Capture the receipt number before saving the sale.
       final String saleReceiptNumber = receiptNumber;
 
-      final items = CartManager.items.map((item) {
-        return {
-          'name': item.name,
-          'price': item.price,
-          'quantity': item.quantity,
-          'barcode': item.barcode,
-          'image': item.image,
-          'subtotal': item.totalPrice,
-        };
-      }).toList();
+      final items = CartManager.items.map((item) => item.toSaleData()).toList();
 
       final double subtotal = CartManager.items.fold<double>(
         0,
-        (sum, item) => sum + item.totalPrice,
+        (subtotal, item) => subtotal + item.totalPrice,
       );
 
       const double discount = 0;
@@ -175,6 +172,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
       final double total = subtotal - discount + tax;
 
+      // Submit the sale and stock updates in a single write transaction.
       await firestore.runTransaction((transaction) async {
         final saleRef = firestore.collection('sales').doc();
 
@@ -207,8 +205,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
             final productDoc = productQuery.docs.first;
             final productRef = productDoc.reference;
 
-            final currentStock =
-                ((productDoc.data()['stock'] ?? 0) as num).toInt();
+            final currentStock = ((productDoc.data()['stock'] ?? 0) as num)
+                .toInt();
 
             transaction.update(productRef, {
               'stock': currentStock - item.quantity,
@@ -217,15 +215,16 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         }
       });
 
+      // Clear the cart only after saving succeeds, so failed sales can be retried.
       CartManager.clearCart();
 
       await _playPaymentSuccessSound();
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sale saved successfully')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Sale saved successfully')));
 
       await Future.delayed(const Duration(milliseconds: 650));
 
@@ -235,9 +234,9 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save sale: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to save sale: $e')));
 
       setState(() {
         isSavingSale = false;
@@ -257,14 +256,11 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         child: Container(
           height: 74,
           decoration: BoxDecoration(
-            color: isSelected
-                ? const Color.fromARGB(255, 230, 248, 255)
-                : Colors.white,
-            borderRadius: BorderRadius.circular(18),
+            color: isSelected ? null : AppColors.surface,
+            gradient: isSelected ? AppColors.brandGradient : null,
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
             border: Border.all(
-              color: isSelected
-                  ? const Color.fromARGB(255, 5, 197, 245)
-                  : Colors.grey.shade300,
+              color: isSelected ? AppColors.primaryDark : AppColors.border,
               width: 1.5,
             ),
           ),
@@ -273,18 +269,15 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
             children: [
               Icon(
                 icon,
-                color: isSelected
-                    ? const Color.fromARGB(255, 5, 197, 245)
-                    : Colors.grey,
+                color: isSelected ? AppColors.onBrand : AppColors.muted,
               ),
               const SizedBox(height: 6),
               Text(
                 title,
                 style: TextStyle(
+                  fontSize: AppTypography.label,
                   fontWeight: FontWeight.w600,
-                  color: isSelected
-                      ? const Color.fromARGB(255, 5, 197, 245)
-                      : Colors.black87,
+                  color: isSelected ? AppColors.onBrand : AppColors.text,
                 ),
               ),
             ],
@@ -310,7 +303,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
-          Text('x$quantity', style: const TextStyle(color: Colors.grey)),
+          Text('x$quantity', style: const TextStyle(color: AppColors.muted)),
           const SizedBox(width: 12),
           Text(
             'BD ${subtotal.toStringAsFixed(3)}',
@@ -321,18 +314,20 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     );
   }
 
+  Widget _buildQrPlaceholder() {
+    return Container(
+      height: 180,
+      width: 180,
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Icon(Icons.qr_code, size: 70, color: AppColors.muted),
+    );
+  }
+
   Widget _buildQrPreview() {
-    if (benefitQrBase64.isEmpty) {
-      return Container(
-        height: 180,
-        width: 180,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Icon(Icons.qr_code, size: 70, color: Colors.grey),
-      );
-    }
+    if (benefitQrBase64.isEmpty) return _buildQrPlaceholder();
 
     try {
       final Uint8List bytes = base64Decode(benefitQrBase64);
@@ -345,28 +340,13 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
           width: 180,
           fit: BoxFit.cover,
           errorBuilder: (context, error, stackTrace) {
-            return Container(
-              height: 180,
-              width: 180,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Icon(Icons.qr_code, size: 70, color: Colors.grey),
-            );
+            return _buildQrPlaceholder();
           },
         ),
       );
-    } catch (e) {
-      return Container(
-        height: 180,
-        width: 180,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: const Icon(Icons.qr_code, size: 70, color: Colors.grey),
-      );
+    } catch (_) {
+      // Show a placeholder when the stored Base64 data is invalid.
+      return _buildQrPlaceholder();
     }
   }
 
@@ -375,7 +355,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     final cartItems = CartManager.items;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -385,14 +365,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                     decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Color.fromARGB(255, 164, 235, 213),
-                          Color.fromARGB(255, 5, 197, 245),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      gradient: AppColors.brandGradient,
                       borderRadius: BorderRadius.only(
                         bottomLeft: Radius.circular(30),
                         bottomRight: Radius.circular(30),
@@ -401,14 +374,14 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                     child: Row(
                       children: [
                         CircleAvatar(
-                          backgroundColor: Colors.white.withOpacity(0.25),
+                          backgroundColor: Colors.white.withValues(alpha: 0.25),
                           child: IconButton(
                             onPressed: isSavingSale
                                 ? null
                                 : () => Navigator.pop(context),
                             icon: const Icon(
                               Icons.arrow_back,
-                              color: Colors.white,
+                              color: AppColors.onBrand,
                             ),
                           ),
                         ),
@@ -420,17 +393,17 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                               Text(
                                 'Payment & Receipt',
                                 style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.onBrand,
+                                  fontSize: AppTypography.title,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                               SizedBox(height: 4),
                               Text(
                                 'Review payment and invoice details',
                                 style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
+                                  color: AppColors.onBrand,
+                                  fontSize: AppTypography.body,
                                 ),
                               ),
                             ],
@@ -455,8 +428,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                               const Text(
                                 'Payment Method',
                                 style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: AppTypography.section,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                               const SizedBox(height: 14),
@@ -491,7 +464,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF6F8FC),
+                                  color: AppColors.background,
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: Column(
@@ -500,17 +473,17 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                     const Text(
                                       'Total Amount',
                                       style: TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 14,
+                                        color: AppColors.muted,
+                                        fontSize: AppTypography.body,
                                       ),
                                     ),
                                     const SizedBox(height: 6),
                                     Text(
                                       'BD ${CartManager.total.toStringAsFixed(3)}',
                                       style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color.fromARGB(255, 5, 197, 245),
+                                        fontSize: AppTypography.metric,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.primaryDark,
                                       ),
                                     ),
                                   ],
@@ -523,7 +496,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                     width: double.infinity,
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFF6F8FC),
+                                      color: AppColors.background,
                                       borderRadius: BorderRadius.circular(16),
                                     ),
                                     child: Column(
@@ -533,15 +506,15 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                         const Text(
                                           'BenefitPay Number',
                                           style: TextStyle(
-                                            color: Colors.grey,
-                                            fontSize: 14,
+                                            color: AppColors.muted,
+                                            fontSize: AppTypography.body,
                                           ),
                                         ),
                                         const SizedBox(height: 6),
                                         Text(
                                           benefitNumber,
                                           style: const TextStyle(
-                                            fontSize: 18,
+                                            fontSize: AppTypography.section,
                                             fontWeight: FontWeight.w700,
                                           ),
                                         ),
@@ -554,7 +527,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                     width: double.infinity,
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFF6F8FC),
+                                      color: AppColors.background,
                                       borderRadius: BorderRadius.circular(16),
                                     ),
                                     child: Column(
@@ -588,8 +561,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                               const Text(
                                 'Receipt',
                                 style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: AppTypography.section,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                               const SizedBox(height: 14),
@@ -599,7 +572,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                 children: [
                                   const Text(
                                     'Store',
-                                    style: TextStyle(color: Colors.grey),
+                                    style: TextStyle(color: AppColors.muted),
                                   ),
                                   Text(
                                     storeName.isEmpty ? 'My Store' : storeName,
@@ -616,7 +589,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                 children: [
                                   const Text(
                                     'Cashier',
-                                    style: TextStyle(color: Colors.grey),
+                                    style: TextStyle(color: AppColors.muted),
                                   ),
                                   Text(
                                     cashierName.isEmpty
@@ -635,7 +608,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                 children: [
                                   const Text(
                                     'Receipt No.',
-                                    style: TextStyle(color: Colors.grey),
+                                    style: TextStyle(color: AppColors.muted),
                                   ),
                                   Text(
                                     receiptNumber,
@@ -646,7 +619,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              Divider(color: Colors.grey.shade300),
+                              Divider(color: AppColors.border),
                               const SizedBox(height: 10),
                               ...cartItems.map(
                                 (item) => _buildReceiptItem(
@@ -655,7 +628,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                   subtotal: item.totalPrice,
                                 ),
                               ),
-                              Divider(color: Colors.grey.shade300),
+                              Divider(color: AppColors.border),
                               const SizedBox(height: 10),
                               Row(
                                 mainAxisAlignment:
@@ -664,7 +637,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                   const Text(
                                     'Subtotal',
                                     style: TextStyle(
-                                      color: Colors.grey,
+                                      color: AppColors.muted,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -684,7 +657,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                   Text(
                                     'Discount',
                                     style: TextStyle(
-                                      color: Colors.grey,
+                                      color: AppColors.muted,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -704,7 +677,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                   Text(
                                     'Tax',
                                     style: TextStyle(
-                                      color: Colors.grey,
+                                      color: AppColors.muted,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -724,16 +697,16 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                   const Text(
                                     'Total',
                                     style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
+                                      fontSize: AppTypography.section,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                   Text(
                                     'BD ${CartManager.total.toStringAsFixed(3)}',
                                     style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color.fromARGB(255, 5, 197, 245),
+                                      fontSize: AppTypography.metric,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.primaryDark,
                                     ),
                                   ),
                                 ],
@@ -747,10 +720,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                           child: ElevatedButton(
                             onPressed: isSavingSale ? null : _confirmPayment,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  const Color.fromARGB(255, 70, 223, 175),
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 18),
+                              padding: const EdgeInsets.symmetric(vertical: 18),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
@@ -760,7 +730,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                     width: 24,
                                     height: 24,
                                     child: CircularProgressIndicator(
-                                      color: Colors.white,
+                                      color: AppColors.onBrand,
                                       strokeWidth: 2.5,
                                     ),
                                   )
@@ -769,9 +739,9 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                         ? 'Confirm Cash Payment'
                                         : 'Payment Received',
                                     style: const TextStyle(
-                                      color: Colors.white,
+                                      color: AppColors.onBrand,
                                       fontWeight: FontWeight.w700,
-                                      fontSize: 16,
+                                      fontSize: AppTypography.button,
                                     ),
                                   ),
                           ),

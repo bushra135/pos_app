@@ -1,12 +1,15 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../products/products_screen.dart';
-import '../reports/reports_screen.dart';
+import '../../utils/app_colors.dart';
+import '../../utils/app_spacing.dart';
+import '../../utils/app_typography.dart';
 import '../ai/ai_screen.dart';
+import '../products/products_screen.dart';
 import '../profile/profile_screen.dart';
+import '../reports/reports_screen.dart';
 import 'cashiers_management_screen.dart';
 
 class OwnerHomeScreen extends StatefulWidget {
@@ -84,6 +87,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
   Future<void> _loadDashboardData(String code) async {
     try {
+      // Count only users with the cashier role in this store.
       final cashiersSnapshot = await _firestore
           .collection('users')
           .where('storeCode', isEqualTo: code)
@@ -102,11 +106,11 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           .get();
 
       int lowStock = 0;
-      int total = productsSnapshot.docs.length;
+      final total = productsSnapshot.docs.length;
       String topProduct = '';
       int topSold = 0;
 
-      for (var doc in productsSnapshot.docs) {
+      for (final doc in productsSnapshot.docs) {
         final data = doc.data();
 
         final quantity = ((data['quantity'] ?? 0) as num).toInt();
@@ -121,6 +125,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         }
       }
 
+      // Use the device's local day, excluding the start of tomorrow.
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
       final endOfDay = startOfDay.add(const Duration(days: 1));
@@ -132,7 +137,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
       double totalSales = 0.0;
 
-      for (var sale in salesSnapshot.docs) {
+      for (final sale in salesSnapshot.docs) {
         final data = sale.data();
         final createdAt = data['createdAt'];
 
@@ -166,9 +171,9 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
     Clipboard.setData(ClipboardData(text: storeCode));
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Store code copied')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Store code copied')));
   }
 
   Future<void> _openCashiersManagement() async {
@@ -206,7 +211,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -216,8 +221,8 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         currentIndex: selectedIndex,
         onTap: (index) => setState(() => selectedIndex = index),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF2F80FF),
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: AppColors.primaryDark,
+        unselectedItemColor: AppColors.muted,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
           BottomNavigationBarItem(
@@ -242,7 +247,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           _buildHeader(),
           const SizedBox(height: 20),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
             child: GridView.count(
               crossAxisCount: 2,
               shrinkWrap: true,
@@ -253,7 +258,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
               children: [
                 _buildMetricCard(
                   icon: Icons.attach_money,
-                  color: Colors.green,
+                  color: AppColors.success,
                   title: "Today's Sales",
                   value: "\$${todaySales.toStringAsFixed(2)}",
                   subtitle: todaySales > 0
@@ -262,21 +267,21 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                 ),
                 _buildMetricCard(
                   icon: Icons.warning_amber,
-                  color: Colors.orange,
+                  color: AppColors.warning,
                   title: "Low Stock",
                   value: "$lowStockCount Items",
                   subtitle: lowStockCount > 0 ? "Needs attention" : "All good",
                 ),
                 _buildMetricCard(
                   icon: Icons.inventory,
-                  color: Colors.purple,
+                  color: AppColors.primaryDark,
                   title: "Total Products",
                   value: "$totalProducts",
                   subtitle: "+0 this week",
                 ),
                 _buildMetricCard(
                   icon: Icons.trending_up,
-                  color: Colors.blue,
+                  color: AppColors.primaryDark,
                   title: "Best Seller",
                   value: bestSellerName.isEmpty ? "No data" : bestSellerName,
                   subtitle: "$bestSellerSold sold",
@@ -286,7 +291,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           ),
           const SizedBox(height: 14),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
             child: _buildCashiersCard(),
           ),
           const SizedBox(height: 24),
@@ -300,14 +305,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 26, 20, 28),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFF8BE3D0),
-            Color(0xFF18BFE8),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: AppColors.brandGradient,
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(30),
           bottomRight: Radius.circular(30),
@@ -323,8 +321,8 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                 Text(
                   "Welcome back, ${firstName.isEmpty ? "Owner" : firstName}",
                   style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
+                    color: AppColors.onBrand,
+                    fontSize: AppTypography.body,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -332,9 +330,9 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                 Text(
                   storeName.isEmpty ? "My Store" : storeName,
                   style: const TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    fontSize: AppTypography.brand,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.onBrand,
                   ),
                 ),
               ],
@@ -345,9 +343,9 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.22),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.white.withOpacity(0.18)),
+                color: Colors.white.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -355,12 +353,13 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                   Text(
                     storeCode.isEmpty ? 'No Code' : storeCode,
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
+                      color: AppColors.onBrand,
+                      fontSize: AppTypography.label,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(Icons.copy, color: Colors.white, size: 18),
+                  const Icon(Icons.copy, color: AppColors.onBrand, size: 18),
                 ],
               ),
             ),
@@ -381,11 +380,11 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFEFF3F8)),
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1B2940).withOpacity(0.07),
+            color: AppColors.text.withValues(alpha: 0.07),
             blurRadius: 18,
             offset: const Offset(0, 10),
           ),
@@ -398,8 +397,8 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(14),
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
             ),
             child: Icon(icon, color: color, size: 22),
           ),
@@ -409,18 +408,18 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1F2430),
+              fontSize: AppTypography.metric,
+              fontWeight: FontWeight.w700,
+              color: AppColors.text,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             title,
             style: const TextStyle(
-              fontSize: 15,
+              fontSize: AppTypography.label,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF2D313A),
+              color: AppColors.text,
             ),
           ),
           const SizedBox(height: 7),
@@ -430,7 +429,8 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: color,
-              fontWeight: FontWeight.w700,
+              fontSize: AppTypography.caption,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -441,19 +441,19 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   Widget _buildCashiersCard() {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
       child: InkWell(
         onTap: _openCashiersManagement,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFFEFF3F8)),
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+            border: Border.all(color: AppColors.border),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF1B2940).withOpacity(0.07),
+                color: AppColors.text.withValues(alpha: 0.07),
                 blurRadius: 18,
                 offset: const Offset(0, 10),
               ),
@@ -465,12 +465,12 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: Colors.teal.withOpacity(0.12),
+                  color: AppColors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(
                   Icons.people_alt_rounded,
-                  color: Colors.teal,
+                  color: AppColors.primaryDark,
                   size: 26,
                 ),
               ),
@@ -484,17 +484,18 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF1F2430),
+                        fontSize: AppTypography.section,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.text,
                       ),
                     ),
                     const SizedBox(height: 5),
                     Text(
                       "$activeCashierCount active cashiers",
                       style: const TextStyle(
-                        color: Colors.teal,
-                        fontWeight: FontWeight.w700,
+                        color: AppColors.primaryDark,
+                        fontSize: AppTypography.body,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -504,12 +505,12 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: Colors.teal.withOpacity(0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
                   Icons.chevron_right_rounded,
-                  color: Colors.teal,
+                  color: AppColors.primaryDark,
                   size: 26,
                 ),
               ),
