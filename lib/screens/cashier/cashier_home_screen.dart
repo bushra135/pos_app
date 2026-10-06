@@ -352,15 +352,16 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: _buildGradientButton(
+                      child: _buildActionButton(
                         icon: Icons.qr_code_scanner,
                         label: "QR Scan",
+                        gradient: true,
                         onTap: () => setState(() => selectedIndex = 1),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: _buildOutlinedButton(
+                      child: _buildActionButton(
                         icon: Icons.shopping_cart,
                         label: "Cart",
                         onTap: () => setState(() => selectedIndex = 2),
@@ -372,7 +373,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: _buildOutlinedButton(
+                      child: _buildActionButton(
                         icon: Icons.inventory_2,
                         label: "Products",
                         subtitle: "Manage items",
@@ -429,44 +430,11 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     );
   }
 
-  Widget _buildGradientButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 100,
-        decoration: BoxDecoration(
-          gradient: AppColors.brandGradient,
-          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: AppColors.onBrand),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppColors.onBrand,
-                  fontSize: AppTypography.button,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOutlinedButton({
+  Widget _buildActionButton({
     required IconData icon,
     required String label,
     String? subtitle,
+    bool gradient = false,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
@@ -474,20 +442,24 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       child: Container(
         height: 100,
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppColors.border),
+          color: gradient ? null : Colors.white,
+          gradient: gradient ? AppColors.brandGradient : null,
+          border: gradient ? null : Border.all(color: AppColors.border),
           borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         ),
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: AppColors.primaryDark),
+              Icon(
+                icon,
+                color: gradient ? AppColors.onBrand : AppColors.primaryDark,
+              ),
               const SizedBox(height: 8),
               Text(
                 label,
-                style: const TextStyle(
-                  color: AppColors.text,
+                style: TextStyle(
+                  color: gradient ? AppColors.onBrand : AppColors.text,
                   fontSize: AppTypography.button,
                   fontWeight: FontWeight.w600,
                 ),

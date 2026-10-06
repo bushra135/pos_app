@@ -83,9 +83,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
       final userData = userDoc.data()!;
       final String fullName = (userData['fullName'] ?? '').toString();
-      final String firstName = fullName.isNotEmpty
-          ? fullName.split(' ')[0]
-          : '';
+      final String firstName = fullName.split(' ').first;
       final String fetchedStoreCode = (userData['storeCode'] ?? '')
           .toString()
           .trim();
@@ -161,16 +159,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
       final items = CartManager.items.map((item) => item.toSaleData()).toList();
 
-      final double subtotal = CartManager.items.fold<double>(
-        0,
-        (subtotal, item) => subtotal + item.totalPrice,
-      );
-
-      const double discount = 0;
-      const double refund = 0;
-      const double tax = 0;
-
-      final double total = subtotal - discount + tax;
+      final subtotal = CartManager.total;
 
       // Submit the sale and stock updates in a single write transaction.
       await firestore.runTransaction((transaction) async {
@@ -185,10 +174,10 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
           'receiptNumber': saleReceiptNumber,
           'items': items,
           'subtotal': subtotal,
-          'discount': discount,
-          'refund': refund,
-          'tax': tax,
-          'total': total,
+          'discount': 0.0,
+          'refund': 0.0,
+          'tax': 0.0,
+          'total': subtotal,
           'status': 'completed',
           'type': 'sale',
           'createdAt': FieldValue.serverTimestamp(),

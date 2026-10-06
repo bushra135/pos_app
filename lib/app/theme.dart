@@ -91,7 +91,10 @@ abstract final class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-          borderSide: const BorderSide(color: AppColors.primaryDark, width: 1.6),
+          borderSide: const BorderSide(
+            color: AppColors.primaryDark,
+            width: 1.6,
+          ),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(

@@ -108,10 +108,6 @@ class _ScanScreenState extends State<ScanScreen> {
       if (querySnapshot.docs.isEmpty) {
         if (!mounted) return;
 
-        setState(() {
-          isLoadingProduct = false;
-        });
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Product not found: $code'),
@@ -139,10 +135,6 @@ class _ScanScreenState extends State<ScanScreen> {
 
       if (!mounted) return;
 
-      setState(() {
-        isLoadingProduct = false;
-      });
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('$name added to cart'),
@@ -152,16 +144,14 @@ class _ScanScreenState extends State<ScanScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      setState(() {
-        isLoadingProduct = false;
-      });
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error loading product: $e'),
           duration: const Duration(seconds: 2),
         ),
       );
+    } finally {
+      if (mounted) setState(() => isLoadingProduct = false);
     }
   }
 

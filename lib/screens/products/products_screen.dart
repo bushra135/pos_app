@@ -1,7 +1,6 @@
 import 'dart:async';
-import 'dart:typed_data';
-
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -248,15 +247,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
     return scannedCode;
   }
 
-  Future<XFile?> _pickImageFromDevice() async {
-    return _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1200,
-      maxHeight: 1200,
-      imageQuality: 75,
-    );
-  }
-
   String _productSaveError(Object error, String stage) {
     if (error is TimeoutException) {
       if (stage == 'Saving product') {
@@ -339,7 +329,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 saveError = null;
               });
               try {
-                final image = await _pickImageFromDevice();
+                final image = await _imagePicker.pickImage(
+                  source: ImageSource.gallery,
+                  maxWidth: 1200,
+                  maxHeight: 1200,
+                  imageQuality: 75,
+                );
                 if (image == null || !mounted || !context.mounted) return;
 
                 final bytes = await image.readAsBytes().timeout(

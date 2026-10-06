@@ -225,22 +225,14 @@ class _AIScreenState extends State<AIScreen> {
       final name = (item['name'] ?? item['productName'] ?? 'Unknown Product')
           .toString();
 
-      final hasMinStock = _hasAnyKey(item, [
-        'minStock',
-        'minQuantity',
-        'minimumStock',
-      ]);
+      const minStockKeys = ['minStock', 'minQuantity', 'minimumStock'];
 
       return _ProductInfo(
         key: _productKey(item, name),
         name: name,
         stock: _numFromKeys(item, ['stock', 'quantity']).toInt(),
-        minStock: hasMinStock
-            ? _numFromKeys(item, [
-                'minStock',
-                'minQuantity',
-                'minimumStock',
-              ]).toInt()
+        minStock: minStockKeys.any(item.containsKey)
+            ? _numFromKeys(item, minStockKeys).toInt()
             : 5,
       );
     }).toList();
@@ -294,7 +286,6 @@ class _AIScreenState extends State<AIScreen> {
     required _DateRange range,
   }) {
     final sales = _salesInRange(data.sales, range);
-    final validSales = sales.where((sale) => !sale.isRefund).toList();
 
     final total = sales.fold<double>(
       0,
@@ -312,7 +303,7 @@ class _AIScreenState extends State<AIScreen> {
       0,
       (subtotal, sale) => subtotal + sale.refund,
     );
-    final orders = validSales.length;
+    final orders = sales.where((sale) => !sale.isRefund).length;
     final averageOrder = orders == 0 ? 0.0 : total / orders;
 
     return [
@@ -1189,10 +1180,6 @@ String _productKey(Map<String, dynamic> data, String fallbackName) {
   if (productId.isNotEmpty) return productId;
 
   return fallbackName.trim().toLowerCase();
-}
-
-bool _hasAnyKey(Map<String, dynamic> data, List<String> keys) {
-  return keys.any(data.containsKey);
 }
 
 double _numFromKeys(Map<String, dynamic> data, List<String> keys) {

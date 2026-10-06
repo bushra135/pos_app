@@ -182,22 +182,14 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _brand() => Column(
     children: [
-      Container(
+      Image.asset(
+        'assets/logo.png',
         width: 100,
         height: 100,
-        padding: const EdgeInsets.all(7),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Image.asset('assets/logo.png'),
+        fit: BoxFit.contain,
+        color: AppColors.onBrand,
+        colorBlendMode: BlendMode.srcIn,
+        semanticLabel: 'ShopPad logo',
       ),
       const SizedBox(height: 13),
       const Text(

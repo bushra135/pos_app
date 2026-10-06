@@ -1367,55 +1367,39 @@ _ChartBuckets _emptyBuckets(ReportPeriod period) {
 }
 
 int _bucketIndex(DateTime date, ReportPeriod period) {
-  switch (period) {
-    case ReportPeriod.today:
-      return date.hour;
-    case ReportPeriod.week:
-      return date.weekday % 7;
-    case ReportPeriod.month:
-      return date.day - 1;
-    case ReportPeriod.year:
-      return date.month - 1;
-  }
+  return switch (period) {
+    ReportPeriod.today => date.hour,
+    ReportPeriod.week => date.weekday % 7,
+    ReportPeriod.month => date.day - 1,
+    ReportPeriod.year => date.month - 1,
+  };
 }
 
 String _periodLabel(ReportPeriod period) {
-  switch (period) {
-    case ReportPeriod.today:
-      return 'Today';
-    case ReportPeriod.week:
-      return 'This week';
-    case ReportPeriod.month:
-      return 'This month';
-    case ReportPeriod.year:
-      return 'This year';
-  }
+  return switch (period) {
+    ReportPeriod.today => 'Today',
+    ReportPeriod.week => 'This week',
+    ReportPeriod.month => 'This month',
+    ReportPeriod.year => 'This year',
+  };
 }
 
 String _periodSubtitle(ReportPeriod period) {
-  switch (period) {
-    case ReportPeriod.today:
-      return 'Sales grouped by hour';
-    case ReportPeriod.week:
-      return 'Sales grouped by day';
-    case ReportPeriod.month:
-      return 'Sales grouped by day of month';
-    case ReportPeriod.year:
-      return 'Sales grouped by month';
-  }
+  return switch (period) {
+    ReportPeriod.today => 'Sales grouped by hour',
+    ReportPeriod.week => 'Sales grouped by day',
+    ReportPeriod.month => 'Sales grouped by day of month',
+    ReportPeriod.year => 'Sales grouped by month',
+  };
 }
 
 double _barWidth(ReportPeriod period) {
-  switch (period) {
-    case ReportPeriod.today:
-      return 7;
-    case ReportPeriod.week:
-      return 26;
-    case ReportPeriod.month:
-      return 6;
-    case ReportPeriod.year:
-      return 18;
-  }
+  return switch (period) {
+    ReportPeriod.today => 7,
+    ReportPeriod.week => 26,
+    ReportPeriod.month => 6,
+    ReportPeriod.year => 18,
+  };
 }
 
 bool _inRange(DateTime date, DateTime start, DateTime end) {

@@ -1,0 +1,13 @@
+Built-in image_gen tool; latest user image supplied as the concept reference.
+transparent_background: true
+
+Use case: logo-brand.
+Asset type: production logo icon for ShopPad, a POS cashier and store-management Flutter app.
+Input images: Image 1 (the MOST RECENT user-attached image only) is a composition and concept reference, not a pixel image to upscale.
+Primary request: Create a refined high-resolution reinterpretation closely inspired by the attached reference. Preserve its three essential elements and their arrangement: a bold rounded open hexagonal outline in the upper/back portion, a simplified vertical barcode inside it, a rising zigzag arrow sweeping across the barcode from bottom left to upper right and exiting through the upper-right opening, and a compact cash-register keypad/base in the bottom foreground. Preserve a cohesive single silhouette. Do not replace the reference idea with an abstract letter.
+Style/medium: immaculate flat 2D vector-like branding with sharp clean edges, consistent substantial stroke widths, deliberate spacing and rounded corners. Improve the reference's balance and legibility. Keep the barcode to about 10 clear bars of varied widths, no tiny noise. The arrow must be clearly readable, with one dip and one rising peak and a prominent arrowhead. The cashier base uses only a few orderly keypad cutouts, one horizontal slot and one circular button, all transparent negative space. Make the logo professional and visually close to the reference, not a collage.
+Color palette: the app's solid turquoise #087F9C and optional darker teal #075C78 for the cashier base. No gradients, no shadows.
+Composition: square canvas, one centered LARGE symbol occupying approximately 84% of canvas width and height, balanced 8% transparent margins; keep every element fully inside the canvas.
+Background: genuine transparent alpha background; all areas outside the mark and its interior negative spaces must be transparent, no white fill or baked checkerboard.
+Text: NO TEXT, no ShopPad wordmark because the app renders the name separately.
+Avoid: 3D, mockups, texture, watermarks, slogans, decorative flourishes, extra icons, screenshots, white square background. Deliver one finished transparent logo asset.

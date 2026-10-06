@@ -191,24 +191,13 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    Widget currentScreen;
-
-    switch (selectedIndex) {
-      case 1:
-        currentScreen = const ProductsScreen();
-        break;
-      case 2:
-        currentScreen = const ReportsScreen();
-        break;
-      case 3:
-        currentScreen = const AIScreen();
-        break;
-      case 4:
-        currentScreen = const ProfileScreen();
-        break;
-      default:
-        currentScreen = _buildHomeContent();
-    }
+    final currentScreen = switch (selectedIndex) {
+      1 => const ProductsScreen(),
+      2 => const ReportsScreen(),
+      3 => const AIScreen(),
+      4 => const ProfileScreen(),
+      _ => _buildHomeContent(),
+    };
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,

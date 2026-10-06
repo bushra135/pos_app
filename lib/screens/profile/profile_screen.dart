@@ -24,7 +24,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String role = '';
   String storeName = '';
   String storeCode = '';
-  String benefitNumber = '';
   String benefitQrBase64 = '';
 
   bool isLoading = true;
@@ -99,7 +98,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         role = userData['role'] ?? '';
         storeName = fetchedStoreName;
         storeCode = fetchedStoreCode;
-        benefitNumber = fetchedBenefitNumber;
         benefitQrBase64 = fetchedBenefitQrBase64;
         benefitNumberController.text = fetchedBenefitNumber;
         isLoading = false;
@@ -175,7 +173,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .update({'benefitNumber': newBenefitNumber});
 
       setState(() {
-        benefitNumber = newBenefitNumber;
         isSaving = false;
       });
 
