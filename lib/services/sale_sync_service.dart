@@ -173,14 +173,21 @@ class SaleSyncService extends ChangeNotifier {
     return cached;
   }
 
-  Future<Map<String, dynamic>> findProduct(String barcode) async {
+  /// Camera checkout can use the live local catalogue without a network round trip.
+  /// Server submission still validates stock; a cache miss uses the server path.
+  Future<Map<String, dynamic>> findProduct(
+    String barcode, {
+    bool preferCache = false,
+  }) async {
     final uid = currentUserId();
     if (uid == null) throw StateError('Sign in before scanning products.');
     final context = await store.contextFor(uid) ?? await loadContext(uid);
     final profile = Map<String, dynamic>.from(context['profile'] as Map);
     final code = profile['storeCode'].toString();
-    Map<String, dynamic>? product;
-    if (online && !offlineMode) {
+    Map<String, dynamic>? product = preferCache
+        ? await store.productByBarcode(code, barcode)
+        : null;
+    if (product == null && online && !offlineMode) {
       try {
         final result = await firestore
             .collection('products')

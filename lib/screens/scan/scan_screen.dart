@@ -24,12 +24,15 @@ class ScanScreen extends StatefulWidget {
 class _ScanScreenState extends State<ScanScreen> {
   final _scannerController = MobileScannerController(
     detectionSpeed: DetectionSpeed.normal,
+    detectionTimeoutMs: 100,
     facing: CameraFacing.back,
   );
   final _audioPlayer = AudioPlayer();
   final _barcodeInputController = TextEditingController();
   final _barcodeGuard = BarcodeScanGuard();
   Timer? _releaseTimer;
+  final List<String> _pendingBarcodes = [];
+  static const int _maximumPendingScans = 12;
   bool _isAddingProduct = false;
   bool _isTorchEnabled = false;
   bool _isManualEntryVisible = false;
@@ -61,7 +64,8 @@ class _ScanScreenState extends State<ScanScreen> {
         _barcodeGuard.release,
       );
     }
-    if (_isAddingProduct || _isManualEntryVisible || codes.isEmpty) return;
+    if (_isManualEntryVisible || codes.isEmpty) return;
+    if (_pendingBarcodes.length >= _maximumPendingScans) return;
     final code = codes.first;
     if (!_barcodeGuard.accept(code)) return;
     _releaseTimer?.cancel();
@@ -69,11 +73,15 @@ class _ScanScreenState extends State<ScanScreen> {
       const Duration(milliseconds: 1600),
       _barcodeGuard.release,
     );
-    unawaited(_addProductByBarcode(code));
+    if (_isAddingProduct) {
+      _pendingBarcodes.add(code);
+    } else {
+      unawaited(_addProductByBarcode(code));
+    }
   }
 
   Future<void> _playScanFeedback() async {
-    // Feedback failure must never report an already-added item as a _hasScanError scan.
+    // Feedback failure must never report an already-added item as a failed scan.
     try {
       await HapticFeedback.lightImpact();
       await _audioPlayer.stop();
@@ -89,7 +97,7 @@ class _ScanScreenState extends State<ScanScreen> {
     try {
       final sync = SaleSyncService.maybeInstance;
       if (sync == null) throw StateError('The sales service is not ready.');
-      final data = await sync.findProduct(code.trim());
+      final data = await sync.findProduct(code.trim(), preferCache: true);
       if (!mounted) return;
       final name = (data['name'] ?? '').toString();
       final productId = data['id'] as String;
@@ -117,7 +125,13 @@ class _ScanScreenState extends State<ScanScreen> {
         _hasScanError = true;
       });
     } finally {
-      if (mounted) setState(() => _isAddingProduct = false);
+      if (mounted) {
+        setState(() => _isAddingProduct = false);
+        // Preserve scan order and stock checks without dropping the next barcode.
+        if (_pendingBarcodes.isNotEmpty) {
+          unawaited(_addProductByBarcode(_pendingBarcodes.removeAt(0)));
+        }
+      }
     }
   }
 

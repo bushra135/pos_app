@@ -97,3 +97,8 @@ The bundled Cairo font and license are in `assets/fonts`. The `image` package is
 - Separate Dart SDK, package and project imports. Let `dart format` handle layout.
 - Comments explain decisions and invariants, especially payment persistence, stock checks and retry behavior. Avoid comments that only repeat the next line.
 - Keep UI builders in the screen unless a view is reused or has a separate responsibility. Avoid creating a file for every small widget or combining unrelated features to reduce file count.
+
+
+## Fast camera lookup
+
+Camera checkout uses `findProduct(preferCache: true)` to read the locally synchronized catalogue first. Cache misses fall back to a server lookup when online. Cached names, prices and stock can lag behind another device until the product stream updates; stock is checked again on submission. The camera detection interval is 100 ms, not an unrestricted frame loop. Up to 12 subsequent camera detections are processed in order while product lookup is busy; full queues accept no further scans until capacity is available. Each successful addition has its own feedback. The existing duplicate guard remains active. These settings reduce software waiting, but do not constitute a measured camera scan latency or a guarantee of outperforming a dedicated scanner.
