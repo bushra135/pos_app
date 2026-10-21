@@ -3,10 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../utils/app_colors.dart';
-import '../../utils/app_spacing.dart';
-import '../../utils/app_typography.dart';
-import '../ai/ai_screen.dart';
+import '../../app/app_colors.dart';
+import '../../app/app_spacing.dart';
+import '../../app/app_typography.dart';
+import '../../services/sale_sync_service.dart';
+import '../../widgets/sale_sync_panel.dart';
+import '../ai/ai_assistant_screen.dart';
 import '../products/products_screen.dart';
 import '../profile/profile_screen.dart';
 import '../reports/reports_screen.dart';
@@ -54,15 +56,23 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         return;
       }
 
-      final doc = await _firestore.collection('users').doc(user.uid).get();
-
-      if (!doc.exists) {
-        if (!mounted) return;
-        setState(() => isLoading = false);
-        return;
+      final sync = SaleSyncService.maybeInstance;
+      Map<String, dynamic> data;
+      Map<String, dynamic> store = {};
+      if (sync != null) {
+        final cachedContext = await sync.loadContext(user.uid);
+        data = Map<String, dynamic>.from(cachedContext['profile'] as Map);
+        store = Map<String, dynamic>.from(cachedContext['store'] as Map);
+      } else {
+        final doc = await _firestore.collection('users').doc(user.uid).get();
+        if (!doc.exists) {
+          if (!mounted) return;
+          setState(() => isLoading = false);
+          return;
+        }
+        data = doc.data()!;
       }
 
-      final data = doc.data()!;
       final fullName = data['fullName'] ?? '';
       final ownerStoreCode = data['storeCode'] ?? '';
 
@@ -70,7 +80,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
       setState(() {
         firstName = fullName.isNotEmpty ? fullName.split(' ')[0] : '';
-        storeName = data['storeName'] ?? '';
+        storeName = store['storeName'] ?? data['storeName'] ?? '';
         storeCode = ownerStoreCode;
         isLoading = false;
       });
@@ -87,12 +97,15 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
   Future<void> _loadDashboardData(String code) async {
     try {
+      final options = SaleSyncService.maybeInstance?.online == false
+          ? const GetOptions(source: Source.cache)
+          : const GetOptions();
       // Count only users with the cashier role in this store.
       final cashiersSnapshot = await _firestore
           .collection('users')
           .where('storeCode', isEqualTo: code)
           .where('role', isEqualTo: 'cashier')
-          .get();
+          .get(options);
 
       final totalCashiers = cashiersSnapshot.docs.length;
       final activeCashiers = cashiersSnapshot.docs.where((doc) {
@@ -103,7 +116,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       final productsSnapshot = await _firestore
           .collection('products')
           .where('storeCode', isEqualTo: code)
-          .get();
+          .get(options);
 
       int lowStock = 0;
       final total = productsSnapshot.docs.length;
@@ -133,7 +146,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       final salesSnapshot = await _firestore
           .collection('sales')
           .where('storeCode', isEqualTo: code)
-          .get();
+          .get(options);
 
       double totalSales = 0.0;
 
@@ -194,7 +207,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     final currentScreen = switch (selectedIndex) {
       1 => const ProductsScreen(),
       2 => const ReportsScreen(),
-      3 => const AIScreen(),
+      3 => const AiAssistantScreen(),
       4 => const ProfileScreen(),
       _ => _buildHomeContent(),
     };
@@ -202,9 +215,16 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : currentScreen,
+        child: Column(
+          children: [
+            const SaleSyncPanel(),
+            Expanded(
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : currentScreen,
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIndex,
@@ -294,7 +314,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 26, 20, 28),
       decoration: const BoxDecoration(
-        gradient: AppColors.brandGradient,
+        color: AppColors.primary,
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(30),
           bottomRight: Radius.circular(30),
@@ -332,9 +352,11 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.22),
+                color: AppColors.surface.withValues(alpha: 0.22),
                 borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                border: Border.all(
+                  color: AppColors.surface.withValues(alpha: 0.18),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -368,7 +390,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         border: Border.all(color: AppColors.border),
         boxShadow: [
@@ -429,7 +451,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
   Widget _buildCashiersCard() {
     return Material(
-      color: Colors.white,
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
       child: InkWell(
         onTap: _openCashiersManagement,
@@ -437,7 +459,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         child: Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
             border: Border.all(color: AppColors.border),
             boxShadow: [

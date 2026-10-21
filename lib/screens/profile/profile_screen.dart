@@ -6,9 +6,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../utils/app_colors.dart';
-import '../../utils/app_spacing.dart';
-import '../../utils/app_typography.dart';
+import '../../app/app_colors.dart';
+import '../../app/app_spacing.dart';
+import '../../app/app_typography.dart';
+import '../backup/backup_screen.dart';
 
 /// Shows user details and payment settings shared by store employees.
 class ProfileScreen extends StatefulWidget {
@@ -204,7 +205,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       height: 160,
       width: 160,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
       ),
       child: const Icon(Icons.qr_code_2, size: 70, color: AppColors.muted),
@@ -260,7 +261,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 30),
                 decoration: const BoxDecoration(
-                  gradient: AppColors.brandGradient,
+                  color: AppColors.primary,
                   borderRadius: BorderRadius.only(
                     bottomLeft: Radius.circular(26),
                     bottomRight: Radius.circular(26),
@@ -303,7 +304,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                     boxShadow: [
                       BoxShadow(
@@ -355,7 +356,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.surface,
                   borderRadius: BorderRadius.circular(22),
                   boxShadow: [
                     BoxShadow(
@@ -520,12 +521,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ),
+              if (isOwner && storeCode.isNotEmpty)
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.backup_outlined),
+                    title: const Text('Backup & recovery'),
+                    subtitle: const Text(
+                      'Create a cloud copy or recover missing records',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BackupScreen(storeCode: storeCode),
+                      ),
+                    ),
+                  ),
+                ),
               const SizedBox(height: 18),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 22),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.surface,
                   borderRadius: BorderRadius.circular(22),
                   boxShadow: [
                     BoxShadow(
@@ -562,7 +580,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   width: double.infinity,
                   height: 58,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                     border: Border.all(color: AppColors.danger, width: 1.6),
                   ),

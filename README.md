@@ -1,65 +1,17 @@
-# ShopPad — تطبيق نقطة البيع
+# ShopPad
 
-تطبيق Flutter لإدارة المتجر والمنتجات والكاشير والمبيعات، مع Firebase لتسجيل الدخول وتخزين البيانات.
+ShopPad is a Flutter point-of-sale app. A cashier scans a product barcode with the phone camera, reviews the cart, confirms payment, and shares a receipt. Owners manage products, cashiers, reports, payment settings and recovery copies.
 
-## تشغيل المشروع
+## Run and verify
 
-- استخدم Flutter بإصدار يحتوي Dart 3.11 أو أحدث، بما يتوافق مع `pubspec.yaml`.
-- إعدادات Firebase الحالية موجودة في `lib/firebase_options.dart` و`firebase.json` وملفات المنصات؛ استخدم مشروع الفريق أو إعدادات بيئتك المعتمدة.
-- يحتاج الاختبار الفعلي لتسجيل الدخول والبيع إلى اتصال Firebase وصلاحيات Firestore المناسبة.
+Use Flutter with Dart 3.11 or newer, matching `pubspec.yaml`.
 
 ```sh
 flutter pub get
-flutter run -d chrome
+flutter run
 ```
 
-صور الجهاز تُحفظ مباشرة في حقل `products/{id}.image` بصيغة `data:image/png;base64,...`، مع استمرار دعم روابط الصور القديمة. هذا المسار لا يعتمد على Firebase Storage. يُحوّل `ProductImageData` الصورة محليًا إلى PNG بطول أقصى 640 بكسل، ويقلل الأبعاد عند الحاجة حتى يصبح الحجم قبل Base64 أقل من أو يساوي 180 KiB، مع إبقاء مساحة لبقية حقول وثيقة المنتج. الصور المتحركة تُحفظ كصورة ثابتة من الإطار الأول.
-
-تُرفض الصور الأصلية الأكبر من 20 MiB. إعداد الصورة وفحص الباركود وتأكيد كتابة المنتج لها مهلة 20 ثانية لكل عملية. قد تُكمل Firestore كتابة متأخرة بعد المهلة؛ إعادة المحاولة داخل النافذة نفسها تستخدم الوثيقة نفسها لتجنب إنشاء منتج مكرر. يستخدم عرض المنتجات والسلة `ProductImage` لقراءة صور Base64 من الذاكرة والروابط من الشبكة.
-
-تبقى الصور المضمنة في وثائق المنتجات ولا تُنسخ إلى عناصر وثيقة البيع، حتى لا تتجاوز فاتورة تحتوي عدة منتجات حد حجم الوثيقة. يحتفظ البيع ببيانات الصنف والسعر والكمية والباركود، وتبقى روابط الصور القديمة مدعومة.
-
-لاختبار الكاميرا، شغّل التطبيق على جهاز يدعمها ويمنح صلاحيتها.
-
-## خريطة الكود
-
-| المسار | المسؤولية |
-| --- | --- |
-| `lib/main.dart` | تهيئة Firebase وتشغيل التطبيق |
-| `lib/app/theme.dart` | تنسيق مكونات الواجهة المشترك |
-| `lib/utils/app_colors.dart` و`app_spacing.dart` و`app_typography.dart` | الألوان والمقاسات وأحجام الخطوط المشتركة |
-| `lib/screens/auth/` | الدخول وإنشاء الحساب والتحقق من البريد وتحديد الدور |
-| `lib/screens/owner/` | لوحة المالك وإدارة دعوات الكاشير |
-| `lib/screens/cashier/` | لوحة الكاشير والتنقل إلى المسح والسلة |
-| `lib/screens/products/` | إضافة المنتجات وتعديلها وحذفها ومتابعة المخزون |
-| `lib/screens/scan/` و`cart/` و`checkout/` | مسح المنتجات وتعديل السلة وتأكيد البيع وعرض الإيصال |
-| `lib/screens/profile/` | بيانات الحساب والمتجر وإعدادات دفع Benefit |
-| `lib/screens/reports/` | تجميع المبيعات والرسوم البيانية حسب الفترة |
-| `lib/screens/ai/` | إجابات محلية مبنية على بيانات المتجر؛ لا يوجد اتصال بنموذج خارجي |
-| `lib/models/cart_item.dart` و`utils/cart_manager.dart` | عناصر السلة وإدارتها في الذاكرة |
-| `lib/utils/product_image_data.dart` و`lib/widgets/product_image.dart` | تصغير صور المنتجات وحفظها داخل الوثيقة، وعرض الصور المضمنة والروابط |
-| `test/widget_test.dart` | اختبارات السلة والكمية والتخطيط بعرض 320 و800 بكسل |
-| `test/product_image_test.dart` | اختبارات حجم الصور، وفكها، وعرض الصور المضمنة، والتعامل مع الملفات غير الصالحة |
-
-## تدفق التطبيق والبيانات
-
-1. `AuthWrapper` يراقب جلسة Firebase، ويعرض التحقق من البريد قبل الانتقال إلى واجهة المستخدم.
-2. دور الحساب و`storeCode` يأتيان من `users/{uid}`. يستخدم المالك صفحات الإدارة، ويستخدم الكاشير المسح والسلة.
-3. صفحات المنتجات والمسح تضيف إلى `CartManager`. السلة مؤقتة في الذاكرة ولا تستمر بعد إعادة تشغيل التطبيق.
-4. صفحة الدفع تسجل البيع في `sales` وتعدّل مخزون `products` قبل إفراغ السلة وإرجاع نتيجة نجاح.
-5. التقارير والتحليل المحلي يقرآن بيانات المتجر ويجمعان النتائج حسب الفترة المطلوبة.
-
-المجموعات الأساسية في Firestore هي `users` و`stores` و`products` و`sales`. توجد قراءة متوافقة مع بعض أسماء الحقول القديمة مثل `stock`/`quantity` و`minStock`/`minQuantity`؛ راجع مواضع القراءة والكتابة قبل توحيدها أو حذفها. دعوات الكاشير محفوظة أيضاً داخل `users` بوثائق مستقلة وحقل `uid` فارغ؛ التسجيل الحالي ينشئ `users/{uid}` ولا يدمج الدعوة تلقائياً. إخفاء عناصر الواجهة حسب الدور لا يغني عن قواعد صلاحيات Firebase.
-
-## العمل ضمن الفريق
-
-- عدّل الألوان والتنسيق المشترك من ملفات الثيم، والمسافات المشتركة من `AppSpacing` وأحجام الخطوط من `AppTypography`. رؤوس الصفحات والأزرار تستخدم `AppColors.brandGradient` نفسه.
-- رتّب الاستيراد: مكتبات Dart، ثم الحزم، ثم ملفات المشروع، مع سطر فارغ بين المجموعات.
-- أضف تعليقاً عندما يحتاج المنطق إلى تفسير: سبب شرط، علاقة بين مجموعات Firestore، أو دعم بيانات قديمة. تجنب وصف السطر أو تسجيل تاريخ التعديلات في التعليقات.
-- `firebase_options.dart` وملفات تسجيل الإضافات الخاصة بالمنصات ملفات مولّدة؛ حدّثها بأدواتها عند الحاجة.
-- حدّث `pubspec.lock` مع أي تغيير في الاعتماديات، ولا تحذف مجلد منصة اعتماداً على عدم تشغيله على جهازك.
-
-قبل تسليم التعديل:
+Use a real camera-capable device to verify scanning, permissions, vibration, PDF sharing and printing. Firebase access and the appropriate server rules are required for sign-in and server data. The existing project configuration is in `firebase_options.dart` and `firebase.json`.
 
 ```sh
 dart format lib test
@@ -67,6 +19,81 @@ flutter analyze
 flutter test
 ```
 
-الاختبارات الحالية لا تتصل بـFirebase. جرّب تسجيل الدخول والمسح وحفظ البيع ورفع الصور على البيئة والجهاز المناسبين عند تعديل هذه المسارات.
+Windows desktop plugin builds may require Windows Developer Mode for symlink support. Printing uses the operating system print service; direct Bluetooth ESC/POS thermal printing is not implemented.
 
-خط Cairo مضمّن داخل `assets/fonts/`، مع رخصته في `OFL-Cairo.txt`. مصدره [مستودع Google Fonts الرسمي](https://github.com/google/fonts/tree/main/ofl/cairo).
+## Folder responsibilities
+
+| Folder | Purpose |
+| --- | --- |
+| `lib/app` | Shared theme, colors, spacing and typography |
+| `lib/models` | Cart items and saved sale data |
+| `lib/screens` | Pages grouped by feature: authentication, scanning, checkout, products, reports, profile and backup |
+| `lib/services` | Firebase operations, sales synchronization, local storage, PDF generation and recovery |
+| `lib/utils` | Small reusable helpers: cart operations, barcode duplicate guard and image preparation |
+| `lib/widgets` | Reusable views: product images, receipt display and synchronization status |
+| `test` | Automated checks for storage, sale safety, cart layout, scanning, receipts and recovery |
+| `functions` | Server-side email verification and validation; see its README for setup |
+
+Generated platform folders (`android`, `ios`, `web`, `linux`, `macos`) and `firebase_options.dart` are integration code. Do not memorize or manually rewrite generated registration files. `.dart_tool` and `build` contain tooling output, not the application's business logic.
+
+## Follow one sale through the code
+
+1. `main.dart` initializes Firebase, persistent local storage and `SaleSyncService`.
+2. `auth/auth_wrapper.dart` checks the session, email verification and store role.
+3. `scan/scan_screen.dart` reads the camera barcode or manual input. `BarcodeScanGuard` prevents a continuously detected label from repeatedly adding units.
+4. `SaleSyncService.findProduct` finds the store product and checks available stock, including pending reservations and the cart.
+5. `CartManager` adds or updates the in-memory cart. The scan screen displays the same cart used by `cart/cart_screen.dart`.
+6. `checkout/checkout_receipt_screen.dart` creates a fixed `SaleRecord` and submits it through `SaleSyncService`.
+7. `LocalPosStore` durably keeps pending cash receipts. `FirestoreSaleGateway` checks authoritative stock and saves the sale with stock changes in a Firestore transaction. A stable sale ID prevents repeated submission from making another sale.
+8. `SaleReceiptView` displays the saved snapshot after the cart is cleared. `ReceiptService.generatePdf` produces the PDF. Export errors do not resubmit payment.
+
+The scan screen's `build` method lists its six UI sections. Each section has a named builder; camera and cart logic stay in named event handlers in the same file.
+
+## Important files for the project discussion
+
+| File or class | Question it answers |
+| --- | --- |
+| `screens/scan/scan_screen.dart` | How does the phone scan and display the live cart? |
+| `utils/barcode_scan_guard.dart` | Why does a held barcode not add units every camera frame? |
+| `utils/cart_manager.dart` and `models/cart_item.dart` | How are quantities and cart totals calculated? |
+| `models/sale_record.dart` | What is saved, and why is a receipt a fixed snapshot? |
+| `services/sale_sync_service.dart` | What happens when a sale is submitted without a connection? |
+| `services/sale_gateway.dart` | How are stock changes and duplicate sale IDs checked online? |
+| `services/local_pos_store.dart` | How are pending sales and stock reservations kept after a restart? |
+| `services/receipt_service.dart` | How is a PDF made from the saved sale? |
+| `services/backup_service.dart` | How do recovery copies avoid overwriting newer records? |
+| `screens/ai/ai_assistant_screen.dart` | How are store questions answered using local rules? |
+
+The native and web database files are intentionally separate. Conditional imports select a device file database or browser IndexedDB; all callers use `local_pos_database.dart`.
+
+## Data and current limitations
+
+- Firestore collections are `users`, `stores`, `products` and `sales`. Store operations must be scoped by `storeCode` and protected by server rules. Hiding an owner-only button is not authorization.
+- The cart is held in memory and does not survive app restarts. Pending accepted cash sales are durable and separate from the cart.
+- Cash is supported. BenefitPay uses store-provided payment details and manual receipt confirmation; there is no bank payment-verification integration.
+- The assistant uses local data rules, not a remote language model. It should not be described as an integrated external AI service.
+- Reports read saved store data. Current checkout does not implement actual tax/discount calculations, returns or spreadsheet import.
+- Barcode input identifies a product already registered for the store; it does not automatically obtain the store's selling price.
+- Low-stock information is displayed in product management. Validate real-device scanning performance before claiming equivalence to a dedicated scanner.
+- Backup is manual cloud recovery, not iCloud or a full database rollback. Read `BACKUP.md` before use; production rule integration and real-environment checks remain necessary.
+- Cashier invitations currently use separate `users` records with an empty `uid`; registration does not automatically merge the invitation.
+- The six-digit email verification server service requires setup/deployment documented in `functions/README.md`.
+
+## Product images and compatibility
+
+`ProductImageData` converts a selected image to a PNG with maximum dimension 640 pixels, reducing it further until the raw output is at most 180 KiB. Originals over 20 MiB are rejected. Images are stored in `products.image` as a Base64 data URL, without Firebase Storage. Existing image URLs are also supported.
+
+Image preparation, barcode checks and product writes use 20-second timeouts. A delayed Firestore write can still complete; retrying in the same product dialog reuses the document ID. Embedded image data is excluded from sale lines to keep receipts below Firestore document size limits.
+
+Legacy `stock`/`quantity` and `minStock`/`minQuantity` fields remain supported. Do not rename persisted fields, local database names or sale identifiers as part of cosmetic cleanup.
+
+The bundled Cairo font and license are in `assets/fonts`. The `image` package is pinned in `pubspec.yaml` to avoid the archive API incompatibility encountered in PDF dependency resolution. Keep `pubspec.lock` when changing dependencies.
+
+## Code conventions
+
+- English identifiers and comments; `UpperCamelCase` classes, `lowerCamelCase` members and `snake_case.dart` files.
+- Private widget-state fields start with `_`; boolean names describe a condition, such as `_isAddingProduct`.
+- Name methods by the operation: `_addProductByBarcode`, `_undoLastAddition`, `listBackups`, `createBackup`, `restoreMissingRecords`, `generatePdf`.
+- Separate Dart SDK, package and project imports. Let `dart format` handle layout.
+- Comments explain decisions and invariants, especially payment persistence, stock checks and retry behavior. Avoid comments that only repeat the next line.
+- Keep UI builders in the screen unless a view is reused or has a separate responsibility. Avoid creating a file for every small widget or combining unrelated features to reduce file count.

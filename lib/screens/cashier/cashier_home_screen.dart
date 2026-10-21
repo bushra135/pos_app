@@ -2,9 +2,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../utils/app_colors.dart';
-import '../../utils/app_spacing.dart';
-import '../../utils/app_typography.dart';
+import '../../app/app_colors.dart';
+import '../../app/app_spacing.dart';
+import '../../app/app_typography.dart';
+import '../../services/sale_sync_service.dart';
+import '../../widgets/sale_sync_panel.dart';
 import '../cart/cart_screen.dart';
 import '../products/products_screen.dart';
 import '../profile/profile_screen.dart';
@@ -43,24 +45,33 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
         return;
       }
 
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
-      if (!userDoc.exists) {
-        if (!mounted) return;
-        setState(() => isLoading = false);
-        return;
+      final sync = SaleSyncService.maybeInstance;
+      Map<String, dynamic> userData;
+      Map<String, dynamic> store = {};
+      if (sync != null) {
+        final cachedContext = await sync.loadContext(user.uid);
+        userData = Map<String, dynamic>.from(cachedContext['profile'] as Map);
+        store = Map<String, dynamic>.from(cachedContext['store'] as Map);
+      } else {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        if (!userDoc.exists) {
+          if (!mounted) return;
+          setState(() => isLoading = false);
+          return;
+        }
+        userData = userDoc.data()!;
       }
 
-      final userData = userDoc.data()!;
       final fullName = userData['fullName'] ?? '';
       final firstName = fullName.isNotEmpty ? fullName.split(' ')[0] : '';
 
       final storeCode = userData['storeCode'] ?? '';
-      String fetchedStoreName = '';
-      if (storeCode.isNotEmpty) {
+      String fetchedStoreName =
+          store['storeName'] ?? userData['storeName'] ?? '';
+      if (sync == null && storeCode.isNotEmpty) {
         final storeDoc = await FirebaseFirestore.instance
             .collection('stores')
             .doc(storeCode)
@@ -70,7 +81,6 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
         }
       }
 
-      await _loadTodayStats(user.uid);
       if (!mounted) return;
 
       setState(() {
@@ -79,6 +89,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
         isActive = userData['isActive'] == true;
         isLoading = false;
       });
+      await _loadTodayStats(user.uid);
     } catch (e) {
       debugPrint('Error loading user data: $e');
       if (!mounted) return;
@@ -96,7 +107,11 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       final snapshot = await FirebaseFirestore.instance
           .collection('sales')
           .where('cashierUid', isEqualTo: cashierUid)
-          .get();
+          .get(
+            SaleSyncService.maybeInstance?.online == false
+                ? const GetOptions(source: Source.cache)
+                : const GetOptions(),
+          );
 
       double total = 0.0;
       int count = 0;
@@ -155,10 +170,11 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
         currentScreen = CartScreen(
           onBackToHome: () => setState(() => selectedIndex = 0),
           onSaleCompleted: () async {
+            setState(() => selectedIndex = 1);
             final user = FirebaseAuth.instance.currentUser;
             if (user != null) {
               await _loadTodayStats(user.uid);
-              if (mounted) setState(() => selectedIndex = 0);
+              // Keep the next sale camera open while refreshing statistics.
             }
           },
         );
@@ -173,9 +189,16 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : currentScreen,
+        child: Column(
+          children: [
+            const SaleSyncPanel(),
+            Expanded(
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : currentScreen,
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: selectedIndex,
@@ -213,7 +236,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: const BoxDecoration(
-              gradient: AppColors.brandGradient,
+              color: AppColors.primary,
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(30),
                 bottomRight: Radius.circular(30),
@@ -354,8 +377,8 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                     Expanded(
                       child: _buildActionButton(
                         icon: Icons.qr_code_scanner,
-                        label: "QR Scan",
-                        gradient: true,
+                        label: "Start sale",
+                        highlighted: true,
                         onTap: () => setState(() => selectedIndex = 1),
                       ),
                     ),
@@ -409,7 +432,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
       ),
       child: Column(
@@ -434,7 +457,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     required IconData icon,
     required String label,
     String? subtitle,
-    bool gradient = false,
+    bool highlighted = false,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
@@ -442,9 +465,8 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       child: Container(
         height: 100,
         decoration: BoxDecoration(
-          color: gradient ? null : Colors.white,
-          gradient: gradient ? AppColors.brandGradient : null,
-          border: gradient ? null : Border.all(color: AppColors.border),
+          color: highlighted ? AppColors.primary : AppColors.surface,
+          border: highlighted ? null : Border.all(color: AppColors.border),
           borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         ),
         child: Center(
@@ -453,13 +475,13 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
             children: [
               Icon(
                 icon,
-                color: gradient ? AppColors.onBrand : AppColors.primaryDark,
+                color: highlighted ? AppColors.onBrand : AppColors.primaryDark,
               ),
               const SizedBox(height: 8),
               Text(
                 label,
                 style: TextStyle(
-                  color: gradient ? AppColors.onBrand : AppColors.text,
+                  color: highlighted ? AppColors.onBrand : AppColors.text,
                   fontSize: AppTypography.button,
                   fontWeight: FontWeight.w600,
                 ),

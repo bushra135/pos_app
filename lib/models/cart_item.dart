@@ -4,6 +4,8 @@ class CartItem {
   final double price;
   final String barcode;
   final String image;
+  final String productId;
+  final String storeCode;
   int quantity;
 
   CartItem({
@@ -11,6 +13,8 @@ class CartItem {
     required this.price,
     required this.barcode,
     required this.image,
+    this.productId = '',
+    this.storeCode = '',
     this.quantity = 1,
   });
 
@@ -22,6 +26,8 @@ class CartItem {
     'price': price,
     'quantity': quantity,
     'barcode': barcode,
+    if (productId.isNotEmpty) 'productId': productId,
+    if (storeCode.isNotEmpty) 'storeCode': storeCode,
     // Several embedded images can exceed the size limit of a sales document.
     'image': image.trimLeft().startsWith('data:image/') ? '' : image,
     'subtotal': totalPrice,

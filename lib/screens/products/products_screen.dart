@@ -8,9 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-import '../../utils/app_colors.dart';
-import '../../utils/app_spacing.dart';
-import '../../utils/app_typography.dart';
+import '../../app/app_colors.dart';
+import '../../app/app_spacing.dart';
+import '../../app/app_typography.dart';
 import '../../utils/product_image_data.dart';
 import '../../widgets/product_image.dart';
 
@@ -190,7 +190,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       context: context,
       builder: (context) {
         return Dialog(
-          backgroundColor: Colors.black,
+          backgroundColor: AppColors.background,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
           ),
@@ -217,9 +217,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   top: 12,
                   left: 12,
                   child: CircleAvatar(
-                    backgroundColor: Colors.black54,
+                    backgroundColor: AppColors.soft,
                     child: IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
+                      icon: const Icon(Icons.close, color: AppColors.onBrand),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
@@ -232,7 +232,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     'Scan product barcode',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppColors.surface,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -494,7 +494,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(22),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(
                         AppSpacing.cardRadius,
                       ),
@@ -963,7 +963,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                   : 'Low stock';
 
                               return Material(
-                                color: Colors.white,
+                                color: AppColors.surface,
                                 borderRadius: BorderRadius.circular(
                                   AppSpacing.cardRadius,
                                 ),
@@ -1083,12 +1083,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     decoration: BoxDecoration(
                       color: AppColors.danger,
                       borderRadius: BorderRadius.circular(99),
-                      border: Border.all(color: Colors.white, width: 1.5),
+                      border: Border.all(color: AppColors.surface, width: 1.5),
                     ),
                     child: Text(
                       count > 99 ? '99+' : '$count',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.surface,
                         fontSize: AppTypography.caption,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1252,7 +1252,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       ),
       floatingActionButton: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: AppColors.brandGradient,
+          color: AppColors.primary,
           borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
         ),
         child: FloatingActionButton(
@@ -1289,7 +1289,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         hintText: 'Search products...',
                         prefixIcon: const Icon(Icons.search),
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: AppColors.surface,
                         contentPadding: const EdgeInsets.symmetric(
                           vertical: 10,
                         ),

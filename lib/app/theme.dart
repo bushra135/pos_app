@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../utils/app_colors.dart';
-import '../utils/app_spacing.dart';
-import '../utils/app_typography.dart';
+import 'app_colors.dart';
+import 'app_spacing.dart';
+import 'app_typography.dart';
 
 /// Central Material component styles, typography, and shared colors.
 abstract final class AppTheme {
@@ -15,7 +15,7 @@ abstract final class AppTheme {
     opacity: states.contains(WidgetState.disabled) ? 0.5 : 1,
     child: DecoratedBox(
       decoration: BoxDecoration(
-        gradient: AppColors.brandGradient,
+        color: AppColors.primary,
         borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
       ),
       child: child,
@@ -27,14 +27,21 @@ abstract final class AppTheme {
       seedColor: AppColors.primary,
       brightness: Brightness.light,
       surface: AppColors.surface,
-      primary: AppColors.primaryDark,
-      onPrimary: Colors.white,
+      primary: AppColors.primary,
+      onPrimary: AppColors.onBrand,
       primaryContainer: AppColors.soft,
       onPrimaryContainer: AppColors.primaryDark,
-      secondary: AppColors.primaryDark,
-      onSecondary: Colors.white,
+      secondary: AppColors.accent,
+      onSecondary: AppColors.onBrand,
       secondaryContainer: AppColors.accentSoft,
       onSecondaryContainer: AppColors.primaryDark,
+      tertiary: AppColors.primary,
+      onTertiary: AppColors.onBrand,
+      surfaceContainerLowest: AppColors.surface,
+      surfaceContainerLow: AppColors.accentSoft,
+      surfaceContainer: AppColors.soft,
+      surfaceContainerHigh: AppColors.soft,
+      surfaceContainerHighest: AppColors.border,
       onSurface: AppColors.text,
       outline: AppColors.muted,
       outlineVariant: AppColors.border,
@@ -50,7 +57,7 @@ abstract final class AppTheme {
       visualDensity: VisualDensity.adaptivePlatformDensity,
       splashFactory: InkSparkle.splashFactory,
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.background,
+        backgroundColor: AppColors.soft,
         foregroundColor: AppColors.text,
         centerTitle: false,
         elevation: 0,
@@ -161,6 +168,10 @@ abstract final class AppTheme {
             fontWeight: FontWeight.w600,
           ),
         ),
+      ),
+      navigationBarTheme: const NavigationBarThemeData(
+        backgroundColor: AppColors.surface,
+        indicatorColor: AppColors.primary,
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: AppColors.primary,

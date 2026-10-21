@@ -4,18 +4,19 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../utils/app_colors.dart';
-import '../../utils/app_spacing.dart';
-import '../../utils/app_typography.dart';
+import '../../app/app_colors.dart';
+import '../../app/app_spacing.dart';
+import '../../app/app_typography.dart';
 
-class AIScreen extends StatefulWidget {
-  const AIScreen({super.key});
+/// Answers store questions using local rules and Firestore data, not an external AI model.
+class AiAssistantScreen extends StatefulWidget {
+  const AiAssistantScreen({super.key});
 
   @override
-  State<AIScreen> createState() => _AIScreenState();
+  State<AiAssistantScreen> createState() => _AiAssistantScreenState();
 }
 
-class _AIScreenState extends State<AIScreen> {
+class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final TextEditingController _messageController = TextEditingController();
@@ -729,7 +730,7 @@ class _AIScreenState extends State<AIScreen> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(24, 25, 24, 26),
       decoration: const BoxDecoration(
-        gradient: AppColors.brandGradient,
+        color: AppColors.primary,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
       child: const Row(
@@ -785,7 +786,7 @@ class _AIScreenState extends State<AIScreen> {
           return ActionChip(
             onPressed: isThinking ? null : () => _sendMessage(text),
             label: Text(text),
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.surface,
             side: BorderSide(color: AppColors.border),
             labelStyle: const TextStyle(
               color: AppColors.muted,
@@ -802,7 +803,7 @@ class _AIScreenState extends State<AIScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         boxShadow: [
           BoxShadow(
             color: AppColors.text.withValues(alpha: 0.06),
@@ -837,7 +838,7 @@ class _AIScreenState extends State<AIScreen> {
           const SizedBox(width: 10),
           Container(
             decoration: const BoxDecoration(
-              gradient: AppColors.brandGradient,
+              color: AppColors.primary,
               shape: BoxShape.circle,
             ),
             child: IconButton(
@@ -873,7 +874,7 @@ class _MessageBubble extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: const BoxDecoration(
-                gradient: AppColors.brandGradient,
+                color: AppColors.primary,
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -888,8 +889,7 @@ class _MessageBubble extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: isUser ? null : Colors.white,
-                gradient: isUser ? AppColors.brandGradient : null,
+                color: isUser ? AppColors.primary : AppColors.surface,
                 borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                 boxShadow: [
                   BoxShadow(
@@ -937,7 +937,7 @@ class _TypingBubble extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: const BoxDecoration(
-              gradient: AppColors.brandGradient,
+              color: AppColors.primary,
               shape: BoxShape.circle,
             ),
             child: const Icon(

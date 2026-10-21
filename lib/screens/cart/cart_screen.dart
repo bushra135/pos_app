@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../utils/app_colors.dart';
-import '../../utils/app_spacing.dart';
-import '../../utils/app_typography.dart';
+import '../../app/app_colors.dart';
+import '../../app/app_spacing.dart';
+import '../../app/app_typography.dart';
 import '../../utils/cart_manager.dart';
 import '../../widgets/product_image.dart';
 import '../checkout/checkout_receipt_screen.dart';
@@ -36,10 +36,11 @@ class _CartScreenState extends State<CartScreen> {
       setState(() {});
 
       if (result == true) {
-        await Future.delayed(const Duration(seconds: 1));
-        if (!mounted) return;
-        widget.onSaleCompleted?.call();
-        widget.onBackToHome?.call();
+        if (widget.onSaleCompleted != null) {
+          widget.onSaleCompleted!();
+        } else {
+          widget.onBackToHome?.call();
+        }
       }
     });
   }
@@ -95,7 +96,7 @@ class _CartScreenState extends State<CartScreen> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      gradient: AppColors.brandGradient,
+                      color: AppColors.primary,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -133,7 +134,7 @@ class _CartScreenState extends State<CartScreen> {
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.surface,
                             borderRadius: BorderRadius.circular(
                               AppSpacing.cardRadius,
                             ),
@@ -253,7 +254,7 @@ class _CartScreenState extends State<CartScreen> {
                   16,
                 ),
                 decoration: const BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.surface,
                   boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
                 ),
                 child: Column(

@@ -6,10 +6,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../utils/app_colors.dart';
-import '../../utils/app_spacing.dart';
-import '../../utils/app_typography.dart';
+import '../../app/app_colors.dart';
+import '../../app/app_spacing.dart';
+import '../../app/app_typography.dart';
+import '../../models/sale_record.dart';
+import '../../services/sale_sync_service.dart';
 import '../../utils/cart_manager.dart';
+import '../../widgets/sale_receipt_view.dart';
 
 /// Reviews the receipt, confirms payment, saves the sale, and updates stock.
 class CheckoutReceiptScreen extends StatefulWidget {
@@ -30,12 +33,18 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
   bool isLoading = true;
   bool isSavingSale = false;
+  SaleRecord? completedSale;
+  String completedStatus = '';
 
   final AudioPlayer _successPlayer = AudioPlayer();
+  late final String _saleId;
+  late final DateTime _saleTime;
 
   @override
   void initState() {
     super.initState();
+    _saleId = FirebaseFirestore.instance.collection('sales').doc().id;
+    _saleTime = DateTime.now();
     _successPlayer.setReleaseMode(ReleaseMode.stop);
     _loadStorePaymentData();
   }
@@ -70,43 +79,23 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         return;
       }
 
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
-      if (!userDoc.exists) {
-        if (!mounted) return;
-        setState(() => isLoading = false);
-        return;
-      }
-
-      final userData = userDoc.data()!;
+      final sync = SaleSyncService.maybeInstance;
+      if (sync == null) throw StateError('The sales service is not ready.');
+      final contextData = await sync.loadContext(user.uid);
+      final userData = Map<String, dynamic>.from(contextData['profile'] as Map);
       final String fullName = (userData['fullName'] ?? '').toString();
       final String firstName = fullName.split(' ').first;
       final String fetchedStoreCode = (userData['storeCode'] ?? '')
           .toString()
           .trim();
 
-      String fetchedStoreName = (userData['storeName'] ?? '').toString();
-      String fetchedBenefitNumber = '';
-      String fetchedBenefitQrBase64 = '';
-
-      if (fetchedStoreCode.isNotEmpty) {
-        final storeDoc = await FirebaseFirestore.instance
-            .collection('stores')
-            .doc(fetchedStoreCode)
-            .get();
-
-        if (storeDoc.exists) {
-          final storeData = storeDoc.data()!;
-          fetchedStoreName = (storeData['storeName'] ?? fetchedStoreName)
-              .toString();
-          fetchedBenefitNumber = (storeData['benefitNumber'] ?? '').toString();
-          fetchedBenefitQrBase64 = (storeData['benefitQrBase64'] ?? '')
-              .toString();
-        }
-      }
+      final storeData = Map<String, dynamic>.from(contextData['store'] as Map);
+      final fetchedStoreName =
+          (storeData['storeName'] ?? userData['storeName'] ?? '').toString();
+      final fetchedBenefitNumber = (storeData['benefitNumber'] ?? '')
+          .toString();
+      final fetchedBenefitQrBase64 = (storeData['benefitQrBase64'] ?? '')
+          .toString();
 
       if (!mounted) return;
 
@@ -127,12 +116,10 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     }
   }
 
-  String get receiptNumber {
-    final now = DateTime.now();
-    return 'RCPT${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
-  }
+  String get receiptNumber => 'RCPT-$_saleId';
 
   Future<void> _confirmPayment() async {
+    if (isSavingSale) return;
     if (CartManager.items.isEmpty) {
       ScaffoldMessenger.of(
         context,
@@ -152,74 +139,85 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     });
 
     try {
-      final firestore = FirebaseFirestore.instance;
       final currentUser = FirebaseAuth.instance.currentUser;
-      // Capture the receipt number before saving the sale.
-      final String saleReceiptNumber = receiptNumber;
-
-      final items = CartManager.items.map((item) => item.toSaleData()).toList();
-
-      final subtotal = CartManager.total;
-
-      // Submit the sale and stock updates in a single write transaction.
-      await firestore.runTransaction((transaction) async {
-        final saleRef = firestore.collection('sales').doc();
-
-        transaction.set(saleRef, {
-          'storeCode': storeCode,
-          'storeName': storeName,
-          'cashierUid': currentUser?.uid ?? '',
-          'cashierName': cashierName,
-          'paymentMethod': selectedPaymentMethod,
-          'receiptNumber': saleReceiptNumber,
-          'items': items,
-          'subtotal': subtotal,
-          'discount': 0.0,
-          'refund': 0.0,
-          'tax': 0.0,
-          'total': subtotal,
-          'status': 'completed',
-          'type': 'sale',
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-
-        for (final item in CartManager.items) {
-          final productQuery = await firestore
-              .collection('products')
-              .where('barcode', isEqualTo: item.barcode)
-              .limit(1)
-              .get();
-
-          if (productQuery.docs.isNotEmpty) {
-            final productDoc = productQuery.docs.first;
-            final productRef = productDoc.reference;
-
-            final currentStock = ((productDoc.data()['stock'] ?? 0) as num)
-                .toInt();
-
-            transaction.update(productRef, {
-              'stock': currentStock - item.quantity,
-            });
-          }
+      final sync = SaleSyncService.maybeInstance;
+      if (currentUser == null || sync == null) {
+        throw StateError('Sign in before checkout.');
+      }
+      final items = <SaleLine>[];
+      for (final item in CartManager.items) {
+        if (item.productId.isEmpty || item.storeCode != storeCode) {
+          throw StateError(
+            'Remove this cart item and scan it again for your store.',
+          );
         }
-      });
+        items.add(
+          SaleLine(
+            productId: item.productId,
+            barcode: item.barcode,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+          ),
+        );
+      }
+      final sale = SaleRecord(
+        id: _saleId,
+        storeCode: storeCode,
+        storeName: storeName,
+        cashierUid: currentUser.uid,
+        cashierName: cashierName,
+        paymentMethod: selectedPaymentMethod,
+        createdAt: _saleTime,
+        items: items,
+      );
+      final result = await sync.submit(sale);
 
-      // Clear the cart only after saving succeeds, so failed sales can be retried.
+      // Queued and conflicted receipts are already durably saved on this device.
       CartManager.clearCart();
 
       await _playPaymentSuccessSound();
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Sale saved successfully')));
-
-      await Future.delayed(const Duration(milliseconds: 650));
+      if (result.status == SaleSubmissionStatus.synced) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sale confirmed and stock updated')),
+        );
+      } else {
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: Text(
+              result.status == SaleSubmissionStatus.conflict
+                  ? 'Receipt needs review'
+                  : 'Cash receipt saved on this device',
+            ),
+            content: Text(
+              '$receiptNumber\n\n${result.message ?? 'Stock and reports will update when this receipt is confirmed online.'}\n\n'
+              'Keep this device until the saved receipt is synchronized. View it in Sales status.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
 
       if (!mounted) return;
 
-      Navigator.pop(context, true);
+      setState(() {
+        completedSale = sale;
+        completedStatus = result.status == SaleSubmissionStatus.synced
+            ? 'Synchronized'
+            : result.status == SaleSubmissionStatus.conflict
+            ? 'Saved on device — stock needs review'
+            : 'Saved on device — synchronization pending';
+      });
     } catch (e) {
       if (!mounted) return;
 
@@ -245,8 +243,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         child: Container(
           height: 74,
           decoration: BoxDecoration(
-            color: isSelected ? null : AppColors.surface,
-            gradient: isSelected ? AppColors.brandGradient : null,
+            color: isSelected ? AppColors.primary : AppColors.surface,
             borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
             border: Border.all(
               color: isSelected ? AppColors.primaryDark : AppColors.border,
@@ -341,6 +338,16 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (completedSale != null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: SaleReceiptView(
+          sale: completedSale!,
+          status: completedStatus,
+          onNewSale: () => Navigator.pop(context, true),
+        ),
+      );
+    }
     final cartItems = CartManager.items;
 
     return Scaffold(
@@ -354,7 +361,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                     decoration: const BoxDecoration(
-                      gradient: AppColors.brandGradient,
+                      color: AppColors.primary,
                       borderRadius: BorderRadius.only(
                         bottomLeft: Radius.circular(30),
                         bottomRight: Radius.circular(30),
@@ -363,7 +370,9 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                     child: Row(
                       children: [
                         CircleAvatar(
-                          backgroundColor: Colors.white.withValues(alpha: 0.25),
+                          backgroundColor: AppColors.surface.withValues(
+                            alpha: 0.25,
+                          ),
                           child: IconButton(
                             onPressed: isSavingSale
                                 ? null
@@ -408,7 +417,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                         Container(
                           padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.surface,
                             borderRadius: BorderRadius.circular(22),
                           ),
                           child: Column(
@@ -541,7 +550,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                         Container(
                           padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.surface,
                             borderRadius: BorderRadius.circular(22),
                           ),
                           child: Column(

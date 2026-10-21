@@ -2,9 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../utils/app_colors.dart';
-import '../../utils/app_spacing.dart';
-import '../../utils/app_typography.dart';
+import '../../app/app_colors.dart';
+import '../../app/app_spacing.dart';
+import '../../app/app_typography.dart';
 
 class CashiersManagementScreen extends StatefulWidget {
   final String storeCode;
@@ -202,7 +202,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surface,
                     borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                     boxShadow: [
                       BoxShadow(
@@ -431,13 +431,13 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
       decoration: const BoxDecoration(
-        gradient: AppColors.brandGradient,
+        color: AppColors.primary,
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
       ),
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: Colors.white.withValues(alpha: 0.24),
+            backgroundColor: AppColors.surface.withValues(alpha: 0.24),
             child: IconButton(
               onPressed: () => Navigator.pop(context),
               icon: const Icon(
@@ -538,7 +538,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.border),
         boxShadow: [
@@ -736,7 +736,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
       backgroundColor: AppColors.background,
       floatingActionButton: DecoratedBox(
         decoration: BoxDecoration(
-          gradient: AppColors.brandGradient,
+          color: AppColors.primary,
           borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
         ),
         child: FloatingActionButton.extended(
@@ -825,7 +825,7 @@ class _SummaryPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 13),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         border: Border.all(color: AppColors.border),
         boxShadow: [

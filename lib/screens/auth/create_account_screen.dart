@@ -2,9 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../utils/app_colors.dart';
-import '../../utils/app_spacing.dart';
-import '../../utils/app_typography.dart';
+import '../../app/app_colors.dart';
+import '../../app/app_spacing.dart';
+import '../../app/app_typography.dart';
 import 'verify_email_screen.dart';
 
 class CreateAccountScreen extends StatefulWidget {
@@ -105,12 +105,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   }
 
   Future<void> _sendVerificationAndContinue(User user) async {
-    try {
-      await user.sendEmailVerification();
-    } on FirebaseAuthException {
-      // The account already exists; the verification screen can retry sending.
-    }
-
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
@@ -327,8 +321,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: selected ? null : AppColors.background,
-            gradient: selected ? AppColors.brandGradient : null,
+            color: selected ? AppColors.primary : AppColors.background,
             borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
           ),
           alignment: Alignment.center,
@@ -357,7 +350,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.brandGradient),
+        decoration: const BoxDecoration(color: AppColors.primary),
         child: SafeArea(
           child: SingleChildScrollView(
             child: Container(
@@ -368,7 +361,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
               ),
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.surface,
                 borderRadius: BorderRadius.circular(25),
               ),
               child: Column(
@@ -537,7 +530,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       width: double.infinity,
                       height: 50,
                       decoration: BoxDecoration(
-                        gradient: AppColors.brandGradient,
+                        color: AppColors.primary,
                         borderRadius: BorderRadius.circular(
                           AppSpacing.controlRadius,
                         ),

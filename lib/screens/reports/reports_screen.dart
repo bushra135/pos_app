@@ -5,9 +5,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import '../../utils/app_colors.dart';
-import '../../utils/app_spacing.dart';
-import '../../utils/app_typography.dart';
+import '../../app/app_colors.dart';
+import '../../app/app_spacing.dart';
+import '../../app/app_typography.dart';
 
 enum ReportPeriod { today, week, month, year }
 
@@ -314,7 +314,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(vertical: 11),
           decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
+            color: isSelected ? AppColors.surface : Colors.transparent,
             borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
             boxShadow: isSelected
                 ? [
@@ -397,7 +397,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     toY: math.max(0.0, data.chartValues[index]),
                     width: _barWidth(selectedPeriod),
                     borderRadius: BorderRadius.circular(7),
-                    gradient: AppColors.brandGradient,
+                    color: AppColors.primary,
                   ),
                 ],
               ),
@@ -755,7 +755,7 @@ class _InsightCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(22),
       child: InkWell(
         onTap: onTap,
@@ -1278,7 +1278,7 @@ enum _ProductSheetMode { quantity, revenue }
 
 BoxDecoration _cardDecoration() {
   return BoxDecoration(
-    color: Colors.white,
+    color: AppColors.surface,
     borderRadius: BorderRadius.circular(22),
     border: Border.all(color: AppColors.border),
     boxShadow: [

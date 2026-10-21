@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pos_app/app/app_typography.dart';
 import 'package:pos_app/app/theme.dart';
 import 'package:pos_app/models/cart_item.dart';
 import 'package:pos_app/screens/cart/cart_screen.dart';
 import 'package:pos_app/utils/cart_manager.dart';
-import 'package:pos_app/utils/app_typography.dart';
 
 void main() {
   setUpAll(() async {

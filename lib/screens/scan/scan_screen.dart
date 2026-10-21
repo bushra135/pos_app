@@ -1,14 +1,16 @@
+import 'dart:async';
+
 import 'package:audioplayers/audioplayers.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-import '../../utils/app_colors.dart';
-import '../../utils/app_spacing.dart';
-import '../../utils/app_typography.dart';
+import '../../app/app_colors.dart';
+import '../../services/sale_sync_service.dart';
+import '../../utils/barcode_scan_guard.dart';
 import '../../utils/cart_manager.dart';
 
-/// Adds products to the cart using camera scans or manual barcode entry.
+/// Continuous camera checkout with a live cart and an explicit repeat action.
 class ScanScreen extends StatefulWidget {
   final VoidCallback? onGoToCart;
   final VoidCallback? onBackToHome;
@@ -20,350 +22,364 @@ class ScanScreen extends StatefulWidget {
 }
 
 class _ScanScreenState extends State<ScanScreen> {
-  final MobileScannerController controller = MobileScannerController(
+  final _scannerController = MobileScannerController(
     detectionSpeed: DetectionSpeed.normal,
     facing: CameraFacing.back,
-    torchEnabled: false,
   );
-
-  final AudioPlayer player = AudioPlayer();
-  final TextEditingController manualBarcodeController = TextEditingController();
-
-  bool isLoadingProduct = false;
-  bool isTorchOn = false;
-
-  String lastScannedCode = '';
-  DateTime? lastScanTime;
+  final _audioPlayer = AudioPlayer();
+  final _barcodeInputController = TextEditingController();
+  final _barcodeGuard = BarcodeScanGuard();
+  Timer? _releaseTimer;
+  bool _isAddingProduct = false;
+  bool _isTorchEnabled = false;
+  bool _isManualEntryVisible = false;
+  String? _statusMessage;
+  bool _hasScanError = false;
+  String? _lastAddedProductId;
+  String? _lastAddedStoreCode;
 
   @override
   void dispose() {
-    controller.dispose();
-    player.dispose();
-    manualBarcodeController.dispose();
+    _releaseTimer?.cancel();
+    _scannerController.dispose();
+    _audioPlayer.dispose();
+    _barcodeInputController.dispose();
     super.dispose();
   }
 
-  Future<void> _playBeep() async {
-    await player.play(AssetSource('sounds/beep.mp3'));
-  }
-
-  Future<void> _onDetect(BarcodeCapture capture) async {
-    if (capture.barcodes.isEmpty) return;
-
-    final String? code = capture.barcodes.first.rawValue;
-    if (code == null || code.isEmpty) return;
-
-    final now = DateTime.now();
-
-    // Ignore repeat detections of the same barcode within 900 milliseconds.
-    if (lastScannedCode == code &&
-        lastScanTime != null &&
-        now.difference(lastScanTime!).inMilliseconds < 900) {
-      return;
+  void _handleBarcodeDetection(BarcodeCapture capture) {
+    final codes = capture.barcodes
+        .map((barcode) => barcode.rawValue)
+        .whereType<String>()
+        .where((code) => code.isNotEmpty)
+        .toList();
+    // Keep a held label latched. It must leave the camera before it is rearmed.
+    if (codes.contains(_barcodeGuard.heldCode)) {
+      _releaseTimer?.cancel();
+      _releaseTimer = Timer(
+        const Duration(milliseconds: 1600),
+        _barcodeGuard.release,
+      );
     }
-
-    // Handle one lookup at a time to prevent duplicate additions while waiting.
-    if (isLoadingProduct) return;
-
-    setState(() {
-      isLoadingProduct = true;
-      lastScannedCode = code;
-      lastScanTime = now;
-    });
-
-    await _fetchAndAddProductByBarcode(code);
+    if (_isAddingProduct || _isManualEntryVisible || codes.isEmpty) return;
+    final code = codes.first;
+    if (!_barcodeGuard.accept(code)) return;
+    _releaseTimer?.cancel();
+    _releaseTimer = Timer(
+      const Duration(milliseconds: 1600),
+      _barcodeGuard.release,
+    );
+    unawaited(_addProductByBarcode(code));
   }
 
-  Future<void> _manualAddBarcode() async {
-    final code = manualBarcodeController.text.trim();
-
-    if (code.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Enter barcode first')));
-      return;
-    }
-
-    if (isLoadingProduct) return;
-
-    setState(() {
-      isLoadingProduct = true;
-      lastScannedCode = code;
-      lastScanTime = DateTime.now();
-    });
-
-    await _fetchAndAddProductByBarcode(code);
-    manualBarcodeController.clear();
-  }
-
-  // Camera scans and manual entry share product lookup and result messages.
-  Future<void> _fetchAndAddProductByBarcode(String code) async {
+  Future<void> _playScanFeedback() async {
+    // Feedback failure must never report an already-added item as a _hasScanError scan.
     try {
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('products')
-          .where('barcode', isEqualTo: code)
-          .limit(1)
-          .get();
+      await HapticFeedback.lightImpact();
+      await _audioPlayer.stop();
+      await _audioPlayer.play(AssetSource('sounds/beep.mp3'));
+    } catch (error) {
+      debugPrint('Scan feedback unavailable: $error');
+    }
+  }
 
-      if (querySnapshot.docs.isEmpty) {
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Product not found: $code'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-
-      final productData = querySnapshot.docs.first.data();
-
-      final String name = (productData['name'] ?? '').toString();
-      final double price = ((productData['price'] ?? 0) as num).toDouble();
-      final String barcode = (productData['barcode'] ?? '').toString();
-      final String image = (productData['image'] ?? '').toString();
-
+  Future<void> _addProductByBarcode(String code) async {
+    if (_isAddingProduct || code.trim().isEmpty) return;
+    setState(() => _isAddingProduct = true);
+    try {
+      final sync = SaleSyncService.maybeInstance;
+      if (sync == null) throw StateError('The sales service is not ready.');
+      final data = await sync.findProduct(code.trim());
+      if (!mounted) return;
+      final name = (data['name'] ?? '').toString();
+      final productId = data['id'] as String;
+      final storeCode = data['storeCode'] as String;
       CartManager.addItem(
         name: name,
-        price: price,
-        barcode: barcode,
-        image: image,
+        price: (data['price'] as num).toDouble(),
+        barcode: (data['barcode'] ?? code).toString(),
+        image: (data['image'] ?? '').toString(),
+        productId: productId,
+        storeCode: storeCode,
       );
-
-      await _playBeep();
-
+      setState(() {
+        _statusMessage = '$name added';
+        _hasScanError = false;
+        _lastAddedProductId = productId;
+        _lastAddedStoreCode = storeCode;
+        _barcodeInputController.clear();
+      });
+      unawaited(_playScanFeedback());
+    } catch (error) {
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$name added to cart'),
-          duration: const Duration(seconds: 1),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error loading product: $e'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      setState(() {
+        _statusMessage = 'Could not add product: $error';
+        _hasScanError = true;
+      });
     } finally {
-      if (mounted) setState(() => isLoadingProduct = false);
+      if (mounted) setState(() => _isAddingProduct = false);
     }
   }
 
-  int get cartItemsCount {
-    // Count all units, including multiple quantities of the same product.
-    int total = 0;
-    for (final item in CartManager.items) {
-      total += item.quantity;
-    }
-    return total;
-  }
-
-  void _goToCart() {
-    if (CartManager.items.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Cart is empty')));
-      return;
-    }
-
-    widget.onGoToCart?.call();
-  }
-
-  Future<void> _toggleFlash() async {
-    await controller.toggleTorch();
-
+  void _undoLastAddition() {
+    final index = CartManager.items.indexWhere(
+      (item) =>
+          item.productId == _lastAddedProductId &&
+          item.storeCode == _lastAddedStoreCode,
+    );
+    if (index < 0) return;
     setState(() {
-      isTorchOn = !isTorchOn;
+      CartManager.decreaseQuantity(index);
+      _lastAddedProductId = null;
+      _statusMessage = 'Last addition undone';
+      _hasScanError = false;
     });
+  }
+
+  Future<void> _toggleTorch() async {
+    try {
+      await _scannerController.toggleTorch();
+      if (mounted) setState(() => _isTorchEnabled = !_isTorchEnabled);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _hasScanError = true;
+          _statusMessage = 'Flash is unavailable on this camera';
+        });
+      }
+    }
+  }
+
+  Widget _buildScanHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: _isAddingProduct ? null : widget.onBackToHome,
+            tooltip: 'Home',
+            icon: const Icon(Icons.arrow_back),
+          ),
+          const Expanded(
+            child: Text(
+              'Scan & sell',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+          ),
+          IconButton(
+            onPressed: _toggleTorch,
+            tooltip: 'Toggle flash',
+            icon: Icon(_isTorchEnabled ? Icons.flash_on : Icons.flash_off),
+          ),
+          IconButton(
+            onPressed: _isAddingProduct
+                ? null
+                : () => setState(
+                    () => _isManualEntryVisible = !_isManualEntryVisible,
+                  ),
+            tooltip: 'Enter barcode manually',
+            icon: const Icon(Icons.keyboard),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCameraPreview() {
+    return Expanded(
+      flex: 4,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          MobileScanner(
+            controller: _scannerController,
+            onDetect: _handleBarcodeDetection,
+            errorBuilder: (context, error, child) => const ColoredBox(
+              color: Colors.black87,
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'Camera unavailable. Allow camera access or use manual barcode entry.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          IgnorePointer(
+            child: Center(
+              child: FractionallySizedBox(
+                widthFactor: .8,
+                heightFactor: .6,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColors.primary, width: 3),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const Positioned(
+            left: 8,
+            right: 8,
+            bottom: 8,
+            child: ColoredBox(
+              color: Colors.black54,
+              child: Padding(
+                padding: EdgeInsets.all(8),
+                child: Text(
+                  'Move each barcode into view. Use + for identical items.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+            ),
+          ),
+          if (_isAddingProduct)
+            const Center(child: CircularProgressIndicator()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildManualBarcodeInput() {
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _barcodeInputController,
+              decoration: const InputDecoration(labelText: 'Barcode'),
+              onSubmitted: _isAddingProduct ? null : _addProductByBarcode,
+            ),
+          ),
+          TextButton(
+            onPressed: _isAddingProduct
+                ? null
+                : () => _addProductByBarcode(_barcodeInputController.text),
+            child: const Text('Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScanStatus() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          Icon(
+            _hasScanError ? Icons.error_outline : Icons.check_circle_outline,
+            color: _hasScanError ? Colors.red : AppColors.primaryDark,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _statusMessage!,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (!_hasScanError && _lastAddedProductId != null)
+            TextButton(
+              onPressed: _isAddingProduct ? null : _undoLastAddition,
+              child: const Text('Undo'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLiveCart() {
+    return Expanded(
+      flex: 4,
+      child: CartManager.items.isEmpty
+          ? const Center(child: Text('Scan your first product to start a sale'))
+          : ListView.builder(
+              itemCount: CartManager.items.length,
+              itemBuilder: (context, index) {
+                final item = CartManager.items[index];
+                return ListTile(
+                  dense: true,
+                  title: Text(
+                    item.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    'BD ${item.price.toStringAsFixed(3)} each | BD ${item.totalPrice.toStringAsFixed(3)}',
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Remove one',
+                        onPressed: _isAddingProduct
+                            ? null
+                            : () => setState(() {
+                                CartManager.decreaseQuantity(index);
+                                _lastAddedProductId = null;
+                              }),
+                        icon: const Icon(Icons.remove_circle_outline),
+                      ),
+                      Text('${item.quantity}'),
+                      IconButton(
+                        tooltip: 'Add one',
+                        onPressed: _isAddingProduct
+                            ? null
+                            : () => _addProductByBarcode(item.barcode),
+                        icon: const Icon(Icons.add_circle_outline),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+    );
+  }
+
+  Widget _buildReviewSaleButton(int unitCount) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: _isAddingProduct || unitCount == 0
+              ? null
+              : widget.onGoToCart,
+          icon: const Icon(Icons.shopping_cart_checkout),
+          label: Text(
+            'Review sale ($unitCount) | BD ${CartManager.total.toStringAsFixed(3)}',
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final unitCount = CartManager.items.fold<int>(
+      0,
+      (total, item) => total + item.quantity,
+    );
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.background,
       resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: Stack(
+        child: Column(
           children: [
-            MobileScanner(controller: controller, onDetect: _onDetect),
-
-            Container(color: Colors.black.withValues(alpha: 0.28)),
-
-            Positioned(
-              top: 18,
-              left: 16,
-              child: CircleAvatar(
-                backgroundColor: Colors.black.withValues(alpha: 0.45),
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () {
-                    widget.onBackToHome?.call();
-                  },
-                ),
-              ),
-            ),
-
-            Positioned(
-              top: 18,
-              right: 16,
-              child: CircleAvatar(
-                backgroundColor: isTorchOn
-                    ? AppColors.primary
-                    : Colors.black.withValues(alpha: 0.45),
-                child: IconButton(
-                  icon: Icon(
-                    isTorchOn ? Icons.flash_on : Icons.flash_off,
-                    color: isTorchOn ? AppColors.onBrand : Colors.white,
-                  ),
-                  onPressed: _toggleFlash,
-                ),
-              ),
-            ),
-
-            Column(
-              children: [
-                const SizedBox(height: 70),
-
-                const Text(
-                  'Scan barcode',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: AppTypography.title,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-
-                const SizedBox(height: 6),
-
-                const Text(
-                  'Scan item or enter barcode manually',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: AppTypography.body,
-                  ),
-                ),
-
-                const Spacer(),
-
-                Center(
-                  child: Container(
-                    width: 260,
-                    height: 180,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(
-                        AppSpacing.cardRadius,
-                      ),
-                      border: Border.all(color: AppColors.primary, width: 3),
-                    ),
-                    child: Center(
-                      child: Container(height: 2, color: AppColors.primary),
-                    ),
-                  ),
-                ),
-
-                const Spacer(),
-
-                if (isLoadingProduct)
-                  const CircularProgressIndicator(color: Colors.white),
-
-                const SizedBox(height: 18),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: manualBarcodeController,
-                          keyboardType: TextInputType.number,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            hintText: 'Enter barcode',
-                            hintStyle: const TextStyle(color: Colors.white54),
-                            filled: true,
-                            fillColor: Colors.black.withValues(alpha: 0.45),
-                            prefixIcon: const Icon(
-                              Icons.keyboard,
-                              color: Colors.white70,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppSpacing.controlRadius,
-                              ),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                          onSubmitted: (_) => _manualAddBarcode(),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      ElevatedButton(
-                        onPressed: isLoadingProduct ? null : _manualAddBarcode,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 17,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppSpacing.controlRadius,
-                            ),
-                          ),
-                        ),
-                        child: const Text(
-                          'Add',
-                          style: TextStyle(
-                            color: AppColors.onBrand,
-                            fontSize: AppTypography.button,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _goToCart,
-                      icon: const Icon(
-                        Icons.shopping_cart,
-                        color: AppColors.onBrand,
-                      ),
-                      label: Text(
-                        'Go to Cart ($cartItemsCount)',
-                        style: const TextStyle(
-                          color: AppColors.onBrand,
-                          fontSize: AppTypography.button,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppSpacing.controlRadius,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 22),
-              ],
-            ),
+            _buildScanHeader(),
+            _buildCameraPreview(),
+            if (_isManualEntryVisible) _buildManualBarcodeInput(),
+            if (_statusMessage != null) _buildScanStatus(),
+            _buildLiveCart(),
+            _buildReviewSaleButton(unitCount),
           ],
         ),
       ),

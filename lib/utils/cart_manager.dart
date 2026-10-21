@@ -10,15 +10,30 @@ abstract final class CartManager {
     required double price,
     required String barcode,
     required String image,
+    String productId = '',
+    String storeCode = '',
   }) {
     // Barcode identifies a cart item; adding it again increases its quantity.
-    final existingIndex = items.indexWhere((item) => item.barcode == barcode);
+    final existingIndex = items.indexWhere(
+      (item) =>
+          item.storeCode == storeCode &&
+          (productId.isNotEmpty
+              ? item.productId == productId
+              : item.barcode == barcode),
+    );
 
     if (existingIndex != -1) {
       items[existingIndex].quantity++;
     } else {
       items.add(
-        CartItem(name: name, price: price, barcode: barcode, image: image),
+        CartItem(
+          name: name,
+          price: price,
+          barcode: barcode,
+          image: image,
+          productId: productId,
+          storeCode: storeCode,
+        ),
       );
     }
   }

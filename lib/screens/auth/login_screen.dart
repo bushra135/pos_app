@@ -3,9 +3,9 @@ import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../utils/app_colors.dart';
-import '../../utils/app_spacing.dart';
-import '../../utils/app_typography.dart';
+import '../../app/app_colors.dart';
+import '../../app/app_spacing.dart';
+import '../../app/app_typography.dart';
 import 'create_account_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -165,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen>
           width: double.infinity,
           clipBehavior: Clip.antiAlias,
           decoration: const BoxDecoration(
-            gradient: AppColors.brandGradient,
+            color: AppColors.primary,
             borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(44),
               bottomRight: Radius.circular(44),
@@ -215,7 +215,7 @@ class _LoginScreenState extends State<LoginScreen>
     width: double.infinity,
     padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
       border: Border.all(color: AppColors.border),
       boxShadow: [
@@ -317,7 +317,7 @@ class _LoginScreenState extends State<LoginScreen>
             height: 53,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                gradient: AppColors.brandGradient,
+                color: AppColors.primary,
                 borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                 boxShadow: [
                   BoxShadow(
@@ -443,19 +443,10 @@ class _HeaderSheenPainter extends CustomPainter {
     final ry = size.height * 0.47;
 
     // Draw the glow first so the animated rings appear above it.
-    final glowRect = Rect.fromCircle(center: center, radius: rx * 0.92);
     canvas.drawCircle(
       center,
       rx * 0.92,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            AppColors.accent.withValues(alpha: 0.20),
-            AppColors.primary.withValues(alpha: 0.08),
-            AppColors.primary.withValues(alpha: 0),
-          ],
-          stops: const [0, 0.45, 1],
-        ).createShader(glowRect),
+      Paint()..color = AppColors.accent.withValues(alpha: 0.20),
     );
 
     for (var ring = 0; ring < 3; ring++) {
@@ -475,7 +466,9 @@ class _HeaderSheenPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = ring == 1 ? 1.1 : 0.8
-          ..color = Colors.white.withValues(alpha: ring == 1 ? 0.25 : 0.13),
+          ..color = AppColors.surface.withValues(
+            alpha: ring == 1 ? 0.25 : 0.13,
+          ),
       );
 
       final start = phase * (ring.isEven ? 1 : -1) + ring * 2.08;
@@ -484,16 +477,7 @@ class _HeaderSheenPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
         ..strokeWidth = ring == 1 ? 4.2 : 2.8
-        ..shader = LinearGradient(
-          colors: [
-            AppColors.accent.withValues(alpha: 0),
-            AppColors.accent.withValues(alpha: 0.47),
-            AppColors.soft,
-            AppColors.soft,
-            AppColors.primary.withValues(alpha: 0),
-          ],
-          stops: const [0, 0.24, 0.48, 0.68, 1],
-        ).createShader(oval);
+        ..color = AppColors.soft;
       canvas.drawArc(
         oval,
         start,
@@ -513,7 +497,7 @@ class _HeaderSheenPainter extends CustomPainter {
         position,
         ring == 1 ? 4.3 : 3,
         Paint()
-          ..color = Colors.white.withValues(alpha: 0.84)
+          ..color = AppColors.surface.withValues(alpha: 0.84)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
       );
       canvas.drawCircle(
@@ -536,14 +520,7 @@ class _HeaderSheenPainter extends CustomPainter {
     );
     canvas.drawRect(
       streak,
-      Paint()
-        ..shader = LinearGradient(
-          colors: [
-            Colors.white.withValues(alpha: 0),
-            Colors.white.withValues(alpha: 0.09),
-            Colors.white.withValues(alpha: 0),
-          ],
-        ).createShader(streak),
+      Paint()..color = AppColors.surface.withValues(alpha: 0.09),
     );
     canvas.restore();
   }
