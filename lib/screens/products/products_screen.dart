@@ -113,7 +113,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> _productsStream() {
-    return _firestore.collection('products').snapshots();
+    return _firestore
+        .collection('products')
+        .where('storeCode', isEqualTo: storeCode)
+        .snapshots();
   }
 
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _storeProductDocs(
@@ -172,6 +175,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
     return int.tryParse(value.toString()) ?? 5;
   }
 
+  String _priceLabel(Map<String, dynamic> item) {
+    final price = double.tryParse((item['price'] ?? 0).toString()) ?? 0;
+    return 'BD ${price.toStringAsFixed(3)}';
+  }
+
   String _stockText(Map<String, dynamic> item) {
     final stock = _stockFrom(item);
     final minStock = _minStockFrom(item);
@@ -215,7 +223,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                   child: MobileScanner(
                     onDetect: (capture) {
-                      if (capture.barcodes.isEmpty) return;
+                      if (scannedCode != null || capture.barcodes.isEmpty) {
+                        return;
+                      }
 
                       final code = capture.barcodes.first.rawValue;
 
@@ -1305,7 +1315,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         ),
       );
       final footerHeight = math.max(
-        measure('\$${item['price']}', _productPriceStyle),
+        measure(_priceLabel(item), _productPriceStyle),
         measure(_stockText(item), stockStyle, inset: 16) + 8,
       );
       final height =
@@ -1522,7 +1532,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                           children: [
                                             Expanded(
                                               child: Text(
-                                                '\$${item['price']}',
+                                                _priceLabel(item),
                                                 style: _productPriceStyle,
                                               ),
                                             ),

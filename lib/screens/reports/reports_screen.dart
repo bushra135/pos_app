@@ -12,16 +12,27 @@ import '../../app/app_typography.dart';
 enum ReportPeriod { today, week, month, year }
 
 class ReportsScreen extends StatefulWidget {
-  const ReportsScreen({super.key, this.returnToAssistant = false});
+  const ReportsScreen({
+    super.key,
+    this.returnToAssistant = false,
+    this.firestore,
+    this.currentUserId,
+  });
   final bool returnToAssistant;
+  final FirebaseFirestore? firestore;
+  final String? Function()? currentUserId;
 
   @override
   State<ReportsScreen> createState() => _ReportsScreenState();
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  String? get _uid => widget.currentUserId != null
+      ? widget.currentUserId!()
+      : FirebaseAuth.instance.currentUser?.uid;
+  FirebaseFirestore get _firestore =>
+      widget.firestore ?? FirebaseFirestore.instance;
+  static const _requestTimeout = Duration(seconds: 10);
 
   ReportPeriod selectedPeriod = ReportPeriod.week;
 
@@ -46,10 +57,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
         errorMessage = null;
       });
 
-      final user = _auth.currentUser;
-      if (user == null) throw Exception('No user');
+      final uid = _uid;
+      if (uid == null) throw Exception('No user');
 
-      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      final userDoc = await _firestore
+          .collection('users')
+          .doc(uid)
+          .get()
+          .timeout(_requestTimeout);
       final storeCode = (userDoc.data()?['storeCode'] ?? '').toString().trim();
 
       if (storeCode.isEmpty) throw Exception('Store code not found');
@@ -57,9 +72,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
       final salesSnapshot = await _firestore
           .collection('sales')
           .where('storeCode', isEqualTo: storeCode)
-          .get();
+          .get()
+          .timeout(_requestTimeout);
 
-      final productsSnapshot = await _firestore.collection('products').get();
+      final productsSnapshot = await _firestore
+          .collection('products')
+          .where('storeCode', isEqualTo: storeCode)
+          .get()
+          .timeout(_requestTimeout);
 
       final storeProducts = productsSnapshot.docs.where((doc) {
         final productStoreCode = (doc.data()['storeCode'] ?? '')
@@ -420,57 +440,66 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _buildSummaryCards(_ReportsData data) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      childAspectRatio: 1.42,
-      children: [
-        _TopStatCard(
-          icon: Icons.payments_rounded,
-          color: AppColors.success,
-          title: 'Sales',
-          value: _money(data.grossSales),
-          subtitle: _periodLabel(selectedPeriod),
-        ),
-        _TopStatCard(
-          icon: Icons.account_balance_wallet_rounded,
-          color: AppColors.primaryDark,
-          title: 'Net Sales',
-          value: _money(data.netSales),
-          subtitle: 'After discounts/refunds',
-        ),
-        _TopStatCard(
-          icon: Icons.receipt_long_rounded,
-          color: AppColors.warning,
-          title: 'Orders',
-          value: '${data.ordersCount}',
-          subtitle: 'Invoices count',
-        ),
-        _TopStatCard(
-          icon: Icons.calculate_rounded,
-          color: AppColors.primaryDark,
-          title: 'Avg Order',
-          value: _money(data.averageOrder),
-          subtitle: 'Sales / orders',
-        ),
-        _TopStatCard(
-          icon: Icons.local_offer_rounded,
-          color: AppColors.warning,
-          title: 'Discounts',
-          value: _money(data.discounts),
-          subtitle: _periodLabel(selectedPeriod),
-        ),
-        _TopStatCard(
-          icon: Icons.undo_rounded,
-          color: AppColors.danger,
-          title: 'Refunds',
-          value: _money(data.refunds),
-          subtitle: _periodLabel(selectedPeriod),
-        ),
-      ],
+    final cards = <Widget>[
+      _TopStatCard(
+        icon: Icons.payments_rounded,
+        color: AppColors.success,
+        title: 'Sales',
+        value: _money(data.grossSales),
+        subtitle: _periodLabel(selectedPeriod),
+      ),
+      _TopStatCard(
+        icon: Icons.account_balance_wallet_rounded,
+        color: AppColors.primaryDark,
+        title: 'Net Sales',
+        value: _money(data.netSales),
+        subtitle: 'After discounts/refunds',
+      ),
+      _TopStatCard(
+        icon: Icons.receipt_long_rounded,
+        color: AppColors.warning,
+        title: 'Orders',
+        value: '${data.ordersCount}',
+        subtitle: 'Invoices count',
+      ),
+      _TopStatCard(
+        icon: Icons.calculate_rounded,
+        color: AppColors.primaryDark,
+        title: 'Avg Order',
+        value: _money(data.averageOrder),
+        subtitle: 'Sales / orders',
+      ),
+      _TopStatCard(
+        icon: Icons.local_offer_rounded,
+        color: AppColors.warning,
+        title: 'Discounts',
+        value: _money(data.discounts),
+        subtitle: _periodLabel(selectedPeriod),
+      ),
+      _TopStatCard(
+        icon: Icons.undo_rounded,
+        color: AppColors.danger,
+        title: 'Refunds',
+        value: _money(data.refunds),
+        subtitle: _periodLabel(selectedPeriod),
+      ),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 700
+            ? 3
+            : constraints.maxWidth >= 320
+            ? 2
+            : 1;
+        final width = (constraints.maxWidth - 12 * (columns - 1)) / columns;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (final card in cards) SizedBox(width: width, child: card),
+          ],
+        );
+      },
     );
   }
 
@@ -702,10 +731,11 @@ class _TopStatCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: _cardDecoration(),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _IconBadge(icon: icon, color: color),
-          const Spacer(),
+          const SizedBox(height: 12),
           Text(
             title,
             maxLines: 1,

@@ -10,15 +10,21 @@ import '../reports/reports_screen.dart';
 
 /// Calculates store insights locally using keyword rules and store records.
 class AiAssistantScreen extends StatefulWidget {
-  const AiAssistantScreen({super.key});
+  const AiAssistantScreen({super.key, this.firestore, this.currentUserId});
+  final FirebaseFirestore? firestore;
+  final String? Function()? currentUserId;
 
   @override
   State<AiAssistantScreen> createState() => _AiAssistantScreenState();
 }
 
 class _AiAssistantScreenState extends State<AiAssistantScreen> {
-  FirebaseAuth get _auth => FirebaseAuth.instance;
-  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
+  String? get _uid => widget.currentUserId != null
+      ? widget.currentUserId!()
+      : FirebaseAuth.instance.currentUser?.uid;
+  FirebaseFirestore get _firestore =>
+      widget.firestore ?? FirebaseFirestore.instance;
+  static const _requestTimeout = Duration(seconds: 10);
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -30,15 +36,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       text:
           "Hello! I can analyze your POS data, sales, inventory, payment methods, and product performance. What would you like to know?",
     ),
-  ];
-
-  final List<String> suggestions = const [
-    "Today's sales summary",
-    "Top products this week",
-    "Low stock alerts",
-    "Restock recommendations",
-    "Slow moving products",
-    "Compare sales with the previous period",
   ];
 
   @override
@@ -56,10 +53,14 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   Future<void> _loadOwnerName() async {
     try {
-      final user = _auth.currentUser;
-      if (user == null) return;
+      final uid = _uid;
+      if (uid == null) return;
 
-      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      final userDoc = await _firestore
+          .collection('users')
+          .doc(uid)
+          .get()
+          .timeout(_requestTimeout);
       final fullName = (userDoc.data()?['fullName'] ?? '').toString().trim();
 
       if (fullName.isEmpty) return;
@@ -97,7 +98,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     _scrollToBottom();
 
     try {
-      final answer = await _buildAnswer(question);
+      final answer = await _buildAnswer(
+        question,
+      ).timeout(const Duration(seconds: 15));
 
       if (!mounted) return;
 
@@ -200,10 +203,14 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   }
 
   Future<_StoreData> _loadStoreData() async {
-    final user = _auth.currentUser;
-    if (user == null) throw Exception('No user found');
+    final uid = _uid;
+    if (uid == null) throw Exception('No user found');
 
-    final userDoc = await _firestore.collection('users').doc(user.uid).get();
+    final userDoc = await _firestore
+        .collection('users')
+        .doc(uid)
+        .get()
+        .timeout(_requestTimeout);
     final storeCode = (userDoc.data()?['storeCode'] ?? '').toString().trim();
 
     if (storeCode.isEmpty) throw Exception('Store code not found');
@@ -211,7 +218,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final productsSnapshot = await _firestore
         .collection('products')
         .where('storeCode', isEqualTo: storeCode)
-        .get();
+        .get()
+        .timeout(_requestTimeout);
 
     final productDocs = productsSnapshot.docs.where((doc) {
       final data = doc.data();
@@ -222,7 +230,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final salesSnapshot = await _firestore
         .collection('sales')
         .where('storeCode', isEqualTo: storeCode)
-        .get();
+        .get()
+        .timeout(_requestTimeout);
 
     final products = productDocs.map((doc) {
       final item = doc.data();
@@ -725,7 +734,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                         _buildSuggestions(),
                       ] else ...[
                         for (final message in messages.skip(1))
-                          _MessageBubble(message: message),
+                          _MessageBubble(
+                            message: message,
+                            onOpenReports: _openReports,
+                          ),
                       ],
                       if (isThinking) const _TypingBubble(),
                     ],
@@ -735,6 +747,18 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             ),
             _buildInputBar(),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _openReports() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ReportsScreen(
+          returnToAssistant: true,
+          firestore: _firestore,
+          currentUserId: () => _uid,
         ),
       ),
     );
@@ -1125,7 +1149,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
 class _MessageBubble extends StatelessWidget {
   final _ChatMessage message;
-  const _MessageBubble({required this.message});
+  final VoidCallback onOpenReports;
+  const _MessageBubble({required this.message, required this.onOpenReports});
 
   @override
   Widget build(BuildContext context) {
@@ -1202,13 +1227,7 @@ class _MessageBubble extends StatelessWidget {
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.bar_chart_rounded, size: 18),
                     label: const Text('Open reports'),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            const ReportsScreen(returnToAssistant: true),
-                      ),
-                    ),
+                    onPressed: onOpenReports,
                   ),
                 ),
             ],
