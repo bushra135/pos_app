@@ -1,6 +1,6 @@
 # ShopPad email verification
 
-The server provides only email verification by six-digit code. Payments remain cash or manually confirmed BenefitPay.
+The server provides email verification by six-digit code. Payments remain cash or manually confirmed BenefitPay. The store assistant runs local rule-based analysis and does not call an external AI service.
 
 ## Setup
 

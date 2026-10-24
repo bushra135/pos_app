@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_colors.dart';
+import '../../widgets/app_empty_state.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 import '../../utils/cart_manager.dart';
@@ -113,14 +114,11 @@ class _CartScreenState extends State<CartScreen> {
             ),
             Expanded(
               child: cartItems.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No items in cart',
-                        style: TextStyle(
-                          fontSize: AppTypography.body,
-                          color: AppColors.muted,
-                        ),
-                      ),
+                  ? const AppEmptyState(
+                      icon: Icons.shopping_bag_outlined,
+                      title: 'No items in cart',
+                      message:
+                          'Open Scan to add products using the camera or enter a barcode manually.',
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(
@@ -255,7 +253,7 @@ class _CartScreenState extends State<CartScreen> {
                 ),
                 decoration: const BoxDecoration(
                   color: AppColors.surface,
-                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8)],
+                  border: Border(top: BorderSide(color: AppColors.border)),
                 ),
                 child: Column(
                   children: [

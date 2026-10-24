@@ -8,6 +8,14 @@ import '../utils/cart_manager.dart';
 import 'local_pos_store.dart';
 import 'sale_gateway.dart';
 
+/// Only a confirmed online catalogue miss allows an external lookup.
+class ProductNotFoundException implements Exception {
+  const ProductNotFoundException(this.barcode);
+  final String barcode;
+  @override
+  String toString() => 'Product not found in your store: $barcode';
+}
+
 enum SaleSubmissionStatus { synced, queued, conflict }
 
 class SaleSubmission {
@@ -202,7 +210,7 @@ class SaleSyncService extends ChangeNotifier {
         if (result.docs.isNotEmpty) {
           product = {...result.docs.single.data(), 'id': result.docs.single.id};
         } else {
-          throw StateError('Product not found in your store: $barcode');
+          throw ProductNotFoundException(barcode);
         }
       } on TimeoutException {
         online = false;

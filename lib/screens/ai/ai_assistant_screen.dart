@@ -3,12 +3,12 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/app_colors.dart';
-import '../../app/app_spacing.dart';
-import '../../app/app_typography.dart';
+import '../reports/reports_screen.dart';
 
-/// Answers store questions using local rules and Firestore data, not an external AI model.
+/// Calculates store insights locally using keyword rules and store records.
 class AiAssistantScreen extends StatefulWidget {
   const AiAssistantScreen({super.key});
 
@@ -17,8 +17,8 @@ class AiAssistantScreen extends StatefulWidget {
 }
 
 class _AiAssistantScreenState extends State<AiAssistantScreen> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseAuth get _auth => FirebaseAuth.instance;
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -38,9 +38,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     "Low stock alerts",
     "Restock recommendations",
     "Slow moving products",
-    "Payment summary",
-    "Store overview",
-    "Best sales hour today",
+    "Compare sales with the previous period",
   ];
 
   @override
@@ -104,7 +102,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       if (!mounted) return;
 
       setState(() {
-        messages.add(_ChatMessage(isUser: false, text: answer));
+        messages.add(
+          _ChatMessage(isUser: false, text: answer, hasReport: true),
+        );
         isThinking = false;
       });
 
@@ -116,10 +116,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
       setState(() {
         messages.add(
-          const _ChatMessage(
+          _ChatMessage(
             isUser: false,
             text:
-                "I couldn't load your store data right now. Please check your connection and try again.",
+                'Local analysis could not load store data. Check your connection and try again.',
           ),
         );
         isThinking = false;
@@ -208,7 +208,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
     if (storeCode.isEmpty) throw Exception('Store code not found');
 
-    final productsSnapshot = await _firestore.collection('products').get();
+    final productsSnapshot = await _firestore
+        .collection('products')
+        .where('storeCode', isEqualTo: storeCode)
+        .get();
 
     final productDocs = productsSnapshot.docs.where((doc) {
       final data = doc.data();
@@ -690,32 +693,44 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     return 'BD ${value.toStringAsFixed(3)}';
   }
 
+  void _startNewConversation() {
+    if (isThinking) return;
+    setState(() {
+      messages.removeRange(1, messages.length);
+      _messageController.clear();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isNewConversation = messages.length == 1;
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
             _buildHeader(),
-            _buildSuggestions(),
             Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.page,
-                  14,
-                  AppSpacing.page,
-                  18,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 860),
+                  child: ListView(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+                    children: [
+                      if (isNewConversation) ...[
+                        _buildWelcomeCard(),
+                        const SizedBox(height: 24),
+                        _buildSuggestions(),
+                      ] else ...[
+                        for (final message in messages.skip(1))
+                          _MessageBubble(message: message),
+                      ],
+                      if (isThinking) const _TypingBubble(),
+                    ],
+                  ),
                 ),
-                itemCount: messages.length + (isThinking ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == messages.length) {
-                    return const _TypingBubble();
-                  }
-
-                  return _MessageBubble(message: messages[index]);
-                },
               ),
             ),
             _buildInputBar(),
@@ -727,126 +742,382 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   Widget _buildHeader() {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 25, 24, 26),
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
       decoration: const BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+        color: AppColors.surface,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: AppColors.surface,
-            child: Icon(Icons.smart_toy, color: AppColors.primaryDark),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.primaryDark,
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: const Icon(
+              Icons.auto_awesome_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
           ),
-          SizedBox(width: 12),
-          Expanded(
+          const SizedBox(width: 12),
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "AI Assistant",
+                  'ShopPad Assistant',
                   style: TextStyle(
-                    color: AppColors.onBrand,
+                    fontSize: 18,
                     fontWeight: FontWeight.w700,
-                    fontSize: AppTypography.title,
+                    color: AppColors.text,
                   ),
                 ),
-                SizedBox(height: 4),
                 Text(
-                  "Store insights from your POS data",
-                  style: TextStyle(
-                    color: AppColors.onBrand,
-                    fontSize: AppTypography.body,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  'Sales insights, made simple',
+                  style: TextStyle(fontSize: 12, color: AppColors.muted),
                 ),
               ],
             ),
+          ),
+          IconButton(
+            onPressed: isThinking || messages.length == 1
+                ? null
+                : _startNewConversation,
+            tooltip: 'New conversation',
+            icon: const Icon(Icons.edit_square, size: 21),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSuggestions() {
+  Widget _buildWelcomeCard() {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.page,
-        14,
-        AppSpacing.page,
-        8,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFE1EEFF), Color(0xFFF8FBFF)],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppColors.border),
       ),
-      child: Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: suggestions.map((text) {
-          return ActionChip(
-            onPressed: isThinking ? null : () => _sendMessage(text),
-            label: Text(text),
-            backgroundColor: AppColors.surface,
-            side: BorderSide(color: AppColors.border),
-            labelStyle: const TextStyle(
-              color: AppColors.muted,
-              fontSize: AppTypography.label,
-              fontWeight: FontWeight.w600,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
             ),
-          );
-        }).toList(),
+            child: const Icon(
+              Icons.auto_awesome_rounded,
+              color: AppColors.primaryDark,
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Your store.\nA clearer picture.',
+            style: TextStyle(
+              fontSize: 29,
+              height: 1.25,
+              fontWeight: FontWeight.w700,
+              color: AppColors.onBrand,
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Choose a question below to explore your sales and stock. Local analysis supports the suggested topics and similar English questions.',
+            style: TextStyle(fontSize: 14, height: 1.6, color: AppColors.muted),
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildInfoPill(Icons.lock_outline, 'Your store data'),
+              _buildInfoPill(Icons.visibility_outlined, 'Read-only insights'),
+            ],
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildInfoPill(IconData icon, String label) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(30),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: AppColors.primaryDark),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: AppColors.primaryDark),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildSuggestions() {
+    const prompts = [
+      (
+        Icons.trending_up_rounded,
+        'Sales snapshot',
+        "Today's sales summary",
+        'How is today going?',
+      ),
+      (
+        Icons.inventory_2_outlined,
+        'Stock check',
+        'Low stock alerts',
+        'See what is running low',
+      ),
+      (
+        Icons.star_outline_rounded,
+        'Best sellers',
+        'Top products this week',
+        'Find your top products',
+      ),
+      (
+        Icons.add_shopping_cart_rounded,
+        'Restock suggestions',
+        'Restock recommendations',
+        'Plan your next stock order',
+      ),
+      (
+        Icons.hourglass_bottom_rounded,
+        'Slow-moving items',
+        'Slow moving products',
+        'Find items with fewer sales',
+      ),
+      (
+        Icons.payments_outlined,
+        'Payment summary',
+        'Payment summary',
+        'See cash and BenefitPay sales',
+      ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 12),
+          child: Text(
+            'A good place to start',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+        ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final columns = constraints.maxWidth >= 480 ? 2 : 1;
+            final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                for (final prompt in prompts)
+                  SizedBox(
+                    width: width,
+                    child: Material(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(18),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: isThinking
+                            ? null
+                            : () => _sendMessage(prompt.$3),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(9),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accentSoft,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  prompt.$1,
+                                  color: AppColors.primaryDark,
+                                  size: 21,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      prompt.$2,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      prompt.$4,
+                                      style: const TextStyle(
+                                        color: AppColors.muted,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(
+                                Icons.north_east_rounded,
+                                size: 17,
+                                color: AppColors.primaryDark,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 
   Widget _buildInputBar() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.text.withValues(alpha: 0.06),
-            blurRadius: 14,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(16),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+      color: AppColors.surface,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 828),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.analytics_outlined,
+                    size: 14,
+                    color: AppColors.primaryDark,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    'Local analysis',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primaryDark,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'English prompts',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'About this analysis mode',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.info_outline, size: 17),
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: Text('Local analysis'),
+                        content: Text(
+                          'Answers are calculated on your device using English keyword rules and your store records. No paid AI service or API key is used. Loading store records may require a connection.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Got it'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              child: TextField(
-                controller: _messageController,
-                enabled: !isThinking,
-                minLines: 1,
-                maxLines: 4,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _sendMessage(),
-                decoration: const InputDecoration(
-                  hintText: "Ask about your sales or inventory...",
-                  border: InputBorder.none,
+              Container(
+                padding: const EdgeInsets.fromLTRB(4, 4, 6, 4),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(23),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _messageController,
+                        enabled: !isThinking,
+                        minLines: 1,
+                        maxLines: 4,
+                        maxLength: 600,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => _sendMessage(),
+                        decoration: const InputDecoration(
+                          hintText: 'Ask about your store…',
+                          counterText: '',
+                          filled: false,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: IconButton.filled(
+                        onPressed: isThinking ? null : () => _sendMessage(),
+                        tooltip: 'Send message',
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppColors.primaryDark,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(44, 44),
+                        ),
+                        icon: isThinking
+                            ? const SizedBox(
+                                width: 17,
+                                height: 17,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.arrow_upward_rounded, size: 22),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Container(
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              onPressed: isThinking ? null : () => _sendMessage(),
-              icon: const Icon(Icons.send_rounded, color: AppColors.onBrand),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -854,71 +1125,95 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
 class _MessageBubble extends StatelessWidget {
   final _ChatMessage message;
-
   const _MessageBubble({required this.message});
 
   @override
   Widget build(BuildContext context) {
     final isUser = message.isUser;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Row(
-        mainAxisAlignment: isUser
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!isUser) ...[
-            Container(
-              width: 40,
-              height: 40,
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.auto_awesome,
-                color: AppColors.onBrand,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 10),
-          ],
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: isUser ? AppColors.primary : AppColors.surface,
-                borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.text.withValues(alpha: 0.05),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
+    final explanation = message.text;
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: FractionallySizedBox(
+        widthFactor: isUser ? .88 : 1,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 18),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isUser ? AppColors.accentSoft : AppColors.surface,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    isUser
+                        ? Icons.person_outline_rounded
+                        : Icons.auto_awesome_rounded,
+                    size: 17,
+                    color: AppColors.primaryDark,
                   ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      isUser ? 'You' : 'Local analysis',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primaryDark,
+                      ),
+                    ),
+                  ),
+                  if (!isUser)
+                    IconButton(
+                      tooltip: 'Copy answer',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.copy_rounded, size: 16),
+                      onPressed: () async {
+                        await Clipboard.setData(
+                          ClipboardData(text: message.text),
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Answer copied')),
+                          );
+                        }
+                      },
+                    ),
                 ],
               ),
-              child: Text(
-                message.text,
-                style: TextStyle(
-                  color: isUser ? AppColors.onBrand : AppColors.text,
-                  fontSize: AppTypography.body,
-                  height: 1.35,
-                  fontWeight: FontWeight.w400,
+              const SizedBox(height: 8),
+              SelectableText(
+                explanation,
+                textDirection: RegExp(r'[\u0600-\u06FF]').hasMatch(explanation)
+                    ? TextDirection.rtl
+                    : TextDirection.ltr,
+                style: const TextStyle(
+                  color: AppColors.text,
+                  fontSize: 14,
+                  height: 1.65,
                 ),
               ),
-            ),
+              if (message.hasReport)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.bar_chart_rounded, size: 18),
+                    label: const Text('Open reports'),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            const ReportsScreen(returnToAssistant: true),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
-          if (isUser) ...[
-            const SizedBox(width: 10),
-            const CircleAvatar(
-              radius: 20,
-              backgroundColor: AppColors.accentSoft,
-              child: Icon(Icons.person, color: AppColors.primaryDark, size: 20),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -926,46 +1221,38 @@ class _MessageBubble extends StatelessWidget {
 
 class _TypingBubble extends StatelessWidget {
   const _TypingBubble();
-
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.auto_awesome,
-              color: AppColors.onBrand,
-              size: 20,
-            ),
+  Widget build(BuildContext context) => const Padding(
+    padding: EdgeInsets.all(16),
+    child: Row(
+      children: [
+        SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            'Looking at your store data…',
+            style: TextStyle(color: AppColors.muted, fontSize: 13),
           ),
-          const SizedBox(width: 10),
-          const Text(
-            "Analyzing store data...",
-            style: TextStyle(
-              color: AppColors.muted,
-              fontSize: AppTypography.body,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
 }
 
 class _ChatMessage {
   final bool isUser;
   final String text;
+  final bool hasReport;
 
-  const _ChatMessage({required this.isUser, required this.text});
+  const _ChatMessage({
+    required this.isUser,
+    required this.text,
+    this.hasReport = false,
+  });
 }
 
 class _StoreData {

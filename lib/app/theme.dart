@@ -6,22 +6,6 @@ import 'app_typography.dart';
 
 /// Central Material component styles, typography, and shared colors.
 abstract final class AppTheme {
-  // Reuse the same fill as page headers rather than a second button palette.
-  static Widget _buttonBackground(
-    BuildContext context,
-    Set<WidgetState> states,
-    Widget? child,
-  ) => Opacity(
-    opacity: states.contains(WidgetState.disabled) ? 0.5 : 1,
-    child: DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-      ),
-      child: child,
-    ),
-  );
-
   static ThemeData get light {
     final scheme = ColorScheme.fromSeed(
       seedColor: AppColors.primary,
@@ -110,7 +94,6 @@ abstract final class AppTheme {
           foregroundColor: AppColors.onBrand,
           elevation: 0,
           shadowColor: Colors.transparent,
-          backgroundBuilder: _buttonBackground,
           minimumSize: const Size(48, 52),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
@@ -122,6 +105,35 @@ abstract final class AppTheme {
             height: 1.3,
           ),
         ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.primaryDark,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(48, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+          ),
+          textStyle: const TextStyle(
+            fontFamily: AppTypography.family,
+            fontSize: AppTypography.button,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: AppColors.accentSoft,
+        side: BorderSide.none,
+        labelStyle: const TextStyle(
+          fontFamily: AppTypography.family,
+          color: AppColors.primaryDark,
+          fontSize: 12,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      tooltipTheme: const TooltipThemeData(
+        waitDuration: Duration(milliseconds: 400),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(

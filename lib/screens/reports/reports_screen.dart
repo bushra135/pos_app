@@ -12,7 +12,8 @@ import '../../app/app_typography.dart';
 enum ReportPeriod { today, week, month, year }
 
 class ReportsScreen extends StatefulWidget {
-  const ReportsScreen({super.key});
+  const ReportsScreen({super.key, this.returnToAssistant = false});
+  final bool returnToAssistant;
 
   @override
   State<ReportsScreen> createState() => _ReportsScreenState();
@@ -211,6 +212,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: widget.returnToAssistant
+          ? AppBar(
+              leading: IconButton(
+                tooltip: 'Back to assistant',
+                icon: const Icon(Icons.arrow_back_rounded),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              title: const Text('Back to assistant'),
+            )
+          : null,
       body: SafeArea(
         child: isLoading
             ? const Center(child: CircularProgressIndicator())

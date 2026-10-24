@@ -62,7 +62,7 @@ The scan screen's `build` method lists its six UI sections. Each section has a n
 | `services/local_pos_store.dart` | How are pending sales and stock reservations kept after a restart? |
 | `services/receipt_service.dart` | How is a PDF made from the saved sale? |
 | `services/backup_service.dart` | How do recovery copies avoid overwriting newer records? |
-| `screens/ai/ai_assistant_screen.dart` | How are store questions answered using local rules? |
+| `screens/ai/ai_assistant_screen.dart` | How are local store insights calculated? |
 
 The native and web database files are intentionally separate. Conditional imports select a device file database or browser IndexedDB; all callers use `local_pos_database.dart`.
 
@@ -71,7 +71,7 @@ The native and web database files are intentionally separate. Conditional import
 - Firestore collections are `users`, `stores`, `products` and `sales`. Store operations must be scoped by `storeCode` and protected by server rules. Hiding an owner-only button is not authorization.
 - The cart is held in memory and does not survive app restarts. Pending accepted cash sales are durable and separate from the cart.
 - Cash is supported. BenefitPay uses store-provided payment details and manual receipt confirmation; there is no bank payment-verification integration.
-- The assistant uses local data rules, not a remote language model. It should not be described as an integrated external AI service.
+- The assistant calculates insights locally using English keyword rules and store records. No AI API key or paid model is required. It still loads records from the existing Firebase store.
 - Reports read saved store data. Current checkout does not implement actual tax/discount calculations, returns or spreadsheet import.
 - Barcode input identifies a product already registered for the store; it does not automatically obtain the store's selling price.
 - Low-stock information is displayed in product management. Validate real-device scanning performance before claiming equivalence to a dedicated scanner.
@@ -102,3 +102,20 @@ The bundled Cairo font and license are in `assets/fonts`. The `image` package is
 ## Fast camera lookup
 
 Camera checkout uses `findProduct(preferCache: true)` to read the locally synchronized catalogue first. Cache misses fall back to a server lookup when online. Cached names, prices and stock can lag behind another device until the product stream updates; stock is checked again on submission. The camera detection interval is 100 ms, not an unrestricted frame loop. Up to 12 subsequent camera detections are processed in order while product lookup is busy; full queues accept no further scans until capacity is available. Each successful addition has its own feedback. The existing duplicate guard remains active. These settings reduce software waiting, but do not constitute a measured camera scan latency or a guarantee of outperforming a dedicated scanner.
+
+## Free barcode product information
+
+`BarcodeCatalogService` reads the public Open Facts API v3 with `product_type=all`, allowing official redirects across Open Food Facts, Open Products Facts, Open Beauty Facts and Open Pet Food Facts; there is no API key or paid AI dependency. In Products > Add Product, scanning a barcode automatically looks up available product details. The lookup button also works for a typed barcode. Only empty name, category and image fields are filled. The owner reviews the suggestion and supplies the store selling price and stock before saving. Existing user details are preserved. A missing product during online checkout opens a preview, not a sale or an automatically stocked product; offline cache misses and stock errors do not trigger external lookup.
+
+Coverage is community supplied, including general products, beauty and pet food as well as packaged food; many manufacturer and local products are still absent. Decoding a barcode is distinct from finding a matching catalogue record. Lookup needs internet. No store, customer, price or payment data is submitted to the provider. Supported numeric barcode lengths are 8, 12, 13 and 14, with leading zeros preserved. Other internal barcodes remain valid for manual product entry. Responses are cached in memory for one hour (five minutes for no match), simultaneous identical requests share one call, reads are limited to 15 per minute per app instance, and requests time out after four seconds; the form also has a Stop lookup action that ignores late results. Provider failures keep manual entry available. This per-instance limit cannot coordinate several devices sharing a public IP.
+
+Imported records retain `catalogueSource`, with source URL and licence labels, shown in the product form and checkout preview. Data is from the relevant Open Facts catalogue contributors under ODbL/DbCL; images retain their CC BY-SA terms. Before publicly redistributing an adapted catalogue, follow the provider's attribution and share-alike requirements. Store prices and quantities are supplied by the owner, not by the provider. No data is uploaded back to Open Food Facts. Replace the prototype User-Agent description with the project's public contact information before public rollout and complete the provider's API usage form.
+
+- API: https://openfoodfacts.github.io/documentation/docs/Product-Opener/v3/products/get-api-v3-product-code/
+- Usage and rate limits: https://openfoodfacts.github.io/openfoodfacts-server/api/
+- Attribution and licences: https://openfoodfacts.github.io/documentation/docs/Product-Opener/api/tutorials/license-be-on-the-legal-side/
+
+A live read of the documented example barcode `3017620422003` returned Nutella and a front-image URL during development. This does not establish coverage of Bahrain products or verify camera performance on a physical device.
+
+A second live all-category lookup of `6111259733749` resolved a general cleaning product with `product_type=product` and an Open Products Facts image URL. General catalogue coverage remains incomplete; no claim is made that every stationery or manufacturer barcode has metadata.
+

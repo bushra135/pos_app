@@ -72,4 +72,3 @@ exports.verifyEmailCode = onCall({...options,secrets:[otpKey]},async request => 
   await ref.delete();
   return {verified:true};
 });
-

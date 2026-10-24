@@ -9,14 +9,25 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../app/app_colors.dart';
+import '../../services/barcode_catalog_service.dart';
+import '../../widgets/barcode_lookup_panel.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 import '../../utils/product_image_data.dart';
 import '../../widgets/product_image.dart';
+import '../../widgets/app_empty_state.dart';
 
 /// Manages store products, images, and low stock alert thresholds.
 class ProductsScreen extends StatefulWidget {
-  const ProductsScreen({super.key});
+  const ProductsScreen({
+    super.key,
+    this.firestore,
+    this.currentUserId,
+    this.catalog,
+  });
+  final FirebaseFirestore? firestore;
+  final String? Function()? currentUserId;
+  final BarcodeCatalogService? catalog;
 
   @override
   State<ProductsScreen> createState() => _ProductsScreenState();
@@ -50,8 +61,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
     height: 1.5,
   );
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  FirebaseFirestore get _firestore =>
+      widget.firestore ?? FirebaseFirestore.instance;
   final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController searchController = TextEditingController();
 
@@ -73,15 +84,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   Future<void> _loadStoreCode() async {
     try {
-      final user = _auth.currentUser;
+      final uid = widget.currentUserId != null
+          ? widget.currentUserId!()
+          : FirebaseAuth.instance.currentUser?.uid;
 
-      if (user == null) {
+      if (uid == null) {
         if (!mounted) return;
         setState(() => isLoadingStore = false);
         return;
       }
 
-      final userDoc = await _firestore.collection('users').doc(user.uid).get();
+      final userDoc = await _firestore.collection('users').doc(uid).get();
       final code = (userDoc.data()?['storeCode'] ?? '').toString().trim();
 
       if (!mounted) return;
@@ -183,11 +196,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-  Future<String?> _scanBarcode() async {
+  Future<String?> _scanBarcode(BuildContext scannerContext) async {
     String? scannedCode;
 
     await showDialog(
-      context: context,
+      context: scannerContext,
       builder: (context) {
         return Dialog(
           backgroundColor: AppColors.background,
@@ -275,6 +288,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   void _showProductDialog({String? docId, Map<String, dynamic>? product}) {
+    // The dialog route can outlive its Products screen during navigation refreshes.
+    final productFirestore = _firestore;
+    final catalogue = widget.catalog ?? BarcodeCatalogService.shared;
+    final messenger = ScaffoldMessenger.of(context);
     final nameController = TextEditingController(
       text: product?['name']?.toString() ?? '',
     );
@@ -306,13 +323,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
     final bool isEdit = docId != null;
     // Reuse one document if a delayed write is retried after a timeout.
-    final productRef = _firestore.collection('products').doc(docId);
+    final productRef = productFirestore.collection('products').doc(docId);
 
     Uint8List? pickedImageBytes;
     String imagePreviewUrl = existingImage;
     String? preparedImage;
     String? saveError;
     String saveStage = 'Checking barcode';
+    bool isLookingUp = false;
+    final lookupKey = GlobalKey<BarcodeLookupPanelState>();
+    Map<String, dynamic>? catalogueSource = product?['catalogueSource'] is Map
+        ? Map<String, dynamic>.from(product!['catalogueSource'])
+        : null;
     bool isChoosingImage = false;
     bool isSavingProduct = false;
 
@@ -335,16 +357,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   maxHeight: 1200,
                   imageQuality: 75,
                 );
-                if (image == null || !mounted || !context.mounted) return;
+                if (image == null || !context.mounted) return;
 
                 final bytes = await image.readAsBytes().timeout(
                   _requestTimeout,
                 );
-                if (!mounted || !context.mounted) return;
+                if (!context.mounted) return;
                 final imageData = await ProductImageData.prepare(
                   bytes,
                 ).timeout(_requestTimeout);
-                if (!mounted || !context.mounted) return;
+                if (!context.mounted) return;
 
                 setDialogState(() {
                   preparedImage = imageData;
@@ -355,21 +377,21 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   imageController.clear();
                 });
               } catch (error) {
-                if (!mounted || !context.mounted) return;
+                if (!context.mounted) return;
                 setDialogState(() {
                   saveError = error is FormatException
                       ? error.message
                       : 'Could not read the image. Please choose another image.';
                 });
               } finally {
-                if (mounted && context.mounted) {
+                if (context.mounted) {
                   setDialogState(() => isChoosingImage = false);
                 }
               }
             }
 
             Future<void> saveProduct() async {
-              if (isSavingProduct || isChoosingImage) return;
+              if (isSavingProduct || isChoosingImage || isLookingUp) return;
               final String name = nameController.text.trim();
               final String category = categoryController.text.trim();
               final double? price = double.tryParse(
@@ -404,12 +426,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
               });
 
               try {
-                final duplicateBarcodeQuery = await _firestore
+                final duplicateBarcodeQuery = await productFirestore
                     .collection('products')
                     .where('barcode', isEqualTo: barcode)
                     .get(const GetOptions(source: Source.server))
                     .timeout(_requestTimeout);
-                if (!mounted || !context.mounted) return;
+                if (!context.mounted) return;
 
                 // Barcodes must be unique within the store, excluding the product being edited.
                 final bool barcodeExists = duplicateBarcodeQuery.docs.any((
@@ -432,7 +454,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 }
 
                 final image = preparedImage ?? imagePreviewUrl.trim();
-                if (!mounted || !context.mounted) return;
+                if (!context.mounted) return;
 
                 setDialogState(() {
                   saveStage = 'Saving product';
@@ -446,6 +468,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   'minStock': minStock,
                   'barcode': barcode,
                   'image': image,
+                  'catalogueSource': catalogueSource,
                   'storeCode': storeCode,
                   'updatedAt': FieldValue.serverTimestamp(),
                 };
@@ -460,22 +483,28 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       })
                       .timeout(_requestTimeout);
                 }
-                if (!mounted || !context.mounted) return;
+                if (!context.mounted) return;
 
                 Navigator.pop(context);
-                _showMessage(
-                  isEdit
-                      ? 'Product updated successfully'
-                      : 'Product added successfully',
-                );
+                if (messenger.mounted) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        isEdit
+                            ? 'Product updated successfully'
+                            : 'Product added successfully',
+                      ),
+                    ),
+                  );
+                }
               } catch (e) {
                 debugPrint('Product save error: $e');
-                if (!mounted || !context.mounted) return;
+                if (!context.mounted) return;
                 setDialogState(
                   () => saveError = _productSaveError(e, saveStage),
                 );
               } finally {
-                if (mounted && context.mounted) {
+                if (context.mounted) {
                   setDialogState(() => isSavingProduct = false);
                 }
               }
@@ -483,7 +512,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
             final hasImage =
                 pickedImageBytes != null || imagePreviewUrl.trim().isNotEmpty;
-            final isBusy = isSavingProduct || isChoosingImage;
+            final isBusy = isSavingProduct || isChoosingImage || isLookingUp;
 
             return PopScope(
               // The picker can stay open; allow dismissing the form until saving.
@@ -517,6 +546,108 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildField(
+                                barcodeController,
+                                'Barcode',
+                                onChanged: (_) => setDialogState(() {
+                                  catalogueSource = null;
+                                }),
+                                enabled: !isBusy,
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Container(
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: AppColors.soft,
+                                  borderRadius: BorderRadius.circular(
+                                    AppSpacing.controlRadius,
+                                  ),
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(
+                                    Icons.qr_code_scanner,
+                                    color: AppColors.primaryDark,
+                                  ),
+                                  onPressed: isBusy
+                                      ? null
+                                      : () async {
+                                          final result = await _scanBarcode(
+                                            context,
+                                          );
+
+                                          if (result != null &&
+                                              context.mounted) {
+                                            if (barcodeController.text.trim() !=
+                                                result) {
+                                              setDialogState(() {
+                                                catalogueSource = null;
+                                              });
+                                            }
+                                            barcodeController.text = result;
+                                            if (!isEdit) {
+                                              await lookupKey.currentState
+                                                  ?.lookup();
+                                            }
+                                          }
+                                        },
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        BarcodeLookupPanel(
+                          key: lookupKey,
+                          barcode: barcodeController,
+                          catalog: catalogue,
+                          enabled: !isSavingProduct && !isChoosingImage,
+                          onBusyChanged: (busy) {
+                            if (context.mounted) {
+                              setDialogState(() => isLookingUp = busy);
+                            }
+                          },
+                          onProduct: (result) {
+                            if (!context.mounted) return;
+                            setDialogState(() {
+                              var filled = false;
+                              if (nameController.text.trim().isEmpty) {
+                                nameController.text = result.name;
+                                filled = true;
+                              }
+                              if (categoryController.text.trim().isEmpty &&
+                                  result.category.isNotEmpty) {
+                                categoryController.text = result.category;
+                                filled = true;
+                              }
+                              if (pickedImageBytes == null &&
+                                  imagePreviewUrl.isEmpty &&
+                                  imageController.text.trim().isEmpty &&
+                                  result.imageUrl.isNotEmpty) {
+                                imageController.text = result.imageUrl;
+                                imagePreviewUrl = result.imageUrl;
+                                filled = true;
+                              }
+                              if (filled) catalogueSource = result.attribution;
+                            });
+                          },
+                        ),
+                        if (catalogueSource != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6, bottom: 12),
+                            child: SelectableText(
+                              'Source: ${catalogueSource!['provider']} · data ODbL · images CC BY-SA\n${catalogueSource!['url']}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.muted,
+                              ),
+                            ),
+                          ),
                         _buildField(
                           nameController,
                           'Product Name',
@@ -546,48 +677,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           'Low Stock Alert Limit',
                           enabled: !isBusy,
                           keyboardType: TextInputType.number,
-                        ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildField(
-                                barcodeController,
-                                'Barcode',
-                                enabled: !isBusy,
-                                keyboardType: TextInputType.number,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Container(
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  color: AppColors.soft,
-                                  borderRadius: BorderRadius.circular(
-                                    AppSpacing.controlRadius,
-                                  ),
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(
-                                    Icons.qr_code_scanner,
-                                    color: AppColors.primaryDark,
-                                  ),
-                                  onPressed: isBusy
-                                      ? null
-                                      : () async {
-                                          final result = await _scanBarcode();
-
-                                          if (result != null &&
-                                              mounted &&
-                                              context.mounted) {
-                                            barcodeController.text = result;
-                                          }
-                                        },
-                                ),
-                              ),
-                            ),
-                          ],
                         ),
                         _buildField(
                           imageController,
@@ -1341,8 +1430,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           }).toList();
 
                           if (filteredDocs.isEmpty) {
-                            return const Center(
-                              child: Text('No products found'),
+                            return AppEmptyState(
+                              icon: Icons.inventory_2_outlined,
+                              title: searchText.isEmpty
+                                  ? 'Your inventory starts here'
+                                  : 'No products found',
+                              message: searchText.isEmpty
+                                  ? 'Tap + to add your first product, its barcode, price, and stock.'
+                                  : 'Try another name, category, or barcode.',
                             );
                           }
 
