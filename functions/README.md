@@ -1,3 +1,5 @@
+> Legacy optional backend: the app now uses Firebase Authentication email verification links. This numeric-code service is not called by the current verification screen.
+
 # ShopPad email verification
 
 The server provides email verification by six-digit code. Payments remain cash or manually confirmed BenefitPay. The store assistant runs local rule-based analysis and does not call an external AI service.
@@ -16,3 +18,4 @@ Deployment and real email delivery have not been performed. Existing unverified 
 Codes expire after 10 minutes, allow five guesses, and have a 60-second resend cooldown and six-request hourly limit. Only hashes are stored. Successful verification updates Firebase Auth's emailVerified flag.
 
 Run `npm test` and test actual delivery, expiration, attempt limits, and sign-in after verification before release.
+

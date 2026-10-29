@@ -2,10 +2,8 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/app_colors.dart';
-import '../../services/shoppad_cloud.dart';
 import 'auth_wrapper.dart';
 import 'create_account_screen.dart';
 
@@ -32,12 +30,12 @@ class VerifyEmailScreen extends StatefulWidget {
 }
 
 class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
-  final _code = TextEditingController();
   Timer? _timer;
   bool _busy = false;
   int _cooldown = 0;
   String? _error;
-  String _notice = 'Request a code to verify your ShopPad account.';
+  String _notice =
+      'Send a verification link to your email to activate your ShopPad account.';
 
   @override
   void initState() {
@@ -48,7 +46,6 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   @override
   void dispose() {
     _timer?.cancel();
-    _code.dispose();
     super.dispose();
   }
 
@@ -59,12 +56,15 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       _error = null;
     });
     try {
-      await ShopPadCloud.call('requestEmailCode');
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw StateError('Sign in again to verify your email.');
+      await FirebaseAuth.instance.setLanguageCode('en');
+      await user.sendEmailVerification().timeout(const Duration(seconds: 20));
       if (!mounted) return;
       setState(() {
         _cooldown = 60;
         _notice =
-            'Code sent. Check your inbox and spam folder. It expires in 10 minutes.';
+            'Verification email sent. Open the link in your inbox, then return here and tap I have verified my email. Check spam if needed.';
       });
       _timer?.cancel();
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -88,18 +88,22 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
 
   Future<void> _verify() async {
     if (_busy) return;
-    if (!RegExp(r'^\d{6}$').hasMatch(_code.text)) {
-      setState(() => _error = 'Enter the six-digit code from your email.');
-      return;
-    }
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      await ShopPadCloud.call('verifyEmailCode', {'code': _code.text});
-      await FirebaseAuth.instance.currentUser?.reload();
-      await FirebaseAuth.instance.currentUser?.getIdToken(true);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw StateError('Sign in again to verify your email.');
+      await user.reload().timeout(const Duration(seconds: 20));
+      if (FirebaseAuth.instance.currentUser?.emailVerified != true) {
+        throw StateError(
+          'Your email is not verified yet. Open the link in your email, then try again.',
+        );
+      }
+      await FirebaseAuth.instance.currentUser!
+          .getIdToken(true)
+          .timeout(const Duration(seconds: 20));
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const AuthWrapper()),
@@ -190,28 +194,6 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                         style: const TextStyle(color: AppColors.muted),
                       ),
                       const SizedBox(height: 24),
-                      TextField(
-                        controller: _code,
-                        enabled: !_busy,
-                        textAlign: TextAlign.center,
-                        keyboardType: TextInputType.number,
-                        autofillHints: const [AutofillHints.oneTimeCode],
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(6),
-                        ],
-                        style: const TextStyle(
-                          fontSize: 30,
-                          letterSpacing: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        decoration: const InputDecoration(
-                          labelText: 'Verification code',
-                          hintText: '000000',
-                          counterText: '',
-                        ),
-                        onSubmitted: (_) => _verify(),
-                      ),
                       if (_error != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 14),
@@ -235,7 +217,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                                   ),
                                 )
                               : const Icon(Icons.verified_user_outlined),
-                          label: const Text('Verify & continue'),
+                          label: const Text('I have verified my email'),
                         ),
                       ),
                       TextButton(
@@ -243,7 +225,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                         child: Text(
                           _cooldown > 0
                               ? 'Resend in ${_cooldown}s'
-                              : 'Resend code',
+                              : 'Resend verification email',
                         ),
                       ),
                       TextButton(

@@ -1,36 +1,50 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../app/app_colors.dart';
 import '../../services/barcode_catalog_service.dart';
+import '../../services/browser_scanner.dart';
 import '../../widgets/product_image.dart';
+import '../../widgets/scanner_error_panel.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../services/sale_sync_service.dart';
 import '../../utils/barcode_scan_guard.dart';
 import '../../utils/cart_manager.dart';
+
+typedef BrowserCheckoutLauncher =
+    Future<bool> Function({
+      required Future<String> Function(String) onBarcode,
+      required String summary,
+    });
 
 /// Continuous camera checkout with a live cart and an explicit repeat action.
 class ScanScreen extends StatefulWidget {
   final BarcodeCatalogService? catalog;
   final VoidCallback? onGoToCart;
   final VoidCallback? onBackToHome;
+  final BrowserCheckoutLauncher? browserCheckout;
 
   const ScanScreen({
     super.key,
     this.onGoToCart,
     this.onBackToHome,
     this.catalog,
+    this.browserCheckout,
   });
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
 }
 
-class _ScanScreenState extends State<ScanScreen> {
+class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
+  final _cameraPreviewKey = GlobalKey();
+  bool _browserPreviewFailed = false;
   final _scannerController = MobileScannerController(
     detectionSpeed: DetectionSpeed.normal,
     detectionTimeoutMs: 100,
@@ -43,6 +57,7 @@ class _ScanScreenState extends State<ScanScreen> {
   final List<String> _pendingBarcodes = [];
   static const int _maximumPendingScans = 12;
   bool _isAddingProduct = false;
+  bool _browserScannerOpen = false;
   bool _isProductInfoOpen = false;
   bool _isTorchEnabled = false;
   bool _isManualEntryVisible = false;
@@ -51,9 +66,24 @@ class _ScanScreenState extends State<ScanScreen> {
   String? _lastAddedProductId;
   String? _lastAddedStoreCode;
 
+  bool get _usesBrowserScanner => kIsWeb || widget.browserCheckout != null;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _usesBrowserScanner) {
+        unawaited(_openBrowserCheckout());
+      }
+    });
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _releaseTimer?.cancel();
+    if (_browserScannerOpen) closeBrowserScanner();
     _scannerController.dispose();
     _audioPlayer.dispose();
     _barcodeInputController.dispose();
@@ -136,6 +166,7 @@ class _ScanScreenState extends State<ScanScreen> {
         _hasScanError = true;
       });
       if (error is ProductNotFoundException) {
+        if (_browserScannerOpen) closeBrowserScanner();
         await _showUnknownProduct(code.trim());
       }
     } finally {
@@ -261,6 +292,11 @@ class _ScanScreenState extends State<ScanScreen> {
       );
     } finally {
       _isProductInfoOpen = false;
+      if (mounted && _usesBrowserScanner && !_browserScannerOpen) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) unawaited(_openBrowserCheckout());
+        });
+      }
     }
   }
 
@@ -310,7 +346,7 @@ class _ScanScreenState extends State<ScanScreen> {
             ),
           ),
           IconButton(
-            onPressed: _toggleTorch,
+            onPressed: _usesBrowserScanner ? null : _toggleTorch,
             tooltip: 'Toggle flash',
             icon: Icon(_isTorchEnabled ? Icons.flash_on : Icons.flash_off),
           ),
@@ -319,7 +355,102 @@ class _ScanScreenState extends State<ScanScreen> {
     );
   }
 
+  String get _browserCartSummary {
+    final units = CartManager.items.fold<int>(
+      0,
+      (sum, item) => sum + item.quantity,
+    );
+    return '$units items · BD ${CartManager.total.toStringAsFixed(3)}';
+  }
+
+  void _positionBrowserCamera() {
+    if (!mounted) return;
+    final box = _cameraPreviewKey.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return;
+    final offset = box.localToGlobal(Offset.zero);
+    positionBrowserCamera(
+      jsonEncode({
+        'left': offset.dx,
+        'top': offset.dy,
+        'width': box.size.width,
+        'height': box.size.height,
+      }),
+    );
+  }
+
+  @override
+  void didChangeMetrics() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _browserScannerOpen) _positionBrowserCamera();
+    });
+  }
+
+  Future<void> _openBrowserCheckout() async {
+    if (_browserScannerOpen || _isAddingProduct || _isProductInfoOpen) return;
+    _browserScannerOpen = true;
+    _positionBrowserCamera();
+    try {
+      final review = await (widget.browserCheckout ?? scanBrowserCheckout)(
+        summary: _browserCartSummary,
+        onBarcode: (code) async {
+          if (!mounted) {
+            return jsonEncode({
+              'ok': false,
+              'message': 'Scanner closed',
+              'summary': '',
+            });
+          }
+          if (!_isManualEntryVisible && !_isProductInfoOpen) {
+            await _addProductByBarcode(code);
+          }
+          return jsonEncode({
+            'ok': !_hasScanError,
+            'message': _statusMessage ?? 'Ready to scan',
+            'summary': _browserCartSummary,
+          });
+        },
+      );
+      if (mounted && review && CartManager.items.isNotEmpty) {
+        widget.onGoToCart?.call();
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _hasScanError = true;
+          _browserPreviewFailed = true;
+          _statusMessage =
+              'Could not open browser camera. Retry or use Enter barcode.';
+        });
+      }
+    } finally {
+      _browserScannerOpen = false;
+    }
+  }
+
   Widget _buildCameraPreview() {
+    if (_usesBrowserScanner) {
+      return Expanded(
+        flex: 4,
+        child: SizedBox.expand(
+          key: _cameraPreviewKey,
+          child: ColoredBox(
+            color: Colors.black87,
+            child: Center(
+              child: _browserPreviewFailed
+                  ? FilledButton.icon(
+                      onPressed: _openBrowserCheckout,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry camera'),
+                    )
+                  : const Text(
+                      'Starting camera...',
+                      style: TextStyle(color: Colors.white),
+                    ),
+            ),
+          ),
+        ),
+      );
+    }
     return Expanded(
       flex: 4,
       child: Stack(
@@ -328,18 +459,17 @@ class _ScanScreenState extends State<ScanScreen> {
           MobileScanner(
             controller: _scannerController,
             onDetect: _handleBarcodeDetection,
-            errorBuilder: (context, error, child) => const ColoredBox(
-              color: Colors.black87,
-              child: Center(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text(
-                    'Camera unavailable. Allow camera access or use manual barcode entry.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ),
+            errorBuilder: (context, error, child) => ScannerErrorPanel(
+              error: error,
+              onRetry: () async {
+                await _scannerController.stop();
+                if (!mounted) return;
+                try {
+                  await _scannerController.start();
+                } on MobileScannerException {
+                  // The scanner rebuilds its error panel with the current error.
+                }
+              },
             ),
           ),
           IgnorePointer(
@@ -565,6 +695,11 @@ class _ScanScreenState extends State<ScanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_usesBrowserScanner && _browserScannerOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _browserScannerOpen) _positionBrowserCamera();
+      });
+    }
     final unitCount = CartManager.items.fold<int>(
       0,
       (total, item) => total + item.quantity,

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -16,13 +17,18 @@ import '../../widgets/sale_receipt_view.dart';
 
 /// Reviews the receipt, confirms payment, saves the sale, and updates stock.
 class CheckoutReceiptScreen extends StatefulWidget {
-  const CheckoutReceiptScreen({super.key});
+  const CheckoutReceiptScreen({super.key, this.firestore, this.currentUserId});
+  final FirebaseFirestore? firestore;
+  final String? Function()? currentUserId;
 
   @override
   State<CheckoutReceiptScreen> createState() => _CheckoutReceiptScreenState();
 }
 
 class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
+  String? get _uid => widget.currentUserId != null
+      ? widget.currentUserId!()
+      : FirebaseAuth.instance.currentUser?.uid;
   String selectedPaymentMethod = 'Cash';
 
   String storeName = '';
@@ -34,6 +40,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   bool isLoading = true;
   bool isSavingSale = false;
   SaleRecord? completedSale;
+  SaleSyncService? _receiptSync;
   String completedStatus = '';
 
   final AudioPlayer _successPlayer = AudioPlayer();
@@ -43,16 +50,38 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   @override
   void initState() {
     super.initState();
-    _saleId = FirebaseFirestore.instance.collection('sales').doc().id;
+    _saleId = (widget.firestore ?? FirebaseFirestore.instance)
+        .collection('sales')
+        .doc()
+        .id;
     _saleTime = DateTime.now();
+    _receiptSync = SaleSyncService.maybeInstance;
+    _receiptSync?.addListener(_refreshReceiptSync);
     _successPlayer.setReleaseMode(ReleaseMode.stop);
     _loadStorePaymentData();
   }
 
   @override
   void dispose() {
+    _receiptSync?.removeListener(_refreshReceiptSync);
     _successPlayer.dispose();
     super.dispose();
+  }
+
+  void _refreshReceiptSync() {
+    final sale = completedSale;
+    final sync = _receiptSync;
+    if (!mounted || sale == null || sync == null || _uid != sale.cashierUid)
+      return;
+    final rows = sync.pendingSales.where((row) => row.sale.id == sale.id);
+    final next = rows.isEmpty && sync.online
+        ? 'Synchronized'
+        : rows.isNotEmpty && rows.first.isConflict
+        ? 'Saved on device — stock needs review'
+        : null;
+    if (next != null && next != completedStatus) {
+      setState(() => completedStatus = next);
+    }
   }
 
   Future<void> _playPaymentSuccessSound() async {
@@ -71,9 +100,9 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
   Future<void> _loadStorePaymentData() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final uid = _uid;
 
-      if (user == null) {
+      if (uid == null) {
         if (!mounted) return;
         setState(() => isLoading = false);
         return;
@@ -81,7 +110,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
       final sync = SaleSyncService.maybeInstance;
       if (sync == null) throw StateError('The sales service is not ready.');
-      final contextData = await sync.loadContext(user.uid);
+      final contextData = await sync.loadContext(uid);
       final userData = Map<String, dynamic>.from(contextData['profile'] as Map);
       final String fullName = (userData['fullName'] ?? '').toString();
       final String firstName = fullName.split(' ').first;
@@ -119,7 +148,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   String get receiptNumber => 'RCPT-$_saleId';
 
   Future<void> _confirmPayment() async {
-    if (isSavingSale) return;
+    if (isSavingSale || completedSale != null) return;
     if (CartManager.items.isEmpty) {
       ScaffoldMessenger.of(
         context,
@@ -139,9 +168,9 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     });
 
     try {
-      final currentUser = FirebaseAuth.instance.currentUser;
+      final uid = _uid;
       final sync = SaleSyncService.maybeInstance;
-      if (currentUser == null || sync == null) {
+      if (uid == null || sync == null) {
         throw StateError('Sign in before checkout.');
       }
       final items = <SaleLine>[];
@@ -165,7 +194,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         id: _saleId,
         storeCode: storeCode,
         storeName: storeName,
-        cashierUid: currentUser.uid,
+        cashierUid: uid,
         cashierName: cashierName,
         paymentMethod: selectedPaymentMethod,
         createdAt: _saleTime,
@@ -176,9 +205,20 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       // Queued and conflicted receipts are already durably saved on this device.
       CartManager.clearCart();
 
-      await _playPaymentSuccessSound();
-
       if (!mounted) return;
+      // The durable receipt is ready; neither audio nor an informational dialog
+      // should leave the payment button spinning or allow a second submission.
+      setState(() {
+        isSavingSale = false;
+        completedSale = sale;
+        completedStatus = result.status == SaleSubmissionStatus.synced
+            ? 'Synchronized'
+            : result.status == SaleSubmissionStatus.conflict
+            ? 'Saved on device — stock needs review'
+            : 'Saved on device — synchronization pending';
+      });
+      _refreshReceiptSync();
+      unawaited(_playPaymentSuccessSound());
 
       if (result.status == SaleSubmissionStatus.synced) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -192,11 +232,11 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
             title: Text(
               result.status == SaleSubmissionStatus.conflict
                   ? 'Receipt needs review'
-                  : 'Cash receipt saved on this device',
+                  : 'Receipt saved — sync pending',
             ),
             content: Text(
               '$receiptNumber\n\n${result.message ?? 'Stock and reports will update when this receipt is confirmed online.'}\n\n'
-              'Keep this device until the saved receipt is synchronized. View it in Sales status.',
+              'No need to submit this sale again. It will retry automatically. Keep this browser data until synchronization completes; check Sales status for progress.',
             ),
             actions: [
               TextButton(
@@ -207,17 +247,6 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
           ),
         );
       }
-
-      if (!mounted) return;
-
-      setState(() {
-        completedSale = sale;
-        completedStatus = result.status == SaleSubmissionStatus.synced
-            ? 'Synchronized'
-            : result.status == SaleSubmissionStatus.conflict
-            ? 'Saved on device — stock needs review'
-            : 'Saved on device — synchronization pending';
-      });
     } catch (e) {
       if (!mounted) return;
 

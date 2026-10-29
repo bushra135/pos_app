@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sembast/sembast_memory.dart';
@@ -106,6 +107,75 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
+    },
+  );
+  testWidgets('browser camera opens inside Scan without a second button', (
+    tester,
+  ) async {
+    final requests = <Completer<bool>>[];
+    var reviews = 0;
+    Future<bool> launch({
+      required Future<String> Function(String) onBarcode,
+      required String summary,
+    }) {
+      final request = Completer<bool>();
+      requests.add(request);
+      return request.future;
+    }
+
+    Widget view() => MaterialApp(
+      theme: AppTheme.light,
+      home: ScanScreen(browserCheckout: launch, onGoToCart: () => reviews++),
+    );
+    await tester.pumpWidget(view());
+    await tester.pumpAndSettle();
+    expect(requests.length, 1);
+    await tester.pumpWidget(view());
+    await tester.pumpAndSettle();
+    expect(requests.length, 1);
+    requests.first.complete(false);
+    await tester.pumpAndSettle();
+    expect(requests.length, 1);
+    CartManager.addItem(name: 'Pen', price: 0.5, barcode: '1', image: '');
+    expect(find.text('Open camera'), findsNothing);
+    expect(find.text('Resume scanning'), findsNothing);
+    expect(find.text('Current sale'), findsOneWidget);
+    await tester.pumpWidget(view());
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Review sale'));
+    expect(reviews, 1);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets(
+    'browser startup failure keeps retry and manual entry available',
+    (tester) async {
+      var calls = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: ScanScreen(
+            browserCheckout: ({required onBarcode, required summary}) async {
+              calls++;
+              throw StateError('Browser camera blocked');
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(calls, 1);
+      expect(
+        find.textContaining('Could not open browser camera'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Retry camera'));
+      await tester.pumpAndSettle();
+      expect(calls, 2);
+      await tester.tap(find.text('Enter barcode'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
     },
   );
   for (final width in [320.0, 800.0]) {

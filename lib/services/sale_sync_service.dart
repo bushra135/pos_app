@@ -266,7 +266,12 @@ class SaleSyncService extends ChangeNotifier {
     if (!online || offlineMode) {
       _pending = await store.pendingSales(sale.cashierUid, sale.storeCode);
       _changed();
-      return const SaleSubmission(SaleSubmissionStatus.queued);
+      return SaleSubmission(
+        SaleSubmissionStatus.queued,
+        offlineMode
+            ? 'Offline mode is enabled. The receipt will synchronize after reconnecting.'
+            : 'The server connection is not ready. Your receipt is saved and will retry automatically.',
+      );
     }
     return _send(sale);
   }
@@ -277,8 +282,10 @@ class SaleSyncService extends ChangeNotifier {
         sale.storeCode != _storeCode) {
       return const SaleSubmission(SaleSubmissionStatus.queued);
     }
+    Future<void>? confirmation;
     try {
-      await gateway.commit(sale).timeout(requestTimeout);
+      confirmation = gateway.commit(sale);
+      await confirmation.timeout(requestTimeout);
       await store.remove(sale.id);
       online = true;
       lastError = null;
@@ -288,11 +295,22 @@ class SaleSyncService extends ChangeNotifier {
       return SaleSubmission(SaleSubmissionStatus.conflict, error.message);
     } on TimeoutException {
       online = false;
-      return const SaleSubmission(SaleSubmissionStatus.queued);
+      lastError = 'Server confirmation is taking longer than expected.';
+      if (confirmation != null) {
+        unawaited(_observeLateConfirmation(sale, confirmation));
+      }
+      return SaleSubmission(
+        SaleSubmissionStatus.queued,
+        '$lastError Your receipt is saved on this device; confirmation will continue in the background.',
+      );
     } on FirebaseException catch (error) {
       if (_temporary(error)) {
         online = false;
-        return const SaleSubmission(SaleSubmissionStatus.queued);
+        lastError = 'Server connection unavailable (${error.code}).';
+        return SaleSubmission(
+          SaleSubmissionStatus.queued,
+          '$lastError Your receipt is saved and will retry automatically.',
+        );
       }
       final message =
           'Server rejected this receipt (${error.code}). Review and retry.';
@@ -307,6 +325,26 @@ class SaleSyncService extends ChangeNotifier {
         _pending = await store.pendingSales(sale.cashierUid, sale.storeCode);
         _changed();
       }
+    }
+  }
+
+  Future<void> _observeLateConfirmation(
+    SaleRecord sale,
+    Future<void> confirmation,
+  ) async {
+    try {
+      await confirmation;
+      await store.remove(sale.id);
+      if (_uid == sale.cashierUid &&
+          _storeCode == sale.storeCode &&
+          !_disposed) {
+        _pending = await store.pendingSales(sale.cashierUid, sale.storeCode);
+        online = true;
+        lastError = null;
+        _changed();
+      }
+    } catch (_) {
+      // An uncertain or failed attempt stays durable for normal retry/review.
     }
   }
 

@@ -5,16 +5,20 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../app/app_colors.dart';
 import '../../services/barcode_catalog_service.dart';
+import '../../services/browser_scanner.dart';
 import '../../widgets/barcode_lookup_panel.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 import '../../utils/product_image_data.dart';
+import '../../utils/product_category_suggestion.dart';
 import '../../widgets/product_image.dart';
+import '../../widgets/scanner_error_panel.dart';
 import '../../widgets/app_empty_state.dart';
 
 /// Manages store products, images, and low stock alert thresholds.
@@ -205,66 +209,77 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Future<String?> _scanBarcode(BuildContext scannerContext) async {
+    if (kIsWeb) return scanBrowserBarcode();
     String? scannedCode;
+    int cameraAttempt = 0;
 
     await showDialog(
       context: scannerContext,
-      builder: (context) {
-        return Dialog(
-          backgroundColor: AppColors.background,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-          ),
-          child: SizedBox(
-            height: 420,
-            child: Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                  child: MobileScanner(
-                    onDetect: (capture) {
-                      if (scannedCode != null || capture.barcodes.isEmpty) {
-                        return;
-                      }
-
-                      final code = capture.barcodes.first.rawValue;
-
-                      if (code != null && code.isNotEmpty) {
-                        scannedCode = code;
-                        Navigator.pop(context);
-                      }
-                    },
-                  ),
-                ),
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: CircleAvatar(
-                    backgroundColor: AppColors.soft,
-                    child: IconButton(
-                      icon: const Icon(Icons.close, color: AppColors.onBrand),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ),
-                ),
-                const Positioned(
-                  bottom: 20,
-                  left: 0,
-                  right: 0,
-                  child: Text(
-                    'Scan product barcode',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.surface,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setScannerState) {
+          return Dialog(
+            backgroundColor: AppColors.background,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
             ),
-          ),
-        );
-      },
+            child: SizedBox(
+              height: 420,
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                    child: MobileScanner(
+                      key: ValueKey(cameraAttempt),
+                      errorBuilder: (context, error, child) =>
+                          ScannerErrorPanel(
+                            error: error,
+                            onRetry: () =>
+                                setScannerState(() => cameraAttempt++),
+                          ),
+                      onDetect: (capture) {
+                        if (scannedCode != null || capture.barcodes.isEmpty) {
+                          return;
+                        }
+
+                        final code = capture.barcodes.first.rawValue;
+
+                        if (code != null && code.isNotEmpty) {
+                          scannedCode = code;
+                          Navigator.pop(context);
+                        }
+                      },
+                    ),
+                  ),
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: CircleAvatar(
+                      backgroundColor: AppColors.soft,
+                      child: IconButton(
+                        icon: const Icon(Icons.close, color: AppColors.onBrand),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
+                  ),
+                  const Positioned(
+                    bottom: 20,
+                    left: 0,
+                    right: 0,
+                    child: Text(
+                      'Scan product barcode',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.surface,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
 
     return scannedCode;
@@ -341,6 +356,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
     String? saveError;
     String saveStage = 'Checking barcode';
     bool isLookingUp = false;
+    bool categoryManuallyEdited = false;
+    String? automaticCategory;
     final lookupKey = GlobalKey<BarcodeLookupPanelState>();
     Map<String, dynamic>? catalogueSource = product?['catalogueSource'] is Map
         ? Map<String, dynamic>.from(product!['catalogueSource'])
@@ -662,12 +679,41 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           nameController,
                           'Product Name',
                           enabled: !isBusy,
+                          onChanged: (value) {
+                            if (categoryManuallyEdited) return;
+                            final current = categoryController.text.trim();
+                            if (current.isNotEmpty &&
+                                current != automaticCategory) {
+                              return;
+                            }
+                            final suggestion =
+                                ProductCategorySuggestion.fromName(value);
+                            setDialogState(() {
+                              automaticCategory = suggestion;
+                              categoryController.text = suggestion ?? '';
+                            });
+                          },
                         ),
                         _buildField(
                           categoryController,
                           'Category',
                           enabled: !isBusy,
+                          onChanged: (_) => setDialogState(() {
+                            categoryManuallyEdited = true;
+                            automaticCategory = null;
+                          }),
                         ),
+                        if (automaticCategory != null)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 12),
+                            child: Text(
+                              'Suggested from product name · you can change it',
+                              style: TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
                         _buildField(
                           priceController,
                           'Price',

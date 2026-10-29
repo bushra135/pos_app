@@ -32,7 +32,7 @@ Windows desktop plugin builds may require Windows Developer Mode for symlink sup
 | `lib/utils` | Small reusable helpers: cart operations, barcode duplicate guard and image preparation |
 | `lib/widgets` | Reusable views: product images, receipt display and synchronization status |
 | `test` | Automated checks for storage, sale safety, cart layout, scanning, receipts and recovery |
-| `functions` | Server-side email verification and validation; see its README for setup |
+| `functions` | Legacy optional numeric-code backend; not required by the current email-link flow |
 
 Generated platform folders (`android`, `ios`, `web`, `linux`, `macos`) and `firebase_options.dart` are integration code. Do not memorize or manually rewrite generated registration files. `.dart_tool` and `build` contain tooling output, not the application's business logic.
 
@@ -77,7 +77,7 @@ The native and web database files are intentionally separate. Conditional import
 - Low-stock information is displayed in product management. Validate real-device scanning performance before claiming equivalence to a dedicated scanner.
 - Backup is manual cloud recovery, not iCloud or a full database rollback. Read `BACKUP.md` before use; production rule integration and real-environment checks remain necessary.
 - Cashier invitations currently use separate `users` records with an empty `uid`; registration does not automatically merge the invitation.
-- The six-digit email verification server service requires setup/deployment documented in `functions/README.md`.
+- Email verification uses Firebase Authentication verification links. Users open the emailed link, then return to confirm verification; no external email provider or Cloud Functions deployment is required. Delivery to the inbox rather than spam is not guaranteed.
 
 ## Product images and compatibility
 
@@ -119,3 +119,10 @@ A live read of the documented example barcode `3017620422003` returned Nutella a
 
 A second live all-category lookup of `6111259733749` resolved a general cleaning product with `product_type=product` and an Open Products Facts image URL. General catalogue coverage remains incomplete; no claim is made that every stationery or manufacturer barcode has metadata.
 
+
+
+### Browser camera compatibility
+
+On web, the product scanner and cashier camera use the bundled ZXing decoder in a browser-owned inline video view. The cashier camera opens automatically inside the Scan page, with the live cart and navigation remaining visible. Camera startup errors provide an inline retry control. Cashiers scan continuously, see the cart total, and choose Review sale to return to the cart. A visible barcode stays latched until absent for 1.6 seconds; Add same item explicitly adds another unit. Unknown products close the camera and open the existing product information dialog. Closing a view stops its camera tracks. Native mobile scanning still uses mobile_scanner.
+
+Product names can suggest a category using local English and Arabic keyword rules. Unknown/ambiguous names stay blank and manually edited categories are preserved. Photo recognition was cancelled and its model/runtime files were removed; ordinary photo uploads remain available.

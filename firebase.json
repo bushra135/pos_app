@@ -24,5 +24,75 @@
       "source": "functions",
       "codebase": "shoppad"
     }
-  ]
+  ],
+  "hosting": {
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "public": "build/web",
+    "headers": [
+      {
+        "source": "/index.html",
+        "headers": [
+          {
+            "value": "no-cache",
+            "key": "Cache-Control"
+          }
+        ]
+      },
+      {
+        "source": "/flutter_bootstrap.js",
+        "headers": [
+          {
+            "value": "no-cache",
+            "key": "Cache-Control"
+          }
+        ]
+      },
+      {
+        "source": "/browser_scanner.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "/scanner_setup.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "/flutter_service_worker.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ],
+        "source": "/"
+      }
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
 }
