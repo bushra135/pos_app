@@ -12,10 +12,14 @@ class SaleReceiptView extends StatefulWidget {
     required this.sale,
     required this.status,
     required this.onNewSale,
+    this.actionLabel = 'New sale',
+    this.actionIcon = Icons.qr_code_scanner,
   });
   final SaleRecord sale;
   final String status;
   final VoidCallback onNewSale;
+  final String actionLabel;
+  final IconData actionIcon;
 
   @override
   State<SaleReceiptView> createState() => _SaleReceiptViewState();
@@ -271,8 +275,8 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: exporting ? null : widget.onNewSale,
-                  icon: const Icon(Icons.qr_code_scanner),
-                  label: const Text('New sale'),
+                  icon: Icon(widget.actionIcon),
+                  label: Text(widget.actionLabel),
                 ),
               ),
             ),

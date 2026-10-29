@@ -4,22 +4,22 @@ import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../app/app_colors.dart';
-import '../../services/barcode_catalog_service.dart';
-import '../../services/browser_scanner.dart';
-import '../../widgets/barcode_lookup_panel.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
-import '../../utils/product_image_data.dart';
+import '../../services/barcode_catalog_service.dart';
+import '../../services/browser_scanner.dart';
 import '../../utils/product_category_suggestion.dart';
+import '../../utils/product_image_data.dart';
+import '../../widgets/app_empty_state.dart';
+import '../../widgets/barcode_lookup_panel.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/scanner_error_panel.dart';
-import '../../widgets/app_empty_state.dart';
 
 /// Manages store products, images, and low stock alert thresholds.
 class ProductsScreen extends StatefulWidget {
@@ -86,6 +86,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     super.dispose();
   }
 
+  // Store context and inventory queries.
   Future<void> _loadStoreCode() async {
     try {
       final uid = widget.currentUserId != null
@@ -208,6 +209,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
+  // Barcode input and validation.
   Future<String?> _scanBarcode(BuildContext scannerContext) async {
     if (kIsWeb) return scanBrowserBarcode();
     String? scannedCode;
@@ -312,6 +314,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     return '$stage failed. Please try again.';
   }
 
+  // Product editor: lookup, image selection, validation, and save.
   void _showProductDialog({String? docId, Map<String, dynamic>? product}) {
     // The dialog route can outlive its Products screen during navigation refreshes.
     final productFirestore = _firestore;
@@ -981,6 +984,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
+  // Delete confirmation and low-stock notifications.
   void _showDeleteDialog(String docId, String productName) {
     showDialog(
       context: context,
@@ -1247,6 +1251,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
+  // Product cards and responsive layout.
   Widget _productImage(String imageUrl, {bool expanded = false}) {
     final image = ProductImage(
       source: imageUrl,

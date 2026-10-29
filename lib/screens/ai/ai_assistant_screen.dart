@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/app_colors.dart';
+import '../../models/report_sale.dart';
 import '../reports/reports_screen.dart';
 
 /// Calculates store insights locally using keyword rules and store records.
@@ -28,7 +29,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  bool isThinking = false;
+  bool _isThinking = false;
 
   final List<_ChatMessage> messages = [
     const _ChatMessage(
@@ -82,7 +83,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   }
 
   Future<void> _sendMessage([String? preset]) async {
-    if (isThinking) return;
+    if (_isThinking) return;
 
     final question = (preset ?? _messageController.text).trim();
     if (question.isEmpty) return;
@@ -92,7 +93,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
     setState(() {
       messages.add(_ChatMessage(isUser: true, text: question));
-      isThinking = true;
+      _isThinking = true;
     });
 
     _scrollToBottom();
@@ -108,7 +109,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         messages.add(
           _ChatMessage(isUser: false, text: answer, hasReport: true),
         );
-        isThinking = false;
+        _isThinking = false;
       });
 
       _scrollToBottom();
@@ -125,7 +126,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 'Local analysis could not load store data. Check your connection and try again.',
           ),
         );
-        isThinking = false;
+        _isThinking = false;
       });
 
       _scrollToBottom();
@@ -133,6 +134,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   }
 
   // Analyze locally: match ordered keyword rules and calculate answers from store data.
+  // Route a question to deterministic local calculations.
   Future<String> _buildAnswer(String question) async {
     final data = await _loadStoreData();
     final q = question.toLowerCase();
@@ -202,6 +204,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     return _storeOverview(data);
   }
 
+  // Load store-scoped records; no paid AI service is called.
   Future<_StoreData> _loadStoreData() async {
     final uid = _uid;
     if (uid == null) throw Exception('No user found');
@@ -241,11 +244,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       const minStockKeys = ['minStock', 'minQuantity', 'minimumStock'];
 
       return _ProductInfo(
-        key: _productKey(item, name),
+        key: reportProductKey(item, name),
         name: name,
-        stock: _numFromKeys(item, ['stock', 'quantity']).toInt(),
+        stock: reportNumber(item, ['stock', 'quantity']).toInt(),
         minStock: minStockKeys.any(item.containsKey)
-            ? _numFromKeys(item, minStockKeys).toInt()
+            ? reportNumber(item, minStockKeys).toInt()
             : 5,
       );
     }).toList();
@@ -259,6 +262,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     return _StoreData(products: products, sales: sales);
   }
 
+  // Build readable answers from store records.
   String _todaySalesSummary(_StoreData data) {
     final range = _todayRange();
     final sales = _salesInRange(data.sales, range);
@@ -703,7 +707,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   }
 
   void _startNewConversation() {
-    if (isThinking) return;
+    if (_isThinking) return;
     setState(() {
       messages.removeRange(1, messages.length);
       _messageController.clear();
@@ -711,6 +715,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   }
 
   @override
+  // Chat presentation and navigation.
   Widget build(BuildContext context) {
     final isNewConversation = messages.length == 1;
     return Scaffold(
@@ -739,7 +744,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                             onOpenReports: _openReports,
                           ),
                       ],
-                      if (isThinking) const _TypingBubble(),
+                      if (_isThinking) const _TypingBubble(),
                     ],
                   ),
                 ),
@@ -807,7 +812,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             ),
           ),
           IconButton(
-            onPressed: isThinking || messages.length == 1
+            onPressed: _isThinking || messages.length == 1
                 ? null
                 : _startNewConversation,
             tooltip: 'New conversation',
@@ -958,7 +963,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                       borderRadius: BorderRadius.circular(18),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(18),
-                        onTap: isThinking
+                        onTap: _isThinking
                             ? null
                             : () => _sendMessage(prompt.$3),
                         child: Container(
@@ -1094,7 +1099,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     Expanded(
                       child: TextField(
                         controller: _messageController,
-                        enabled: !isThinking,
+                        enabled: !_isThinking,
                         minLines: 1,
                         maxLines: 4,
                         maxLength: 600,
@@ -1117,14 +1122,14 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 3),
                       child: IconButton.filled(
-                        onPressed: isThinking ? null : () => _sendMessage(),
+                        onPressed: _isThinking ? null : () => _sendMessage(),
                         tooltip: 'Send message',
                         style: IconButton.styleFrom(
                           backgroundColor: AppColors.primaryDark,
                           foregroundColor: Colors.white,
                           minimumSize: const Size(44, 44),
                         ),
-                        icon: isThinking
+                        icon: _isThinking
                             ? const SizedBox(
                                 width: 17,
                                 height: 17,
@@ -1274,6 +1279,7 @@ class _ChatMessage {
   });
 }
 
+// Local insight models.
 class _StoreData {
   final List<_ProductInfo> products;
   final List<_SaleInfo> sales;
@@ -1317,66 +1323,13 @@ class _SaleInfo {
   });
 
   factory _SaleInfo.fromMap(Map<String, dynamic> data) {
-    final status = (data['status'] ?? data['type'] ?? '')
-        .toString()
-        .toLowerCase();
-
-    final isRefund =
-        status.contains('refund') ||
-        status.contains('return') ||
-        status.contains('cancel');
-
-    // Support current and older field names in the listed priority order.
-    final total = _numFromKeys(data, [
-      'netTotal',
-      'grandTotal',
-      'total',
-      'totalAmount',
-      'amount',
-    ]);
-
-    final discount = _numFromKeys(data, [
-      'discount',
-      'discountAmount',
-      'totalDiscount',
-    ]).abs();
-
-    final refundAmount = _numFromKeys(data, [
-      'refund',
-      'refundAmount',
-      'totalRefund',
-      'returnedAmount',
-    ]).abs();
-
-    final refund = refundAmount > 0
-        ? refundAmount
-        : isRefund
-        ? total.abs()
-        : 0.0;
-
-    final explicitGross = _numFromKeys(data, [
-      'grossTotal',
-      'subtotal',
-      'subTotal',
-      'totalBeforeDiscount',
-      'beforeDiscount',
-    ]);
-
-    final grossTotal = isRefund
-        ? 0.0
-        : explicitGross > 0
-        ? explicitGross
-        : total + discount;
-
-    // Standalone refunds reduce net sales; refunds within a sale reduce that sale's total.
-    final netTotal = isRefund ? -refund : math.max(0.0, total - refund);
-
+    final summary = ReportSale.fromMap(data);
     final rawItems = data['items'] ?? data['cartItems'] ?? data['products'];
     final items = <_SaleItem>[];
 
     if (rawItems is List) {
       for (final rawItem in rawItems) {
-        final item = _asMap(rawItem);
+        final item = reportMap(rawItem);
         if (item.isEmpty) continue;
 
         final name =
@@ -1386,16 +1339,16 @@ class _SaleInfo {
                     'Unknown Product')
                 .toString();
 
-        final quantity = _numFromKeys(item, ['quantity', 'qty', 'count']);
-        final price = _numFromKeys(item, ['price', 'unitPrice', 'salePrice']);
-        final subtotal = _numFromKeys(item, ['subtotal', 'total', 'lineTotal']);
+        final quantity = reportNumber(item, ['quantity', 'qty', 'count']);
+        final price = reportNumber(item, ['price', 'unitPrice', 'salePrice']);
+        final subtotal = reportNumber(item, ['subtotal', 'total', 'lineTotal']);
 
         // For missing values, assume one unit and calculate the subtotal from its price.
         final safeQuantity = quantity <= 0 ? 1.0 : quantity;
 
         items.add(
           _SaleItem(
-            key: _productKey(item, name),
+            key: reportProductKey(item, name),
             name: name,
             quantity: safeQuantity,
             subtotal: subtotal > 0 ? subtotal : price * safeQuantity,
@@ -1405,15 +1358,13 @@ class _SaleInfo {
     }
 
     return _SaleInfo(
-      createdAt: _dateFromValue(data['createdAt']),
-      grossTotal: grossTotal,
-      netTotal: netTotal,
-      discount: discount,
-      refund: refund,
-      isRefund: isRefund,
-      paymentMethod: _paymentLabel(
-        data['paymentMethod'] ?? data['paymentType'] ?? data['payment'],
-      ),
+      createdAt: reportDate(data['createdAt']),
+      grossTotal: summary.grossSales,
+      netTotal: summary.netSales,
+      discount: summary.discount,
+      refund: summary.refund,
+      isRefund: summary.isRefund,
+      paymentMethod: summary.paymentMethod,
       items: items,
     );
   }
@@ -1458,64 +1409,4 @@ class _DateRange {
   final DateTime end;
 
   const _DateRange({required this.start, required this.end});
-}
-
-DateTime? _dateFromValue(dynamic value) {
-  if (value is Timestamp) return value.toDate();
-  if (value is DateTime) return value;
-  if (value is String) return DateTime.tryParse(value);
-  return null;
-}
-
-Map<String, dynamic> _asMap(dynamic value) {
-  if (value is Map<String, dynamic>) return value;
-
-  if (value is Map) {
-    return value.map((key, value) => MapEntry(key.toString(), value));
-  }
-
-  return {};
-}
-
-String _productKey(Map<String, dynamic> data, String fallbackName) {
-  final barcode = (data['barcode'] ?? '').toString().trim();
-  final productId = (data['productId'] ?? data['id'] ?? '').toString().trim();
-
-  // A shared key links sale items to inventory across different field names.
-  if (barcode.isNotEmpty) return barcode;
-  if (productId.isNotEmpty) return productId;
-
-  return fallbackName.trim().toLowerCase();
-}
-
-double _numFromKeys(Map<String, dynamic> data, List<String> keys) {
-  for (final key in keys) {
-    final value = data[key];
-
-    if (value is num) return value.toDouble();
-
-    if (value is String) {
-      final parsed = double.tryParse(value);
-      if (parsed != null) return parsed;
-    }
-  }
-
-  return 0;
-}
-
-String _paymentLabel(dynamic value) {
-  final raw = (value ?? 'Unknown').toString().trim().toLowerCase();
-
-  if (raw.isEmpty) return 'Unknown';
-  if (raw.contains('cash')) return 'Cash';
-  if (raw.contains('benefit')) return 'BenefitPay';
-  if (raw.contains('card') || raw.contains('visa') || raw.contains('mada')) {
-    return 'Card';
-  }
-  if (raw.contains('apple')) return 'Apple Pay';
-  if (raw.contains('transfer') || raw.contains('bank')) {
-    return 'Bank Transfer';
-  }
-
-  return raw[0].toUpperCase() + raw.substring(1);
 }

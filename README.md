@@ -2,6 +2,8 @@
 
 ShopPad is a Flutter point-of-sale app. A cashier scans a product barcode with the phone camera, reviews the cart, confirms payment, and shares a receipt. Owners manage products, cashiers, reports, payment settings and recovery copies.
 
+For a guided code walkthrough and discussion preparation, read [Code discussion guide](docs/CODE_GUIDE.md).
+
 ## Run and verify
 
 Use Flutter with Dart 3.11 or newer, matching `pubspec.yaml`.
@@ -26,13 +28,13 @@ Windows desktop plugin builds may require Windows Developer Mode for symlink sup
 | Folder | Purpose |
 | --- | --- |
 | `lib/app` | Shared theme, colors, spacing and typography |
-| `lib/models` | Cart items and saved sale data |
+| `lib/models` | Cart items, saved sale snapshots and shared report interpretation |
 | `lib/screens` | Pages grouped by feature: authentication, scanning, checkout, products, reports, profile and backup |
 | `lib/services` | Firebase operations, sales synchronization, local storage, PDF generation and recovery |
 | `lib/utils` | Small reusable helpers: cart operations, barcode duplicate guard and image preparation |
 | `lib/widgets` | Reusable views: product images, receipt display and synchronization status |
-| `test` | Automated checks for storage, sale safety, cart layout, scanning, receipts and recovery |
-| `functions` | Legacy optional numeric-code backend; not required by the current email-link flow |
+| `test` | Automated checks grouped by feature, with shared fakes in `test/support` |
+| `docs` | Code walkthrough, backup notes and the backup rule snippet |
 
 Generated platform folders (`android`, `ios`, `web`, `linux`, `macos`) and `firebase_options.dart` are integration code. Do not memorize or manually rewrite generated registration files. `.dart_tool` and `build` contain tooling output, not the application's business logic.
 
@@ -75,7 +77,7 @@ The native and web database files are intentionally separate. Conditional import
 - Reports read saved store data. Current checkout does not implement actual tax/discount calculations, returns or spreadsheet import.
 - Barcode input identifies a product already registered for the store; it does not automatically obtain the store's selling price.
 - Low-stock information is displayed in product management. Validate real-device scanning performance before claiming equivalence to a dedicated scanner.
-- Backup is manual cloud recovery, not iCloud or a full database rollback. Read `BACKUP.md` before use; production rule integration and real-environment checks remain necessary.
+- Backup is manual cloud recovery, not iCloud or a full database rollback. Read [Backup & recovery](docs/BACKUP.md) before use; production rule integration and real-environment checks remain necessary.
 - Cashier invitations currently use separate `users` records with an empty `uid`; registration does not automatically merge the invitation.
 - Email verification uses Firebase Authentication verification links. Users open the emailed link, then return to confirm verification; no external email provider or Cloud Functions deployment is required. Delivery to the inbox rather than spam is not guaranteed.
 
@@ -126,3 +128,46 @@ A second live all-category lookup of `6111259733749` resolved a general cleaning
 On web, the product scanner and cashier camera use the bundled ZXing decoder in a browser-owned inline video view. The cashier camera opens automatically inside the Scan page, with the live cart and navigation remaining visible. Camera startup errors provide an inline retry control. Cashiers scan continuously, see the cart total, and choose Review sale to return to the cart. A visible barcode stays latched until absent for 1.6 seconds; Add same item explicitly adds another unit. Unknown products close the camera and open the existing product information dialog. Closing a view stops its camera tracks. Native mobile scanning still uses mobile_scanner.
 
 Product names can suggest a category using local English and Arabic keyword rules. Unknown/ambiguous names stay blank and manually edited categories are preserved. Photo recognition was cancelled and its model/runtime files were removed; ordinary photo uploads remain available.
+
+### Physical stock corrections at checkout
+
+New checkout receipts opt into physical stock correction. If five physical units are sold while recorded stock is three, all five units are charged, a +2 correction is recorded in the sale's stockCorrections/stockCorrectionUnits fields, and stock ends at zero. The product also references its lastStockCorrection. Correction and sale/stock writes happen in one Firestore transaction. Replaying the receipt ID does not apply the correction twice. Legacy pending receipts keep their original policy. Invalid, missing and other-store product data still reject the sale.
+
+A saved checkout receipt replaces the loading state immediately. Audio and pending-sync notices do not block receipt display. A late successful server acknowledgement removes the same local pending receipt, and the receipt status refreshes. No second sale is generated when retrying synchronization.
+
+### Owner sales history and cashier performance
+
+Owners open Reports > Sales history for receipts and Home > Top cashiers for the separate performance page. History is store-scoped and defaults to all time, with receipt/cashier/product search, cashier and period filters, live sale updates, receipt lines, payment details and stock correction audit. Compatible completed receipts reuse the PDF/share/print view and return to the preserved history screen. Device-only pending receipts become visible after synchronization.
+
+Top cashiers ranks completed non-refund receipts by sales value after refunds recorded on the sale, then receipt count, for the selected period. Owner sales, incomplete/cancelled records and receipts without a cashier UID are excluded from ranking; those receipts remain visible in history. Cashiers group by authenticated UID so identical names do not merge; exact ties share the top designation. History checks the active user's owner role and store before querying; production Firestore rules remain authoritative.
+
+
+### Filtered owner exports
+
+History supports inclusive custom local date ranges, cashier, payment method, product, receipt status, stock-correction-only and text search together. Clear report filters resets all selections. The displayed net receipt total excludes incomplete receipts and subtracts refund transactions. Selecting a product also shows its sold units and line value before receipt-level discounts/tax; the separate receipt total includes the entire matching receipt. Cashier ranking uses the date period, independently of history-specific filters.
+
+The web version exports exactly the filtered receipts as UTF-8 CSV with a BOM for Arabic Excel text. This is CSV, not an XLSX workbook. Amounts retain three BD decimal places, text is quoted and formula-like text is escaped. Download is local through a browser Blob URL, without an external service. Native CSV download is currently unavailable; filters and receipt PDF features remain available. Device-only pending receipts must synchronize before appearing in owner history or exports.
+
+Sales history and Top cashiers are independent routes with separate period/filter state. Tapping a cashier opens a new history route filtered to that cashier and date period; Back returns to the performance page. No combined tabs are shown.
+
+
+## Project structure
+
+```text
+lib/             Application source grouped by responsibility and feature
+assets/          Fonts, logo and audio used by the app
+web/             Web entrypoint, browser camera and bundled decoder
+android/, ios/   Mobile platform projects
+linux/, macos/   Desktop platform projects
+test/           Tests grouped into assistant, backup, catalog, checkout,
+                 reports, scanning, web and shared support
+docs/           Code guide, backup notes and backup rule snippet
+```
+
+Run commands from the project root. Flutter discovers all nested Dart tests with `flutter test --no-pub`. Browser tests run with:
+
+```sh
+node --test test/scanning/browser_scanner.test.cjs test/reports/report_export.test.cjs test/web/web_bootstrap.test.cjs
+```
+
+The unused numeric-code Functions backend and its Flutter client dependency were removed. Email verification continues to use Firebase Auth links. `.dart_tool`, `build` and `.firebase` are generated caches/output, not application code. Native platform projects remain available for building the app on their platforms.

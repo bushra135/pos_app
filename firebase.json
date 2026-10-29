@@ -19,12 +19,6 @@
       }
     }
   },
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "shoppad"
-    }
-  ],
   "hosting": {
     "ignore": [
       "firebase.json",
@@ -86,6 +80,24 @@
           }
         ],
         "source": "/"
+      },
+      {
+        "source": "/report_export.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
+      },
+      {
+        "source": "/main.dart.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache"
+          }
+        ]
       }
     ],
     "rewrites": [

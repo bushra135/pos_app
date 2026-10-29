@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
+import '../../models/report_sale.dart';
+import 'sales_history_screen.dart';
 
 enum ReportPeriod { today, week, month, year }
 
@@ -34,13 +36,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
       widget.firestore ?? FirebaseFirestore.instance;
   static const _requestTimeout = Duration(seconds: 10);
 
-  ReportPeriod selectedPeriod = ReportPeriod.week;
+  ReportPeriod _selectedPeriod = ReportPeriod.week;
 
-  bool isLoading = true;
-  String? errorMessage;
+  bool _isLoading = true;
+  bool _canOpenSalesHistory = false;
+  String? _errorMessage;
 
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> salesDocs = [];
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> productDocs = [];
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _salesDocuments = [];
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _productDocuments = [];
 
   static const String currency = 'BD';
 
@@ -50,11 +53,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
     _loadReports();
   }
 
+  // Load records for the signed-in store.
   Future<void> _loadReports() async {
     try {
       setState(() {
-        isLoading = true;
-        errorMessage = null;
+        _isLoading = true;
+        _errorMessage = null;
       });
 
       final uid = _uid;
@@ -91,9 +95,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
       if (!mounted) return;
 
       setState(() {
-        salesDocs = salesSnapshot.docs;
-        productDocs = storeProducts;
-        isLoading = false;
+        _canOpenSalesHistory = userDoc.data()?['role'] == 'owner';
+        _salesDocuments = salesSnapshot.docs;
+        _productDocuments = storeProducts;
+        _isLoading = false;
       });
     } catch (e) {
       debugPrint('Reports error: $e');
@@ -101,15 +106,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
       if (!mounted) return;
 
       setState(() {
-        errorMessage = 'Failed to load reports';
-        isLoading = false;
+        _errorMessage = 'Failed to load reports';
+        _isLoading = false;
       });
     }
   }
 
+  // Aggregate the selected period into chart and summary data.
   _ReportsData _calculateReports() {
-    final range = _periodRange(selectedPeriod);
-    final buckets = _emptyBuckets(selectedPeriod);
+    final range = _periodRange(_selectedPeriod);
+    final buckets = _emptyBuckets(_selectedPeriod);
 
     double grossSales = 0;
     double netSales = 0;
@@ -121,23 +127,23 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final productSales = <String, _ProductSales>{};
 
     // Seed inventory first so unsold products appear among the least-selling items.
-    for (final doc in productDocs) {
+    for (final doc in _productDocuments) {
       final data = doc.data();
       final name = (data['name'] ?? data['productName'] ?? 'Unknown Product')
           .toString();
 
-      final key = _productKey(data, name);
+      final key = reportProductKey(data, name);
       productSales[key] = _ProductSales(name: name);
     }
 
-    for (final doc in salesDocs) {
+    for (final doc in _salesDocuments) {
       final saleData = doc.data();
-      final createdAt = _dateFromValue(saleData['createdAt']);
+      final createdAt = reportDate(saleData['createdAt']);
 
       if (createdAt == null) continue;
       if (!_inRange(createdAt, range.start, range.end)) continue;
 
-      final sale = _SaleRecord.fromMap(saleData);
+      final sale = ReportSale.fromMap(saleData);
 
       grossSales += sale.grossSales;
       netSales += sale.netSales;
@@ -147,7 +153,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       // Refunds affect net sales but do not count as orders or new product sales.
       if (!sale.isRefund) ordersCount++;
 
-      final bucketIndex = _bucketIndex(createdAt, selectedPeriod);
+      final bucketIndex = _bucketIndex(createdAt, _selectedPeriod);
       if (bucketIndex >= 0 && bucketIndex < buckets.values.length) {
         buckets.values[bucketIndex] += sale.netSales;
       }
@@ -164,10 +170,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       'Unknown Product')
                   .toString();
 
-          final key = _productKey(item, name);
-          final quantity = _numFromKeys(item, ['quantity', 'qty', 'count']);
-          final price = _numFromKeys(item, ['price', 'unitPrice', 'salePrice']);
-          final itemTotal = _numFromKeys(item, [
+          final key = reportProductKey(item, name);
+          final quantity = reportNumber(item, ['quantity', 'qty', 'count']);
+          final price = reportNumber(item, ['price', 'unitPrice', 'salePrice']);
+          final itemTotal = reportNumber(item, [
             'subtotal',
             'total',
             'lineTotal',
@@ -243,10 +249,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
             )
           : null,
       body: SafeArea(
-        child: isLoading
+        child: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : errorMessage != null
-            ? _ErrorState(message: errorMessage!, onRetry: _loadReports)
+            : _errorMessage != null
+            ? _ErrorState(message: _errorMessage!, onRetry: _loadReports)
             : RefreshIndicator(
                 onRefresh: _loadReports,
                 child: SingleChildScrollView(
@@ -261,6 +267,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildHeader(),
+                      if (_canOpenSalesHistory)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: OutlinedButton.icon(
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => SalesHistoryScreen(
+                                  firestore: _firestore,
+                                  currentUserId: widget.currentUserId,
+                                ),
+                              ),
+                            ),
+                            icon: const Icon(Icons.history),
+                            label: const Text('Sales history'),
+                          ),
+                        ),
                       const SizedBox(height: 16),
                       _buildPeriodSelector(),
                       const SizedBox(height: 16),
@@ -281,6 +303,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  // Report presentation.
   Widget _buildHeader() {
     return Row(
       children: [
@@ -336,11 +359,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _periodButton(String label, ReportPeriod period) {
-    final isSelected = selectedPeriod == period;
+    final isSelected = _selectedPeriod == period;
 
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => selectedPeriod = period),
+        onTap: () => setState(() => _selectedPeriod = period),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(vertical: 11),
@@ -376,7 +399,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
     return _SectionCard(
       title: 'Sales Trend',
-      subtitle: _periodSubtitle(selectedPeriod),
+      subtitle: _periodSubtitle(_selectedPeriod),
       child: SizedBox(
         height: 250,
         child: BarChart(
@@ -426,7 +449,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 barRods: [
                   BarChartRodData(
                     toY: math.max(0.0, data.chartValues[index]),
-                    width: _barWidth(selectedPeriod),
+                    width: _barWidth(_selectedPeriod),
                     borderRadius: BorderRadius.circular(7),
                     color: AppColors.primary,
                   ),
@@ -446,7 +469,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         color: AppColors.success,
         title: 'Sales',
         value: _money(data.grossSales),
-        subtitle: _periodLabel(selectedPeriod),
+        subtitle: _periodLabel(_selectedPeriod),
       ),
       _TopStatCard(
         icon: Icons.account_balance_wallet_rounded,
@@ -474,14 +497,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
         color: AppColors.warning,
         title: 'Discounts',
         value: _money(data.discounts),
-        subtitle: _periodLabel(selectedPeriod),
+        subtitle: _periodLabel(_selectedPeriod),
       ),
       _TopStatCard(
         icon: Icons.undo_rounded,
         color: AppColors.danger,
         title: 'Refunds',
         value: _money(data.refunds),
-        subtitle: _periodLabel(selectedPeriod),
+        subtitle: _periodLabel(_selectedPeriod),
       ),
     ];
     return LayoutBuilder(
@@ -1156,6 +1179,7 @@ class _ErrorState extends StatelessWidget {
   }
 }
 
+// Local report presentation models.
 class _ReportsData {
   final double grossSales;
   final double netSales;
@@ -1184,106 +1208,6 @@ class _ReportsData {
     required this.topRevenue,
     required this.paymentMethods,
   });
-}
-
-class _SaleRecord {
-  final double grossSales;
-  final double netSales;
-  final double discount;
-  final double refund;
-  final bool isRefund;
-  final String paymentMethod;
-  final List<Map<String, dynamic>> items;
-
-  const _SaleRecord({
-    required this.grossSales,
-    required this.netSales,
-    required this.discount,
-    required this.refund,
-    required this.isRefund,
-    required this.paymentMethod,
-    required this.items,
-  });
-
-  factory _SaleRecord.fromMap(Map<String, dynamic> data) {
-    // Read field names in priority order to support current and older Firestore records.
-    final explicitTotal = _numFromKeys(data, [
-      'netTotal',
-      'grandTotal',
-      'total',
-      'totalAmount',
-      'amount',
-    ]);
-
-    final discount = _numFromKeys(data, [
-      'discount',
-      'discountAmount',
-      'totalDiscount',
-    ]).abs();
-
-    final status = (data['status'] ?? data['type'] ?? '')
-        .toString()
-        .toLowerCase();
-
-    final isRefund =
-        status.contains('refund') ||
-        status.contains('return') ||
-        status.contains('cancel');
-
-    final refundAmount = _numFromKeys(data, [
-      'refund',
-      'refundAmount',
-      'totalRefund',
-      'returnedAmount',
-    ]).abs();
-
-    final refund = refundAmount > 0
-        ? refundAmount
-        : isRefund
-        ? explicitTotal.abs()
-        : 0.0;
-
-    final explicitGross = _numFromKeys(data, [
-      'grossTotal',
-      'subtotal',
-      'subTotal',
-      'totalBeforeDiscount',
-      'beforeDiscount',
-    ]);
-
-    final grossSales = isRefund
-        ? 0.0
-        : explicitGross > 0
-        ? explicitGross
-        : explicitTotal + discount;
-
-    // Refund documents reduce net sales; refunds within a sale reduce that sale's total.
-    final double netSales = isRefund
-        ? -refund
-        : math.max(0.0, explicitTotal - refund);
-
-    final rawItems = data['items'] ?? data['cartItems'] ?? data['products'];
-    final items = <Map<String, dynamic>>[];
-
-    if (rawItems is List) {
-      for (final item in rawItems) {
-        final itemMap = _asMap(item);
-        if (itemMap.isNotEmpty) items.add(itemMap);
-      }
-    }
-
-    return _SaleRecord(
-      grossSales: grossSales,
-      netSales: netSales,
-      discount: discount,
-      refund: refund,
-      isRefund: isRefund,
-      paymentMethod: _paymentLabel(
-        data['paymentMethod'] ?? data['paymentType'] ?? data['payment'],
-      ),
-      items: items,
-    );
-  }
 }
 
 class _ProductSales {
@@ -1317,6 +1241,7 @@ class _ChartBuckets {
 
 enum _ProductSheetMode { quantity, revenue }
 
+// Chart formatting and local date buckets.
 BoxDecoration _cardDecoration() {
   return BoxDecoration(
     color: AppColors.surface,
@@ -1445,66 +1370,6 @@ double _barWidth(ReportPeriod period) {
 
 bool _inRange(DateTime date, DateTime start, DateTime end) {
   return !date.isBefore(start) && date.isBefore(end);
-}
-
-DateTime? _dateFromValue(dynamic value) {
-  if (value is Timestamp) return value.toDate();
-  if (value is DateTime) return value;
-  if (value is String) return DateTime.tryParse(value);
-  return null;
-}
-
-Map<String, dynamic> _asMap(dynamic value) {
-  if (value is Map<String, dynamic>) return value;
-
-  if (value is Map) {
-    return value.map((key, value) => MapEntry(key.toString(), value));
-  }
-
-  return {};
-}
-
-String _productKey(Map<String, dynamic> data, String fallbackName) {
-  final barcode = (data['barcode'] ?? '').toString().trim();
-  final productId = (data['productId'] ?? data['id'] ?? '').toString().trim();
-
-  // Match inventory to sale items by a shared key, falling back to the name when no ID exists.
-  if (barcode.isNotEmpty) return barcode;
-  if (productId.isNotEmpty) return productId;
-
-  return fallbackName.trim().toLowerCase();
-}
-
-double _numFromKeys(Map<String, dynamic> data, List<String> keys) {
-  for (final key in keys) {
-    final value = data[key];
-
-    if (value is num) return value.toDouble();
-
-    if (value is String) {
-      final parsed = double.tryParse(value);
-      if (parsed != null) return parsed;
-    }
-  }
-
-  return 0;
-}
-
-String _paymentLabel(dynamic value) {
-  final raw = (value ?? 'Unknown').toString().trim().toLowerCase();
-
-  if (raw.isEmpty) return 'Unknown';
-  if (raw.contains('cash')) return 'Cash';
-  if (raw.contains('benefit')) return 'BenefitPay';
-  if (raw.contains('card') || raw.contains('visa') || raw.contains('mada')) {
-    return 'Card';
-  }
-  if (raw.contains('apple')) return 'Apple Pay';
-  if (raw.contains('transfer') || raw.contains('bank')) {
-    return 'Bank Transfer';
-  }
-
-  return raw[0].toUpperCase() + raw.substring(1);
 }
 
 FlGridData _gridData(double maxY) {

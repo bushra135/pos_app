@@ -37,12 +37,12 @@ Future<void> main() async {
     if (user == null) sync.clearSession();
   });
 
-  runApp(const MyApp());
+  runApp(const ShopPadApp());
 }
 
 /// Connect the shared theme to authentication and role-based navigation.
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class ShopPadApp extends StatelessWidget {
+  const ShopPadApp({super.key});
 
   @override
   Widget build(BuildContext context) {

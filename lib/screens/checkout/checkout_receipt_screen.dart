@@ -71,8 +71,9 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   void _refreshReceiptSync() {
     final sale = completedSale;
     final sync = _receiptSync;
-    if (!mounted || sale == null || sync == null || _uid != sale.cashierUid)
+    if (!mounted || sale == null || sync == null || _uid != sale.cashierUid) {
       return;
+    }
     final rows = sync.pendingSales.where((row) => row.sale.id == sale.id);
     final next = rows.isEmpty && sync.online
         ? 'Synchronized'
@@ -98,6 +99,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     }
   }
 
+  // Load store payment settings and cashier context.
   Future<void> _loadStorePaymentData() async {
     try {
       final uid = _uid;
@@ -147,6 +149,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
   String get receiptNumber => 'RCPT-$_saleId';
 
+  // Create one stable receipt and submit it once.
   Future<void> _confirmPayment() async {
     if (isSavingSale || completedSale != null) return;
     if (CartManager.items.isEmpty) {
@@ -199,6 +202,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         paymentMethod: selectedPaymentMethod,
         createdAt: _saleTime,
         items: items,
+        correctStockShortages: true,
       );
       final result = await sync.submit(sale);
 
@@ -260,6 +264,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     }
   }
 
+  // Payment and receipt presentation.
   Widget _buildPaymentOption({
     required String title,
     required IconData icon,

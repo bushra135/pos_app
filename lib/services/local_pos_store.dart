@@ -134,7 +134,7 @@ class LocalPosStore {
                   .where((item) => item.productId == entry.key)
                   .fold<int>(0, (sum, item) => sum + item.quantity),
         );
-        if (entry.value > stock - reserved) {
+        if (!sale.correctStockShortages && entry.value > stock - reserved) {
           throw StateError('No available stock for ${product['name']}.');
         }
       }

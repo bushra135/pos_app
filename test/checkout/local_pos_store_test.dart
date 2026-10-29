@@ -20,6 +20,40 @@ void main() {
   tearDown(() => database.close());
 
   test(
+    'physical stock correction policy stays durable and permits all five units',
+    () async {
+      await store.cacheProducts('A', [
+        {..._product('A', 'product', '123'), 'stock': 3},
+      ]);
+      final corrected = SaleRecord(
+        id: 'physical',
+        storeCode: 'A',
+        storeName: 'Test',
+        cashierUid: 'cashier',
+        cashierName: 'Cashier',
+        paymentMethod: 'Cash',
+        createdAt: DateTime.utc(2026),
+        correctStockShortages: true,
+        items: const [
+          SaleLine(
+            productId: 'product',
+            barcode: '123',
+            name: 'Pen',
+            price: 1,
+            quantity: 5,
+          ),
+        ],
+      );
+      await store.enqueueChecked(corrected);
+      await store.enqueueChecked(corrected);
+      final pending = await store.pendingSales('cashier', 'A');
+      expect(pending, hasLength(1));
+      expect(pending.single.sale.correctStockShortages, isTrue);
+      expect(pending.single.sale.total, 5);
+      expect(await store.reservedQuantity('cashier', 'A', 'product'), 5);
+    },
+  );
+  test(
     'checked receipts reserve stock atomically and retries are idempotent',
     () async {
       await store.cacheProducts('A', [_product('A', 'product', '123')]);

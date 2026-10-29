@@ -12,6 +12,7 @@ import '../ai/ai_assistant_screen.dart';
 import '../products/products_screen.dart';
 import '../profile/profile_screen.dart';
 import '../reports/reports_screen.dart';
+import '../reports/sales_history_screen.dart';
 import 'cashiers_management_screen.dart';
 
 class OwnerHomeScreen extends StatefulWidget {
@@ -22,7 +23,7 @@ class OwnerHomeScreen extends StatefulWidget {
 }
 
 class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
-  int selectedIndex = 0;
+  int _selectedIndex = 0;
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -189,6 +190,15 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     ).showSnackBar(const SnackBar(content: Text('Store code copied')));
   }
 
+  // Keep performance navigation alongside cashier management on the home card.
+  void _openTopCashiers() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const SalesHistoryScreen(showTopCashiers: true),
+      ),
+    );
+  }
+
   Future<void> _openCashiersManagement() async {
     if (storeCode.isEmpty) return;
 
@@ -204,7 +214,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final currentScreen = switch (selectedIndex) {
+    final currentScreen = switch (_selectedIndex) {
       1 => const ProductsScreen(),
       2 => const ReportsScreen(),
       3 => const AiAssistantScreen(),
@@ -227,8 +237,8 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: selectedIndex,
-        onTap: (index) => setState(() => selectedIndex = index),
+        currentIndex: _selectedIndex,
+        onTap: (index) => setState(() => _selectedIndex = index),
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppColors.primaryDark,
         unselectedItemColor: AppColors.muted,
@@ -470,60 +480,74 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
               ),
             ],
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.people_alt_rounded,
-                  color: AppColors.primaryDark,
-                  size: 26,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "$cashierCount Cashiers",
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: AppTypography.section,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.text,
-                      ),
+              Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    const SizedBox(height: 5),
-                    Text(
-                      "$activeCashierCount active cashiers",
-                      style: const TextStyle(
-                        color: AppColors.primaryDark,
-                        fontSize: AppTypography.body,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: const Icon(
+                      Icons.people_alt_rounded,
+                      color: AppColors.primaryDark,
+                      size: 26,
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "$cashierCount Cashiers",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: AppTypography.section,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.text,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          "$activeCashierCount active cashiers",
+                          style: const TextStyle(
+                            color: AppColors.primaryDark,
+                            fontSize: AppTypography.body,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.primaryDark,
+                      size: 26,
+                    ),
+                  ),
+                ],
               ),
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.primaryDark,
-                  size: 26,
-                ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Divider(height: 1),
+              ),
+              OutlinedButton.icon(
+                onPressed: _openTopCashiers,
+                icon: const Icon(Icons.emoji_events_outlined),
+                label: const Text('Top cashiers'),
               ),
             ],
           ),

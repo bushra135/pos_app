@@ -91,6 +91,7 @@ class FirestoreSaleGateway implements SaleGateway {
       }
 
       final remaining = <String, int>{};
+      final corrections = <String, Map<String, dynamic>>{};
       for (final entry in quantities.entries) {
         final data = stock[entry.key]!;
         final item = sale.items.firstWhere((i) => i.productId == entry.key);
@@ -102,13 +103,29 @@ class FirestoreSaleGateway implements SaleGateway {
             available != available.toInt()) {
           throw SaleConflictException('Invalid product data for ${item.name}.');
         }
-        if (available < entry.value) {
+        if (available < entry.value && !sale.correctStockShortages) {
           throw SaleConflictException(
             '${item.name}: only ${available.toInt()} left; '
             '${entry.value} requested. Review this sale before retrying.',
           );
         }
-        remaining[entry.key] = available.toInt() - entry.value;
+        final shortage = entry.value > available
+            ? entry.value - available.toInt()
+            : 0;
+        if (shortage > 0) {
+          corrections[entry.key] = {
+            'productId': entry.key,
+            'name': item.name,
+            'barcode': item.barcode,
+            'stockBefore': available.toInt(),
+            'addedQuantity': shortage,
+            'quantitySold': entry.value,
+            'stockAfter': 0,
+            'reason': 'physical_items_sold_exceed_recorded_stock',
+            'cashierUid': sale.cashierUid,
+          };
+        }
+        remaining[entry.key] = available.toInt() + shortage - entry.value;
       }
 
       // All reads and checks finish before the first write.
@@ -122,10 +139,23 @@ class FirestoreSaleGateway implements SaleGateway {
         'tax': 0.0,
         'status': 'completed',
         'type': 'sale',
+        if (corrections.isNotEmpty)
+          'stockCorrections': corrections.values.toList(),
+        if (corrections.isNotEmpty)
+          'stockCorrectionUnits': corrections.values.fold<int>(
+            0,
+            (totalUnits, row) => totalUnits + (row['addedQuantity'] as int),
+          ),
       });
       for (final entry in remaining.entries) {
         transaction.update(products[entry.key]!, {
           'stock': entry.value,
+          if (corrections.containsKey(entry.key))
+            'lastStockCorrection': {
+              ...corrections[entry.key]!,
+              'saleId': sale.id,
+              'recordedAt': FieldValue.serverTimestamp(),
+            },
           if (stock[entry.key]!.containsKey('quantity'))
             'quantity': entry.value,
         });

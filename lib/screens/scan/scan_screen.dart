@@ -90,6 +90,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  // Decode, de-duplicate, and queue camera detections.
   void _handleBarcodeDetection(BarcodeCapture capture) {
     final codes = capture.barcodes
         .map((barcode) => barcode.rawValue)
@@ -131,13 +132,18 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     }
   }
 
+  // Resolve a store product before updating the cart.
   Future<void> _addProductByBarcode(String code) async {
     if (_isAddingProduct || code.trim().isEmpty) return;
     setState(() => _isAddingProduct = true);
     try {
       final sync = SaleSyncService.maybeInstance;
       if (sync == null) throw StateError('The sales service is not ready.');
-      final data = await sync.findProduct(code.trim(), preferCache: true);
+      final data = await sync.findProduct(
+        code.trim(),
+        preferCache: true,
+        allowStockCorrection: true,
+      );
       if (!mounted) return;
       final name = (data['name'] ?? '').toString();
       final productId = data['id'] as String;
@@ -363,6 +369,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     return '$units items · BD ${CartManager.total.toStringAsFixed(3)}';
   }
 
+  // Keep browser video aligned with the Flutter camera region.
   void _positionBrowserCamera() {
     if (!mounted) return;
     final box = _cameraPreviewKey.currentContext?.findRenderObject();
@@ -427,6 +434,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     }
   }
 
+  // Camera, manual entry, live cart, and checkout controls.
   Widget _buildCameraPreview() {
     if (_usesBrowserScanner) {
       return Expanded(

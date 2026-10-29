@@ -186,6 +186,7 @@ class SaleSyncService extends ChangeNotifier {
   Future<Map<String, dynamic>> findProduct(
     String barcode, {
     bool preferCache = false,
+    bool allowStockCorrection = false,
   }) async {
     final uid = currentUserId();
     if (uid == null) throw StateError('Sign in before scanning products.');
@@ -234,7 +235,7 @@ class SaleSyncService extends ChangeNotifier {
     final inCart = CartManager.items
         .where((item) => item.productId == product!['id'])
         .fold<int>(0, (totalQuantity, item) => totalQuantity + item.quantity);
-    if (stock - reserved - inCart < 1) {
+    if (!allowStockCorrection && stock - reserved - inCart < 1) {
       throw StateError('No available stock for ${product['name']}.');
     }
     _changed();

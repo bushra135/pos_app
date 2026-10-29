@@ -67,6 +67,12 @@ void main() {
         service.findProduct('123', preferCache: true),
         throwsStateError,
       );
+      final physical = await service.findProduct(
+        '123',
+        preferCache: true,
+        allowStockCorrection: true,
+      );
+      expect(physical['id'], 'p1');
     },
   );
 

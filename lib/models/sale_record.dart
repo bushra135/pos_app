@@ -45,6 +45,7 @@ class SaleRecord {
     required this.paymentMethod,
     required this.createdAt,
     required List<SaleLine> items,
+    this.correctStockShortages = false,
   }) : items = List.unmodifiable(items);
 
   final String id;
@@ -55,6 +56,7 @@ class SaleRecord {
   final String paymentMethod;
   final DateTime createdAt;
   final List<SaleLine> items;
+  final bool correctStockShortages;
 
   double get total => items.fold(0, (sum, item) => sum + item.subtotal);
   String get receiptNumber => 'RCPT-$id';
@@ -70,6 +72,7 @@ class SaleRecord {
     'receiptNumber': receiptNumber,
     'items': items.map((item) => item.toJson()).toList(),
     'total': total,
+    if (correctStockShortages) 'correctStockShortages': true,
   };
 
   factory SaleRecord.fromJson(Map<String, dynamic> json) => SaleRecord(
@@ -80,6 +83,7 @@ class SaleRecord {
     cashierName: json['cashierName'] as String,
     paymentMethod: json['paymentMethod'] as String,
     createdAt: DateTime.parse(json['createdAt'] as String),
+    correctStockShortages: json['correctStockShortages'] == true,
     items: (json['items'] as List)
         .map(
           (item) => SaleLine.fromJson(Map<String, dynamic>.from(item as Map)),

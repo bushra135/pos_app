@@ -229,6 +229,7 @@ class _MissingProductSync extends SaleSyncService {
   Future<Map<String, dynamic>> findProduct(
     String barcode, {
     bool preferCache = false,
+    bool allowStockCorrection = false,
   }) async => throw ProductNotFoundException(barcode);
 }
 

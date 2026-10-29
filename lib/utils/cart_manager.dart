@@ -1,7 +1,7 @@
 import '../models/cart_item.dart';
 
 /// In-memory cart shared by scanning, cart, and checkout screens.
-/// Checkout saves the sale to Firestore before clearing these items.
+/// Checkout keeps a durable receipt snapshot before clearing these items.
 abstract final class CartManager {
   static final List<CartItem> items = [];
 
@@ -13,7 +13,7 @@ abstract final class CartManager {
     String productId = '',
     String storeCode = '',
   }) {
-    // Barcode identifies a cart item; adding it again increases its quantity.
+    // Match a product within its store; repeated additions increase its quantity.
     final existingIndex = items.indexWhere(
       (item) =>
           item.storeCode == storeCode &&
