@@ -62,12 +62,12 @@ class _LoginScreenState extends State<LoginScreen>
       );
     } on FirebaseAuthException catch (error) {
       final message = switch (error.code) {
-        'user-not-found' => 'No account exists with this email.',
+        'user-not-found' => 'Your email or password is incorrect.',
         'wrong-password' ||
         'invalid-credential' => 'Your email or password is incorrect.',
         'invalid-email' => 'Enter a valid email address.',
         'too-many-requests' => 'Too many attempts. Please try again later.',
-        _ => error.message ?? 'Unable to sign in right now.',
+        _ => 'Unable to sign in right now. Please try again.',
       };
       _message(message);
     } finally {
@@ -89,9 +89,13 @@ class _LoginScreenState extends State<LoginScreen>
           handleCodeInApp: false,
         ),
       );
-      _message('A password reset link was sent to your email.');
+      _message('If this account exists, a password reset link will be sent.');
     } on FirebaseAuthException catch (error) {
-      _message(error.message ?? 'Could not send the reset email.');
+      _message(
+        error.code == 'too-many-requests'
+            ? 'Too many attempts. Try again later.'
+            : 'If this account exists, a password reset link will be sent.',
+      );
     }
   }
 

@@ -9,6 +9,7 @@ import '../../app/app_typography.dart';
 import '../../services/sale_sync_service.dart';
 import '../../widgets/sale_sync_panel.dart';
 import '../ai/ai_assistant_screen.dart';
+import '../cashier/cashier_home_screen.dart';
 import '../products/products_screen.dart';
 import '../profile/profile_screen.dart';
 import '../reports/reports_screen.dart';
@@ -16,7 +17,10 @@ import '../reports/sales_history_screen.dart';
 import 'cashiers_management_screen.dart';
 
 class OwnerHomeScreen extends StatefulWidget {
-  const OwnerHomeScreen({super.key});
+  const OwnerHomeScreen({super.key, this.firestore, this.currentUserId});
+
+  final FirebaseFirestore? firestore;
+  final String? Function()? currentUserId;
 
   @override
   State<OwnerHomeScreen> createState() => _OwnerHomeScreenState();
@@ -24,9 +28,13 @@ class OwnerHomeScreen extends StatefulWidget {
 
 class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   int _selectedIndex = 0;
+  bool _cashierMode = false;
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore =>
+      widget.firestore ?? FirebaseFirestore.instance;
+  String? get _userId => widget.currentUserId != null
+      ? widget.currentUserId!()
+      : FirebaseAuth.instance.currentUser?.uid;
 
   String firstName = '';
   String storeName = '';
@@ -49,9 +57,9 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
   Future<void> _loadOwnerData() async {
     try {
-      final user = _auth.currentUser;
+      final uid = _userId;
 
-      if (user == null) {
+      if (uid == null) {
         if (!mounted) return;
         setState(() => isLoading = false);
         return;
@@ -61,11 +69,11 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       Map<String, dynamic> data;
       Map<String, dynamic> store = {};
       if (sync != null) {
-        final cachedContext = await sync.loadContext(user.uid);
+        final cachedContext = await sync.loadContext(uid);
         data = Map<String, dynamic>.from(cachedContext['profile'] as Map);
         store = Map<String, dynamic>.from(cachedContext['store'] as Map);
       } else {
-        final doc = await _firestore.collection('users').doc(user.uid).get();
+        final doc = await _firestore.collection('users').doc(uid).get();
         if (!doc.exists) {
           if (!mounted) return;
           setState(() => isLoading = false);
@@ -212,13 +220,28 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     await _loadDashboardData(storeCode);
   }
 
+  // Mode changes presentation only; the authenticated owner role is immutable.
+  void _switchToCashier() => setState(() => _cashierMode = true);
+
+  void _switchToOwner() {
+    setState(() => _cashierMode = false);
+    _loadOwnerData();
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_cashierMode) {
+      return CashierHomeScreen(
+        onSwitchToOwner: _switchToOwner,
+        firestore: widget.firestore,
+        currentUserId: widget.currentUserId,
+      );
+    }
     final currentScreen = switch (_selectedIndex) {
       1 => const ProductsScreen(),
       2 => const ReportsScreen(),
       3 => const AiAssistantScreen(),
-      4 => const ProfileScreen(),
+      4 => ProfileScreen(onSwitchMode: _switchToCashier),
       _ => _buildHomeContent(),
     };
 
@@ -264,7 +287,18 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       child: Column(
         children: [
           _buildHeader(),
-          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: isLoading ? null : _switchToCashier,
+                icon: const Icon(Icons.point_of_sale),
+                label: const Text('Switch to cashier'),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
             child: GridView.count(

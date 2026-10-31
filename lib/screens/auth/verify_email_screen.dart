@@ -12,18 +12,11 @@ class VerifyEmailScreen extends StatefulWidget {
     super.key,
     this.draftFullName = '',
     this.draftEmail = '',
-    this.draftPassword = '',
-    this.draftConfirmPassword = '',
     this.draftStoreName = '',
     this.draftStoreCode = '',
     this.draftIsOwner = true,
   });
-  final String draftFullName,
-      draftEmail,
-      draftPassword,
-      draftConfirmPassword,
-      draftStoreName,
-      draftStoreCode;
+  final String draftFullName, draftEmail, draftStoreName, draftStoreCode;
   final bool draftIsOwner;
   @override
   State<VerifyEmailScreen> createState() => _VerifyEmailScreenState();
@@ -47,6 +40,27 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   void dispose() {
     _timer?.cancel();
     super.dispose();
+  }
+
+  // Show recovery instructions instead of raw SDK exception details.
+  String _verificationError(Object error) {
+    if (error is TimeoutException) {
+      return 'The connection timed out. Check your internet and try again.';
+    }
+    if (error is FirebaseAuthException) {
+      return switch (error.code) {
+        'too-many-requests' =>
+          'Too many requests. Please wait a few minutes before trying again.',
+        'network-request-failed' =>
+          'Check your internet connection and try again.',
+        'user-token-expired' ||
+        'invalid-user-token' ||
+        'user-disabled' => 'Please use a different account and sign in again.',
+        _ => 'Unable to verify your email right now. Please try again.',
+      };
+    }
+    if (error is StateError) return error.message.toString();
+    return 'Unable to verify your email right now. Please try again.';
   }
 
   Future<void> _send() async {
@@ -77,9 +91,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       });
     } catch (error) {
       if (mounted) {
-        setState(
-          () => _error = error.toString().replaceFirst('Bad state: ', ''),
-        );
+        setState(() => _error = _verificationError(error));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -111,9 +123,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       );
     } catch (error) {
       if (mounted) {
-        setState(
-          () => _error = error.toString().replaceFirst('Bad state: ', ''),
-        );
+        setState(() => _error = _verificationError(error));
       }
     } finally {
       if (mounted) setState(() => _busy = false);

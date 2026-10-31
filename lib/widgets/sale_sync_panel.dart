@@ -6,9 +6,10 @@ import '../services/sale_sync_service.dart';
 
 /// Cash receipts stay visible until the server confirms their stock deduction.
 class SaleSyncPanel extends StatelessWidget {
-  const SaleSyncPanel({super.key, this.service});
+  const SaleSyncPanel({super.key, this.service, this.inProfile = false});
 
   final SaleSyncService? service;
+  final bool inProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +33,25 @@ class SaleSyncPanel extends StatelessWidget {
             : count > 0
             ? '$count ${count == 1 ? 'sale pending' : 'sales pending'} confirmation'
             : 'Online · sales synchronized';
+
+        // Keep normal navigation quiet; Profile always exposes sync details.
+        if (inProfile) {
+          return Card(
+            child: ListTile(
+              leading: Icon(Icons.cloud_sync_outlined, color: color),
+              title: const Text('Sales sync'),
+              subtitle: Text(status),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _showPendingSales(context, sync),
+            ),
+          );
+        }
+        if (sync.online &&
+            count == 0 &&
+            !sync.syncing &&
+            sync.lastError == null) {
+          return const SizedBox.shrink();
+        }
 
         return Material(
           color: conflicts > 0 ? AppColors.dangerSoft : AppColors.soft,
@@ -82,13 +102,24 @@ class SaleSyncPanel extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Saved cash sales',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.text,
-                    ),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'Saved cash sales',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.text,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Close',
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   const Text(
@@ -170,7 +201,7 @@ class _PendingSaleCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             '${MaterialLocalizations.of(context).formatShortDate(sale.createdAt.toLocal())}'
-            ' · \$${sale.total.toStringAsFixed(2)} · Cash received',
+            ' · BD ${sale.total.toStringAsFixed(3)} · Cash received',
           ),
           const SizedBox(height: 6),
           for (final item in sale.items)

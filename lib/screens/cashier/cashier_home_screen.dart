@@ -13,7 +13,18 @@ import '../profile/profile_screen.dart';
 import '../scan/scan_screen.dart';
 
 class CashierHomeScreen extends StatefulWidget {
-  const CashierHomeScreen({super.key});
+  const CashierHomeScreen({
+    super.key,
+    this.onSwitchToOwner,
+    this.firestore,
+    this.currentUserId,
+  });
+
+  final FirebaseFirestore? firestore;
+  final String? Function()? currentUserId;
+
+  // Supplied only by the authenticated owner workspace, never by cashier login.
+  final VoidCallback? onSwitchToOwner;
 
   @override
   State<CashierHomeScreen> createState() => _CashierHomeScreenState();
@@ -21,9 +32,15 @@ class CashierHomeScreen extends StatefulWidget {
 
 class _CashierHomeScreenState extends State<CashierHomeScreen> {
   int selectedIndex = 0;
+  FirebaseFirestore get _firestore =>
+      widget.firestore ?? FirebaseFirestore.instance;
+  String? get _userId => widget.currentUserId != null
+      ? widget.currentUserId!()
+      : FirebaseAuth.instance.currentUser?.uid;
 
   String cashierName = '';
   String storeName = '';
+  String _storeCode = '';
   bool isLoading = true;
 
   double todaySales = 0.0;
@@ -38,8 +55,8 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
 
   Future<void> _loadUserData() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
+      final uid = _userId;
+      if (uid == null) {
         if (!mounted) return;
         setState(() => isLoading = false);
         return;
@@ -49,14 +66,11 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       Map<String, dynamic> userData;
       Map<String, dynamic> store = {};
       if (sync != null) {
-        final cachedContext = await sync.loadContext(user.uid);
+        final cachedContext = await sync.loadContext(uid);
         userData = Map<String, dynamic>.from(cachedContext['profile'] as Map);
         store = Map<String, dynamic>.from(cachedContext['store'] as Map);
       } else {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
+        final userDoc = await _firestore.collection('users').doc(uid).get();
         if (!userDoc.exists) {
           if (!mounted) return;
           setState(() => isLoading = false);
@@ -72,7 +86,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       String fetchedStoreName =
           store['storeName'] ?? userData['storeName'] ?? '';
       if (sync == null && storeCode.isNotEmpty) {
-        final storeDoc = await FirebaseFirestore.instance
+        final storeDoc = await _firestore
             .collection('stores')
             .doc(storeCode)
             .get();
@@ -86,10 +100,11 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       setState(() {
         cashierName = firstName;
         storeName = fetchedStoreName;
-        isActive = userData['isActive'] == true;
+        _storeCode = storeCode;
+        isActive = userData['onDuty'] ?? true;
         isLoading = false;
       });
-      await _loadTodayStats(user.uid);
+      await _loadTodayStats(uid);
     } catch (e) {
       debugPrint('Error loading user data: $e');
       if (!mounted) return;
@@ -104,9 +119,10 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       final startOfDay = DateTime(now.year, now.month, now.day);
       final endOfDay = startOfDay.add(const Duration(days: 1));
 
-      final snapshot = await FirebaseFirestore.instance
+      final snapshot = await _firestore
           .collection('sales')
           .where('cashierUid', isEqualTo: cashierUid)
+          .where('storeCode', isEqualTo: _storeCode)
           .get(
             SaleSyncService.maybeInstance?.online == false
                 ? const GetOptions(source: Source.cache)
@@ -140,14 +156,14 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
 
   Future<void> _toggleUserStatus() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      final uid = _userId;
+      if (uid == null) return;
 
-      // Cashier management shares this field; update the UI after Firestore saves it.
+      // Availability is separate from owner-controlled account approval.
       final newStatus = !isActive;
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update(
-        {'isActive': newStatus},
-      );
+      await _firestore.collection('users').doc(uid).update({
+        'onDuty': newStatus,
+      });
 
       if (!mounted) return;
       setState(() => isActive = newStatus);
@@ -171,16 +187,19 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
           onBackToHome: () => setState(() => selectedIndex = 0),
           onSaleCompleted: () async {
             setState(() => selectedIndex = 1);
-            final user = FirebaseAuth.instance.currentUser;
-            if (user != null) {
-              await _loadTodayStats(user.uid);
+            final uid = _userId;
+            if (uid != null) {
+              await _loadTodayStats(uid);
               // Keep the next sale camera open while refreshing statistics.
             }
           },
         );
         break;
       case 3:
-        currentScreen = const ProfileScreen();
+        currentScreen = ProfileScreen(
+          onSwitchMode: widget.onSwitchToOwner,
+          cashierMode: widget.onSwitchToOwner != null,
+        );
         break;
       default:
         currentScreen = _buildHomeContent();
@@ -205,8 +224,8 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
         onTap: (index) async {
           setState(() => selectedIndex = index);
           if (index == 0) {
-            final user = FirebaseAuth.instance.currentUser;
-            if (user != null) await _loadTodayStats(user.uid);
+            final uid = _userId;
+            if (uid != null) await _loadTodayStats(uid);
           }
         },
         type: BottomNavigationBarType.fixed,
@@ -330,6 +349,18 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
             ),
           ),
 
+          if (widget.onSwitchToOwner != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: widget.onSwitchToOwner,
+                  icon: const Icon(Icons.manage_accounts_outlined),
+                  label: const Text('Switch to owner'),
+                ),
+              ),
+            ),
           const SizedBox(height: 20),
 
           Padding(

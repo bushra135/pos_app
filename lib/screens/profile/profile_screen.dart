@@ -9,11 +9,15 @@ import 'package:image_picker/image_picker.dart';
 import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
+import '../../widgets/sale_sync_panel.dart';
 import '../backup/backup_screen.dart';
 
 /// Shows user details and payment settings shared by store employees.
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, this.onSwitchMode, this.cashierMode = false});
+
+  final VoidCallback? onSwitchMode;
+  final bool cashierMode;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -339,19 +343,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         title: 'Email',
                         value: email.isEmpty ? '-' : email,
                       ),
-                      const SizedBox(height: 16),
-                      _InfoRow(
-                        icon: Icons.account_circle_outlined,
-                        iconBg: AppColors.accentSoft,
-                        iconColor: AppColors.primaryDark,
-                        title: 'Role',
-                        value: role.isEmpty ? '-' : role,
-                      ),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 2),
+              if (isOwner && widget.onSwitchMode != null) ...[
+                Card(
+                  child: ListTile(
+                    leading: Icon(
+                      widget.cashierMode
+                          ? Icons.manage_accounts_outlined
+                          : Icons.point_of_sale,
+                      color: AppColors.primaryDark,
+                    ),
+                    title: Text(
+                      widget.cashierMode
+                          ? 'Switch to owner'
+                          : 'Switch to cashier',
+                    ),
+                    subtitle: Text(
+                      widget.cashierMode
+                          ? 'Return to store management'
+                          : 'Scan products and complete sales',
+                    ),
+                    trailing: const Icon(Icons.swap_horiz),
+                    onTap: widget.onSwitchMode,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              const SaleSyncPanel(inProfile: true),
+              const SizedBox(height: 12),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),

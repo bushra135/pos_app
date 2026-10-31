@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -77,11 +79,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
   // The store code is the stores document ID used by cashiers to join.
   String _generateStoreCode() {
-    final milliseconds = DateTime.now().millisecondsSinceEpoch.toString();
-    return 'SHOP${milliseconds.substring(milliseconds.length - 6)}';
+    const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    final random = Random.secure();
+    return 'SHOP${List.generate(12, (_) => alphabet[random.nextInt(alphabet.length)]).join()}';
   }
 
-  bool _hasMinimumLength(String password) => password.length >= 8;
+  bool _hasMinimumLength(String password) => password.length >= 12;
   bool _hasUppercase(String password) => RegExp(r'[A-Z]').hasMatch(password);
   bool _hasLowercase(String password) => RegExp(r'[a-z]').hasMatch(password);
   bool _hasNumber(String password) => RegExp(r'[0-9]').hasMatch(password);
@@ -111,8 +114,6 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         builder: (_) => VerifyEmailScreen(
           draftFullName: _fullNameController.text,
           draftEmail: _emailController.text,
-          draftPassword: _passwordController.text,
-          draftConfirmPassword: _confirmPasswordController.text,
           draftStoreName: _storeNameController.text,
           draftStoreCode: _storeCodeController.text,
           draftIsOwner: _isOwner,
@@ -125,8 +126,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   Future<void> _handleCreateAccount() async {
     final fullName = _fullNameController.text.trim();
     final email = _emailController.text.trim().toLowerCase();
-    final password = _passwordController.text.trim();
-    final confirmPassword = _confirmPasswordController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
     final storeName = _storeNameController.text.trim();
     final storeCode = _storeCodeController.text.trim().toUpperCase();
 
@@ -162,27 +163,20 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       _isLoading = true;
     });
 
+    User? createdUser;
+    var profileSaved = false;
     try {
-      // Verify the store exists before creating a cashier account.
-      DocumentSnapshot<Map<String, dynamic>>? storeDoc;
-      if (!_isOwner) {
-        storeDoc = await _firestore.collection('stores').doc(storeCode).get();
-
-        if (!storeDoc.exists) {
-          _showMessage('Invalid store code');
-          return;
-        }
-      }
-
       final UserCredential userCredential = await _auth
           .createUserWithEmailAndPassword(email: email, password: password);
 
-      final String uid = userCredential.user!.uid;
+      createdUser = userCredential.user;
+      final String uid = createdUser!.uid;
 
       if (_isOwner) {
         final String newStoreCode = _generateStoreCode();
 
-        await _firestore.collection('users').doc(uid).set({
+        final batch = _firestore.batch();
+        batch.set(_firestore.collection('users').doc(uid), {
           'uid': uid,
           'fullName': fullName,
           'email': email,
@@ -192,13 +186,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           'createdAt': FieldValue.serverTimestamp(),
         });
 
-        await _firestore.collection('stores').doc(newStoreCode).set({
+        batch.set(_firestore.collection('stores').doc(newStoreCode), {
           'storeCode': newStoreCode,
           'storeName': storeName,
           'ownerUid': uid,
           'ownerEmail': email,
           'createdAt': FieldValue.serverTimestamp(),
         });
+        await batch.commit();
       } else {
         // The cashier profile uses the auth uid and links to the store by code.
         await _firestore.collection('users').doc(uid).set({
@@ -207,13 +202,15 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           'email': email,
           'role': 'cashier',
           'storeCode': storeCode,
-          'storeName': storeDoc!.data()?['storeName'] ?? '',
-          'ownerUid': storeDoc.data()?['ownerUid'] ?? '',
+          'storeName': '',
+          'isActive': false,
+          'status': 'pending',
           'createdAt': FieldValue.serverTimestamp(),
         });
       }
 
-      await _sendVerificationAndContinue(userCredential.user!);
+      profileSaved = true;
+      await _sendVerificationAndContinue(createdUser);
     } on FirebaseAuthException catch (e) {
       String message = 'Account creation failed';
 
@@ -227,7 +224,17 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
       _showMessage(message);
     } catch (e) {
-      _showMessage('Something went wrong: $e');
+      if (!profileSaved && createdUser != null) {
+        // Do not leave an unusable Auth account after a rejected profile write.
+        try {
+          await createdUser.delete();
+        } catch (_) {
+          /* Retry through sign-in if cleanup is unavailable. */
+        }
+      }
+      _showMessage(
+        'Could not create the store account. Check the store code and try again.',
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -298,7 +305,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             ),
           ),
           _passwordRequirement(
-            'At least 8 characters',
+            'At least 12 characters',
             _hasMinimumLength(password),
           ),
           _passwordRequirement('One uppercase letter', _hasUppercase(password)),

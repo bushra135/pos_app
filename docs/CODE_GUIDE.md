@@ -25,7 +25,7 @@ Read these files in this order. Do not start by memorizing widget layouts.
 | `lib/widgets` | Reusable visual components |
 | `web` | Browser startup, camera integration and local file download |
 | `test` | Behavioral regression checks grouped by feature |
-| `docs` | Discussion guide, backup notes and rule snippet |
+| `docs` | Discussion guide, backup and security notes |
 
 ## How to read a screen
 

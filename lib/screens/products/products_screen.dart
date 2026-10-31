@@ -298,7 +298,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
     if (error is FirebaseException) {
       switch (error.code) {
         case 'permission-denied':
-          return 'You do not have permission to save this product or image.';
+          return stage == 'Checking barcode'
+              ? 'Unable to check this barcode in your store. Check your account access and try again.'
+              : 'You do not have permission to save this product or image.';
         case 'unauthenticated':
           return 'Your session has expired. Sign in again.';
         case 'resource-exhausted':
@@ -440,7 +442,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
               if (name.isEmpty ||
                   category.isEmpty ||
                   price == null ||
+                  !price.isFinite ||
+                  price < 0 ||
                   stock == null ||
+                  stock < 0 ||
                   minStock < 0 ||
                   barcode.isEmpty) {
                 setDialogState(() {
@@ -456,8 +461,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
               });
 
               try {
+                // Rules authorize queries by store; filtering after reading is too late.
                 final duplicateBarcodeQuery = await productFirestore
                     .collection('products')
+                    .where('storeCode', isEqualTo: storeCode)
                     .where('barcode', isEqualTo: barcode)
                     .get(const GetOptions(source: Source.server))
                     .timeout(_requestTimeout);
@@ -986,34 +993,74 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   // Delete confirmation and low-stock notifications.
   void _showDeleteDialog(String docId, String productName) {
-    showDialog(
+    final productRef = _firestore.collection('products').doc(docId);
+    bool deleting = false;
+    String? errorMessage;
+    showDialog<void>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Delete Product'),
-          content: Text('Are you sure you want to delete "$productName"?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, updateDialog) => PopScope(
+          canPop: !deleting,
+          child: AlertDialog(
+            title: const Text('Delete Product'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Are you sure you want to delete "$productName"?'),
+                const SizedBox(height: 8),
+                const Text('Existing receipts will stay in sales history.'),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    errorMessage!,
+                    style: const TextStyle(color: AppColors.danger),
+                  ),
+                ],
+              ],
             ),
-            TextButton(
-              onPressed: () async {
-                await _firestore.collection('products').doc(docId).delete();
-
-                if (!mounted || !context.mounted) return;
-
-                Navigator.pop(context);
-                _showMessage('Product deleted successfully');
-              },
-              child: const Text(
-                'Delete',
-                style: TextStyle(color: AppColors.danger),
+            actions: [
+              TextButton(
+                onPressed: deleting ? null : () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
               ),
-            ),
-          ],
-        );
-      },
+              TextButton(
+                onPressed: deleting
+                    ? null
+                    : () async {
+                        updateDialog(() {
+                          deleting = true;
+                          errorMessage = null;
+                        });
+                        try {
+                          await productRef.delete().timeout(_requestTimeout);
+                          if (!dialogContext.mounted) return;
+                          Navigator.pop(dialogContext);
+                          if (mounted) {
+                            _showMessage('Product deleted successfully');
+                          }
+                        } catch (error) {
+                          if (!dialogContext.mounted) return;
+                          updateDialog(() {
+                            deleting = false;
+                            errorMessage = error is TimeoutException
+                                ? 'Delete confirmation timed out. Refresh products before retrying.'
+                                : error is FirebaseException &&
+                                      error.code == 'permission-denied'
+                                ? 'You do not have permission to delete this product. Check your store account access.'
+                                : 'Could not delete the product. Check your connection and try again.';
+                          });
+                        }
+                      },
+                child: Text(
+                  deleting ? 'Deleting...' : 'Delete',
+                  style: const TextStyle(color: AppColors.danger),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

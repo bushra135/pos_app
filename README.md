@@ -2,7 +2,7 @@
 
 ShopPad is a Flutter point-of-sale app. A cashier scans a product barcode with the phone camera, reviews the cart, confirms payment, and shares a receipt. Owners manage products, cashiers, reports, payment settings and recovery copies.
 
-For a guided code walkthrough and discussion preparation, read [Code discussion guide](docs/CODE_GUIDE.md).
+For a guided code walkthrough and discussion preparation, read [Code discussion guide](docs/CODE_GUIDE.md). Security controls and remaining limitations are documented in [Security status](docs/security/SECURITY.md).
 
 ## Run and verify
 
@@ -34,7 +34,7 @@ Windows desktop plugin builds may require Windows Developer Mode for symlink sup
 | `lib/utils` | Small reusable helpers: cart operations, barcode duplicate guard and image preparation |
 | `lib/widgets` | Reusable views: product images, receipt display and synchronization status |
 | `test` | Automated checks grouped by feature, with shared fakes in `test/support` |
-| `docs` | Code walkthrough, backup notes and the backup rule snippet |
+| `docs` | Code walkthrough, backup notes and the security status |
 
 Generated platform folders (`android`, `ios`, `web`, `linux`, `macos`) and `firebase_options.dart` are integration code. Do not memorize or manually rewrite generated registration files. `.dart_tool` and `build` contain tooling output, not the application's business logic.
 
@@ -77,8 +77,8 @@ The native and web database files are intentionally separate. Conditional import
 - Reports read saved store data. Current checkout does not implement actual tax/discount calculations, returns or spreadsheet import.
 - Barcode input identifies a product already registered for the store; it does not automatically obtain the store's selling price.
 - Low-stock information is displayed in product management. Validate real-device scanning performance before claiming equivalence to a dedicated scanner.
-- Backup is manual cloud recovery, not iCloud or a full database rollback. Read [Backup & recovery](docs/BACKUP.md) before use; production rule integration and real-environment checks remain necessary.
-- Cashier invitations currently use separate `users` records with an empty `uid`; registration does not automatically merge the invitation.
+- Backup is manual cloud recovery, not iCloud or a full database rollback. Read [Backup & recovery](docs/BACKUP.md) before use; owner-only server rules are deployed; recovery should still be rehearsed with test data before relying on it.
+- Cashier invitations use separate `users` records with an empty `uid`; new registered cashiers need owner approval. Availability (`onDuty`) is separate from owner-controlled account access.
 - Email verification uses Firebase Authentication verification links. Users open the emailed link, then return to confirm verification; no external email provider or Cloud Functions deployment is required. Delivery to the inbox rather than spam is not guaranteed.
 
 ## Product images and compatibility
@@ -161,7 +161,7 @@ android/, ios/   Mobile platform projects
 linux/, macos/   Desktop platform projects
 test/           Tests grouped into assistant, backup, catalog, checkout,
                  reports, scanning, web and shared support
-docs/           Code guide, backup notes and backup rule snippet
+docs/           Code guide, backup notes and security status
 ```
 
 Run commands from the project root. Flutter discovers all nested Dart tests with `flutter test --no-pub`. Browser tests run with:
@@ -171,3 +171,24 @@ node --test test/scanning/browser_scanner.test.cjs test/reports/report_export.te
 ```
 
 The unused numeric-code Functions backend and its Flutter client dependency were removed. Email verification continues to use Firebase Auth links. `.dart_tool`, `build` and `.firebase` are generated caches/output, not application code. Native platform projects remain available for building the app on their platforms.
+
+Server access rules are in `firestore.rules`. Changes require emulator authorization tests and `firebase deploy --only firestore:rules --project shoppad-f3d43`. New owner registration writes its profile and store atomically; cashiers cannot join an existing store with active permissions just by knowing its code.
+
+
+## Phone preview links
+
+The current test channel is `scan-direct`. Deploy updates to this same channel rather than creating a new URL for each fix. Query parameters such as `?release=...` do not create another channel.
+
+Preview URLs are public: anyone with the URL can load the sign-in page and downloaded frontend. Store data still requires authentication and Firestore authorization. Firebase project members with suitable Hosting permissions can inspect channels and retained release history; an ordinary visitor does not receive that management history from the app.
+
+Do not remove an old channel or clear its browser storage until any device-only receipts saved on that origin have synchronized. Preview links expire and are for testing; Hosting storage and transfer quotas still apply. See https://firebase.google.com/docs/hosting/test-preview-deploy and https://firebase.google.com/docs/hosting/manage-hosting-resources.
+
+
+### Sync status placement
+
+Profile > Sales sync always opens saved cash receipts and connection details. The top banner is hidden when online with no pending receipts, sync activity or error; offline and pending/conflict states remain visible. Profile shows the account role once under the name. Saved cash amounts use BD with three decimal places.
+
+
+### Owner cashier mode
+
+Owners switch from Home or Profile to the cashier workspace and back using the same authenticated account. This changes UI mode only; no role/store/approval fields are rewritten and ordinary cashiers have no owner-mode action. The cart and saved pending receipts remain under the same user/store. Owner sales are recorded with the owner UID and appear in store history; employee cashier rankings continue to exclude owners. Returning to management refreshes the dashboard.

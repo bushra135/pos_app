@@ -71,6 +71,34 @@ void main() {
     expect((await product())['stock'], 5);
   }
 
+  test(
+    'owner can sell with the same identity without changing their role',
+    () async {
+      await firestore.collection('users').doc('owner-a').set({
+        'storeCode': 'STORE-A',
+        'role': 'owner',
+      });
+      final ownerGateway = FirestoreSaleGateway(
+        firestore: firestore,
+        currentUserId: () => 'owner-a',
+      );
+      final receipt = sale(cashierUid: 'owner-a', items: [line(quantity: 2)]);
+      await ownerGateway.commit(receipt);
+      await ownerGateway.commit(receipt);
+      expect((await product())['stock'], 3);
+      expect(
+        (await firestore.collection('users').doc('owner-a').get())
+            .data()!['role'],
+        'owner',
+      );
+      final saved = (await firestore.collection('sales').doc(receipt.id).get())
+          .data()!;
+      expect(saved['cashierUid'], 'owner-a');
+      expect(saved['storeCode'], 'STORE-A');
+      expect(saved['total'], 5);
+    },
+  );
+
   test('durable record round trip preserves receipt and fixed cart copy', () {
     final items = [line(quantity: 2)];
     final record = sale(items: items);

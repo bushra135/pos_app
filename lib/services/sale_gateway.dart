@@ -133,6 +133,7 @@ class FirestoreSaleGateway implements SaleGateway {
         ...sale.toJson(),
         'createdAt': Timestamp.fromDate(sale.createdAt),
         'syncedAt': FieldValue.serverTimestamp(),
+        'productIds': quantities.keys.toList(),
         'subtotal': sale.total,
         'discount': 0.0,
         'refund': 0.0,
@@ -150,6 +151,7 @@ class FirestoreSaleGateway implements SaleGateway {
       for (final entry in remaining.entries) {
         transaction.update(products[entry.key]!, {
           'stock': entry.value,
+          'lastSaleId': sale.id,
           if (corrections.containsKey(entry.key))
             'lastStockCorrection': {
               ...corrections[entry.key]!,
