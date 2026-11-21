@@ -1,7 +1,8 @@
 // Export only to the user's device; no report data is uploaded.
 window.ShopPadReportExport = {
-  download(csv, filename) {
-    const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+  download(workbookBase64, filename) {
+    const bytes = Uint8Array.from(atob(workbookBase64), character => character.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;

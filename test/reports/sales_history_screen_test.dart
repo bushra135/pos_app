@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:archive/archive.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pos_app/app/theme.dart';
 import 'package:pos_app/models/sale_record.dart';
+import 'package:pos_app/utils/report_workbook.dart';
 import 'package:pos_app/screens/reports/sales_history_screen.dart';
 import 'package:pos_app/screens/reports/reports_screen.dart';
 import 'package:pos_app/widgets/sale_receipt_view.dart';
@@ -132,8 +135,8 @@ void main() {
             firestore: db,
             currentUserId: () => 'owner',
             now: () => today,
-            exportReport: (csv, name) async {
-              exported = csv;
+            exportReport: (workbookBase64, name) async {
+              exported = workbookBase64;
               filename = name;
             },
           ),
@@ -166,16 +169,37 @@ void main() {
         find.textContaining('Selected product: 2 units · BD 2.000'),
         findsOneWidget,
       );
-      await tester.tap(find.text('Export CSV'));
+      await tester.tap(find.text('Export Excel'));
       await tester.pumpAndSettle();
-      expect(filename, 'shoppad-sales-20261029.csv');
-      expect(exported, contains('RCPT-bob'));
-      expect(exported, isNot(contains('RCPT-alice')));
-      expect(exported, isNot(contains('RCPT-foreign')));
-      expect(exported!.split('\r\n').length, 3);
+      expect(filename, 'shoppad-sales-20261029.xlsx');
+      final workbook = ZipDecoder().decodeBytes(base64Decode(exported!));
+      final sheet = utf8.decode(
+        workbook.findFile('xl/worksheets/sheet1.xml')!.content,
+      );
+      expect(sheet, contains(ReportWorkbook.reference('INV', 'bob')));
+      expect(sheet, contains(ReportWorkbook.reference('CS', 'b')));
+      expect(sheet, isNot(contains('>Type<')));
+      expect(sheet, contains('Cashier code'));
+      expect(sheet, isNot(contains('RCPT-bob')));
+      expect(
+        sheet,
+        isNot(contains(ReportWorkbook.reference('INV', 'alice-1'))),
+      );
+      expect(
+        sheet,
+        isNot(contains(ReportWorkbook.reference('INV', 'foreign'))),
+      );
+      expect(RegExp(r'<row r=').allMatches(sheet).length, 2);
       await tester.tap(find.byTooltip('Clear report filters'));
       await tester.pumpAndSettle();
       expect(find.textContaining('7 receipts ·'), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Search receipt, cashier or product'),
+        ReportWorkbook.reference('INV', 'bob'),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('1 receipts ·'), findsOneWidget);
+      expect(find.text('RCPT-bob'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },

@@ -384,132 +384,361 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     }
     final cartItems = CartManager.items;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(30),
-                        bottomRight: Radius.circular(30),
+    return PopScope(
+      canPop: !isSavingSale,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Column(
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                      decoration: const BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(30),
+                          bottomRight: Radius.circular(30),
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundColor: AppColors.surface.withValues(
-                            alpha: 0.25,
-                          ),
-                          child: IconButton(
-                            onPressed: isSavingSale
-                                ? null
-                                : () => Navigator.pop(context),
-                            icon: const Icon(
-                              Icons.arrow_back,
-                              color: AppColors.onBrand,
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: AppColors.surface.withValues(
+                              alpha: 0.25,
+                            ),
+                            child: IconButton(
+                              onPressed: isSavingSale
+                                  ? null
+                                  : () => Navigator.pop(context),
+                              icon: const Icon(
+                                Icons.arrow_back,
+                                color: AppColors.onBrand,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 14),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Payment & Receipt',
-                                style: TextStyle(
-                                  color: AppColors.onBrand,
-                                  fontSize: AppTypography.title,
-                                  fontWeight: FontWeight.w700,
+                          const SizedBox(width: 14),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Payment & Receipt',
+                                  style: TextStyle(
+                                    color: AppColors.onBrand,
+                                    fontSize: AppTypography.title,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Review payment and invoice details',
-                                style: TextStyle(
-                                  color: AppColors.onBrand,
-                                  fontSize: AppTypography.body,
+                                SizedBox(height: 4),
+                                Text(
+                                  'Review payment and invoice details',
+                                  style: TextStyle(
+                                    color: AppColors.onBrand,
+                                    fontSize: AppTypography.body,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(22),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Payment Method',
-                                style: TextStyle(
-                                  fontSize: AppTypography.section,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              Row(
-                                children: [
-                                  _buildPaymentOption(
-                                    title: 'Cash',
-                                    icon: Icons.payments_outlined,
-                                    isSelected: selectedPaymentMethod == 'Cash',
-                                    onTap: () {
-                                      setState(() {
-                                        selectedPaymentMethod = 'Cash';
-                                      });
-                                    },
+                    Expanded(
+                      child: ListView(
+                        padding: const EdgeInsets.all(16),
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Payment Method',
+                                  style: TextStyle(
+                                    fontSize: AppTypography.section,
+                                    fontWeight: FontWeight.w700,
                                   ),
-                                  const SizedBox(width: 12),
-                                  _buildPaymentOption(
-                                    title: 'BenefitPay',
-                                    icon: Icons.qr_code,
-                                    isSelected:
-                                        selectedPaymentMethod == 'BenefitPay',
-                                    onTap: () {
-                                      setState(() {
-                                        selectedPaymentMethod = 'BenefitPay';
-                                      });
-                                    },
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 18),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: AppColors.background,
-                                  borderRadius: BorderRadius.circular(16),
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                const SizedBox(height: 14),
+                                Row(
                                   children: [
-                                    const Text(
-                                      'Total Amount',
-                                      style: TextStyle(
-                                        color: AppColors.muted,
-                                        fontSize: AppTypography.body,
+                                    _buildPaymentOption(
+                                      title: 'Cash',
+                                      icon: Icons.payments_outlined,
+                                      isSelected:
+                                          selectedPaymentMethod == 'Cash',
+                                      onTap: () {
+                                        setState(() {
+                                          selectedPaymentMethod = 'Cash';
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(width: 12),
+                                    _buildPaymentOption(
+                                      title: 'BenefitPay',
+                                      icon: Icons.qr_code,
+                                      isSelected:
+                                          selectedPaymentMethod == 'BenefitPay',
+                                      onTap: () {
+                                        setState(() {
+                                          selectedPaymentMethod = 'BenefitPay';
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 18),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.background,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Total Amount',
+                                        style: TextStyle(
+                                          color: AppColors.muted,
+                                          fontSize: AppTypography.body,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'BD ${CartManager.total.toStringAsFixed(3)}',
+                                        style: const TextStyle(
+                                          fontSize: AppTypography.metric,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.primaryDark,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (selectedPaymentMethod == 'BenefitPay') ...[
+                                  const SizedBox(height: 18),
+                                  if (benefitNumber.isNotEmpty)
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.background,
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'BenefitPay Number',
+                                            style: TextStyle(
+                                              color: AppColors.muted,
+                                              fontSize: AppTypography.body,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            benefitNumber,
+                                            style: const TextStyle(
+                                              fontSize: AppTypography.section,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    const SizedBox(height: 6),
+                                  if (benefitQrBase64.isNotEmpty) ...[
+                                    const SizedBox(height: 14),
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.background,
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          const Text(
+                                            'Scan to pay',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          _buildQrPreview(),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Receipt',
+                                  style: TextStyle(
+                                    fontSize: AppTypography.section,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Store',
+                                      style: TextStyle(color: AppColors.muted),
+                                    ),
+                                    Text(
+                                      storeName.isEmpty
+                                          ? 'My Store'
+                                          : storeName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Cashier',
+                                      style: TextStyle(color: AppColors.muted),
+                                    ),
+                                    Text(
+                                      cashierName.isEmpty
+                                          ? 'Cashier'
+                                          : cashierName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Receipt No.',
+                                      style: TextStyle(color: AppColors.muted),
+                                    ),
+                                    Text(
+                                      receiptNumber,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Divider(color: AppColors.border),
+                                const SizedBox(height: 10),
+                                ...cartItems.map(
+                                  (item) => _buildReceiptItem(
+                                    name: item.name,
+                                    quantity: item.quantity,
+                                    subtotal: item.totalPrice,
+                                  ),
+                                ),
+                                Divider(color: AppColors.border),
+                                const SizedBox(height: 10),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Subtotal',
+                                      style: TextStyle(
+                                        color: AppColors.muted,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      'BD ${CartManager.total.toStringAsFixed(3)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                const Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Discount',
+                                      style: TextStyle(
+                                        color: AppColors.muted,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      'BD 0.000',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                const Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Tax',
+                                      style: TextStyle(
+                                        color: AppColors.muted,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      'BD 0.000',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Total',
+                                      style: TextStyle(
+                                        fontSize: AppTypography.section,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
                                     Text(
                                       'BD ${CartManager.total.toStringAsFixed(3)}',
                                       style: const TextStyle(
@@ -520,270 +749,50 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                     ),
                                   ],
                                 ),
-                              ),
-                              if (selectedPaymentMethod == 'BenefitPay') ...[
-                                const SizedBox(height: 18),
-                                if (benefitNumber.isNotEmpty)
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.background,
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'BenefitPay Number',
-                                          style: TextStyle(
-                                            color: AppColors.muted,
-                                            fontSize: AppTypography.body,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          benefitNumber,
-                                          style: const TextStyle(
-                                            fontSize: AppTypography.section,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                if (benefitQrBase64.isNotEmpty) ...[
-                                  const SizedBox(height: 14),
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.background,
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        const Text(
-                                          'Scan to pay',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        _buildQrPreview(),
-                                      ],
-                                    ),
-                                  ),
-                                ],
                               ],
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(22),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Receipt',
-                                style: TextStyle(
-                                  fontSize: AppTypography.section,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Store',
-                                    style: TextStyle(color: AppColors.muted),
-                                  ),
-                                  Text(
-                                    storeName.isEmpty ? 'My Store' : storeName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Cashier',
-                                    style: TextStyle(color: AppColors.muted),
-                                  ),
-                                  Text(
-                                    cashierName.isEmpty
-                                        ? 'Cashier'
-                                        : cashierName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Receipt No.',
-                                    style: TextStyle(color: AppColors.muted),
-                                  ),
-                                  Text(
-                                    receiptNumber,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              Divider(color: AppColors.border),
-                              const SizedBox(height: 10),
-                              ...cartItems.map(
-                                (item) => _buildReceiptItem(
-                                  name: item.name,
-                                  quantity: item.quantity,
-                                  subtotal: item.totalPrice,
-                                ),
-                              ),
-                              Divider(color: AppColors.border),
-                              const SizedBox(height: 10),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Subtotal',
-                                    style: TextStyle(
-                                      color: AppColors.muted,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    'BD ${CartManager.total.toStringAsFixed(3)}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              const Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Discount',
-                                    style: TextStyle(
-                                      color: AppColors.muted,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    'BD 0.000',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              const Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Tax',
-                                    style: TextStyle(
-                                      color: AppColors.muted,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    'BD 0.000',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Total',
-                                    style: TextStyle(
-                                      fontSize: AppTypography.section,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  Text(
-                                    'BD ${CartManager.total.toStringAsFixed(3)}',
-                                    style: const TextStyle(
-                                      fontSize: AppTypography.metric,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.primaryDark,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: isSavingSale ? null : _confirmPayment,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 18),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
                             ),
-                            child: isSavingSale
-                                ? const SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      color: AppColors.onBrand,
-                                      strokeWidth: 2.5,
-                                    ),
-                                  )
-                                : Text(
-                                    selectedPaymentMethod == 'Cash'
-                                        ? 'Confirm Cash Payment'
-                                        : 'Payment Received',
-                                    style: const TextStyle(
-                                      color: AppColors.onBrand,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: AppTypography.button,
-                                    ),
-                                  ),
                           ),
-                        ),
-                        const SizedBox(height: 18),
-                      ],
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: isSavingSale ? null : _confirmPayment,
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 18,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: isSavingSale
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        color: AppColors.onBrand,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
+                                  : Text(
+                                      selectedPaymentMethod == 'Cash'
+                                          ? 'Confirm Cash Payment'
+                                          : 'Payment Received',
+                                      style: const TextStyle(
+                                        color: AppColors.onBrand,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: AppTypography.button,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+        ),
       ),
     );
   }

@@ -25,6 +25,20 @@ class LocalPosStore {
   LocalPosStore(this.database);
 
   final Database database;
+  final _cartSessions = stringMapStoreFactory.store('cart_sessions');
+  String _cartKey(String uid, String code) => jsonEncode([uid, code]);
+
+  Future<Map<String, Object?>?> cartState(String uid, String code) =>
+      _cartSessions.record(_cartKey(uid, code)).get(database);
+
+  Future<void> saveCartState(
+    String uid,
+    String code,
+    Map<String, Object?> state,
+  ) async {
+    await _cartSessions.record(_cartKey(uid, code)).put(database, state);
+  }
+
   final _sales = stringMapStoreFactory.store('pending_sales');
   final _contexts = stringMapStoreFactory.store('cashier_contexts');
   final _products = stringMapStoreFactory.store('products');
@@ -139,6 +153,13 @@ class LocalPosStore {
         }
       }
       await record.put(transaction, {'sale': sale.toJson()});
+      final cart = _cartSessions.record(
+        _cartKey(sale.cashierUid, sale.storeCode),
+      );
+      final draft = await cart.get(transaction);
+      if (draft != null) {
+        await cart.put(transaction, {...draft, 'active': <Object?>[]});
+      }
     });
   }
 

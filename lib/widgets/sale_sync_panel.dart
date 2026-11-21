@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/app_colors.dart';
 import '../services/local_pos_store.dart';
 import '../services/sale_sync_service.dart';
+import '../utils/cart_manager.dart';
 
 /// Cash receipts stay visible until the server confirms their stock deduction.
 class SaleSyncPanel extends StatelessWidget {
@@ -17,14 +18,19 @@ class SaleSyncPanel extends StatelessWidget {
     if (sync == null) return const SizedBox.shrink();
 
     return ListenableBuilder(
-      listenable: sync,
+      listenable: Listenable.merge([sync, CartManager.revision]),
       builder: (context, _) {
         final count = sync.pendingSales.length;
         final conflicts = sync.pendingSales
             .where((sale) => sale.isConflict)
             .length;
-        final color = conflicts > 0 ? AppColors.danger : AppColors.primaryDark;
-        final status = sync.syncing
+        final draftError = CartManager.saveError;
+        final color = conflicts > 0 || draftError != null
+            ? AppColors.danger
+            : AppColors.primaryDark;
+        final status = draftError != null
+            ? 'Cart not saved · open Cart to retry'
+            : sync.syncing
             ? 'Syncing saved sales...'
             : !sync.online
             ? 'Offline · cash sales saved on this device'
@@ -49,18 +55,21 @@ class SaleSyncPanel extends StatelessWidget {
         if (sync.online &&
             count == 0 &&
             !sync.syncing &&
-            sync.lastError == null) {
+            sync.lastError == null &&
+            draftError == null) {
           return const SizedBox.shrink();
         }
 
         return Material(
-          color: conflicts > 0 ? AppColors.dangerSoft : AppColors.soft,
+          color: conflicts > 0 || draftError != null
+              ? AppColors.dangerSoft
+              : AppColors.soft,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: Row(
               children: [
                 Icon(
-                  conflicts > 0
+                  conflicts > 0 || draftError != null
                       ? Icons.error_outline
                       : sync.online
                       ? Icons.cloud_done_outlined
@@ -76,8 +85,16 @@ class SaleSyncPanel extends StatelessWidget {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => _showPendingSales(context, sync),
-                  child: const Text('Details'),
+                  onPressed: draftError == null
+                      ? () => _showPendingSales(context, sync)
+                      : () async {
+                          try {
+                            await CartManager.flush();
+                          } catch (_) {
+                            /* The visible error remains available for retry. */
+                          }
+                        },
+                  child: Text(draftError == null ? 'Details' : 'Retry'),
                 ),
               ],
             ),

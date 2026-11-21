@@ -10,6 +10,7 @@ import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 import '../../widgets/sale_sync_panel.dart';
+import '../../utils/cart_manager.dart';
 import '../backup/backup_screen.dart';
 
 /// Shows user details and payment settings shared by store employees.
@@ -33,6 +34,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   bool isLoading = true;
   bool isSaving = false;
+  bool _loggingOut = false;
 
   bool isPaymentExpanded = true;
 
@@ -200,8 +202,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _logout() async {
-    // AuthWrapper shows the login screen when the session ends.
-    await FirebaseAuth.instance.signOut();
+    if (_loggingOut) return;
+    setState(() => _loggingOut = true);
+    try {
+      await CartManager.flush();
+      await FirebaseAuth.instance.signOut();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Your cart could not be saved. Check device storage and try signing out again.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loggingOut = false);
+    }
   }
 
   Widget _buildQrPlaceholder() {
@@ -370,10 +388,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onTap: widget.onSwitchMode,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
               ],
               const SaleSyncPanel(inProfile: true),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
@@ -543,7 +561,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ),
-              if (isOwner && storeCode.isNotEmpty)
+              if (isOwner && storeCode.isNotEmpty) ...[
+                const SizedBox(height: 16),
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.backup_outlined),
@@ -560,7 +579,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ),
-              const SizedBox(height: 18),
+              ],
+              const SizedBox(height: 16),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 22),
@@ -597,7 +617,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 20),
               GestureDetector(
-                onTap: _logout,
+                onTap: _loggingOut ? null : _logout,
                 child: Container(
                   width: double.infinity,
                   height: 58,
@@ -606,14 +626,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                     border: Border.all(color: AppColors.danger, width: 1.6),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.logout, color: AppColors.danger),
-                      SizedBox(width: 10),
+                      const Icon(Icons.logout, color: AppColors.danger),
+                      const SizedBox(width: 10),
                       Text(
-                        'Logout',
-                        style: TextStyle(
+                        _loggingOut ? 'Signing out...' : 'Logout',
+                        style: const TextStyle(
                           color: AppColors.danger,
                           fontWeight: FontWeight.w700,
                           fontSize: AppTypography.button,

@@ -71,7 +71,7 @@ The native and web database files are intentionally separate. Conditional import
 ## Data and current limitations
 
 - Firestore collections are `users`, `stores`, `products` and `sales`. Store operations must be scoped by `storeCode` and protected by server rules. Hiding an owner-only button is not authorization.
-- The cart is held in memory and does not survive app restarts. Pending accepted cash sales are durable and separate from the cart.
+- The active unpaid cart and held sales are saved automatically on this device, scoped to the authenticated user/store. Saved receipts remain separate. Wait for the cart-saved indicator before closing; a storage error offers retry. Sign-out preserves drafts for the same account. Clearing browser data removes device-only drafts.
 - Cash is supported. BenefitPay uses store-provided payment details and manual receipt confirmation; there is no bank payment-verification integration.
 - The assistant calculates insights locally using English keyword rules and store records. No AI API key or paid model is required. It still loads records from the existing Firebase store.
 - Reports read saved store data. Current checkout does not implement actual tax/discount calculations, returns or spreadsheet import.
@@ -146,7 +146,7 @@ Top cashiers ranks completed non-refund receipts by sales value after refunds re
 
 History supports inclusive custom local date ranges, cashier, payment method, product, receipt status, stock-correction-only and text search together. Clear report filters resets all selections. The displayed net receipt total excludes incomplete receipts and subtracts refund transactions. Selecting a product also shows its sold units and line value before receipt-level discounts/tax; the separate receipt total includes the entire matching receipt. Cashier ranking uses the date period, independently of history-specific filters.
 
-The web version exports exactly the filtered receipts as UTF-8 CSV with a BOM for Arabic Excel text. This is CSV, not an XLSX workbook. Amounts retain three BD decimal places, text is quoted and formula-like text is escaped. Download is local through a browser Blob URL, without an external service. Native CSV download is currently unavailable; filters and receipt PDF features remain available. Device-only pending receipts must synchronize before appearing in owner history or exports.
+The web version exports exactly the filtered receipts as an Excel (.xlsx) workbook with separate columns, a blue header, frozen first row and column filters. The download is a genuine XLSX workbook. Amounts are numeric cells with three BD decimal places. Arabic, receipt identifiers and formula-like product names are stored as literal text. Download is local through a browser Blob URL, without an external service. Native Excel download is currently unavailable; filters and receipt PDF features remain available. Device-only pending receipts must synchronize before appearing in owner history or exports.
 
 Sales history and Top cashiers are independent routes with separate period/filter state. Tapping a cashier opens a new history route filtered to that cashier and date period; Back returns to the performance page. No combined tabs are shown.
 
@@ -192,3 +192,14 @@ Profile > Sales sync always opens saved cash receipts and connection details. Th
 ### Owner cashier mode
 
 Owners switch from Home or Profile to the cashier workspace and back using the same authenticated account. This changes UI mode only; no role/store/approval fields are rewritten and ordinary cashiers have no owner-mode action. The cart and saved pending receipts remain under the same user/store. Owner sales are recorded with the owner UID and appear in store history; employee cashier rankings continue to exclude owners. Returning to management refreshes the dashboard.
+
+Excel reports omit the redundant Type column. Receipt no. and Cashier code use compact deterministic INV-/CS- display references; original database IDs and saved receipts are unchanged. Search in sales history accepts those references. Refund transactions remain identified in Status.
+
+
+### Active cart recovery and held sales
+
+The existing local POS database now keeps `cart_sessions`, keyed by authenticated UID and store code. Cart changes are saved in order. Cart > Hold sale stores an optional customer/note and empties the active cart only after the local write succeeds. Held sales > select a sale resumes it; a nonempty current cart is held in the same write. Held carts are unpaid and do not reserve/decrement inventory. Review their items/prices before checkout. They are local to that browser/device and are not included in manual cloud backups.
+
+Before accepting payment, pending draft writes finish; accepting the durable receipt and retiring its active draft happen in the same local database transaction. Closing between payment acceptance and UI cleanup therefore does not restore the paid items as a new unpaid sale. Held carts are preserved. Checkout blocks Back while saving, and sign-out waits for cart writes. Failed local writes keep the current in-memory cart and show retry feedback.
+
+Owner Home uses BD with three decimal places. The previous placeholder percentage growth is removed because it was not a real period comparison. Cart buttons, messages and spacing follow the shared app theme.

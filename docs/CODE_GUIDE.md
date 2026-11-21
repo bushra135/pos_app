@@ -47,7 +47,7 @@ Read these files in this order. Do not start by memorizing widget layouts.
 | Scan and manual input | `screens/scan/scan_screen.dart` | Barcode guard, browser scanner and cart manager |
 | Payment | `screens/checkout/checkout_receipt_screen.dart` | SaleRecord, synchronization and gateway |
 | Report dashboard | `screens/reports/reports_screen.dart` | Shared ReportSale parsing |
-| Receipt history / cashier ranking | `screens/reports/sales_history_screen.dart` | Separate routes, owner/store checks, filters and CSV |
+| Receipt history / cashier ranking | `screens/reports/sales_history_screen.dart` | Separate routes, owner/store checks, filters and Excel export |
 | Local assistant | `screens/ai/ai_assistant_screen.dart` | Keyword routing and shared ReportSale parsing |
 | Recovery copies | `screens/backup/backup_screen.dart` | Backup service; see BACKUP.md |
 
@@ -68,7 +68,7 @@ Camera or manual barcode -> store product lookup -> CartManager -> SaleRecord ->
 
 The report dashboard and assistant share financial parsing to avoid maintaining duplicate formulas. Both support legacy field aliases in the same priority order. The assistant uses local keyword rules and calculations; it does not call a paid language model.
 
-Receipt history combines date, cashier, product, payment, status and stock-correction filters. Its CSV export uses the same filtered rows as the screen. Product line values are before receipt-level discounts/tax; receipt totals include all items on a matching receipt.
+Receipt history combines date, cashier, product, payment, status and stock-correction filters. Its Excel export uses the same filtered rows as the screen. Product line values are before receipt-level discounts/tax; receipt totals include all items on a matching receipt.
 
 Top cashiers opens from the cashier summary card on the owner home. It ranks completed cashier receipts using integer fils, with exact ties shown jointly. Owner sales and records without a cashier ID do not compete. Server access rules, not hidden buttons, protect store data.
 
@@ -77,7 +77,7 @@ Top cashiers opens from the cashier summary card on the owner home. It ranks com
 - `web/browser_scanner.js`: browser-owned video and decoding for the mobile web camera.
 - `services/browser_scanner.dart`: conditional interface selecting web or native behavior.
 - `web/flutter_bootstrap.js`: versioned app entrypoint to avoid loading an older cached bundle.
-- `web/report_export.js`: downloads CSV on the user's device without uploading the report.
+- `web/report_export.js`: downloads the XLSX workbook on the user's device without uploading the report.
 - Conditional database implementations select IndexedDB on web and a device database on native platforms.
 
 ## What to review before the discussion
@@ -89,3 +89,15 @@ Focus on why responsibilities are separated, how data flows, why transactions an
 ## Refactoring rules
 
 Keep database field names and receipt formats compatible. Keep platform-specific integrations separate. Extract a helper when multiple callers need the same rule; keep small feature-only widgets close to their screen. Comments should explain intent and safeguards rather than narrate each line.
+
+
+### Excel export
+
+`utils/report_workbook.dart` packages one SpreadsheetML Sales worksheet into a ZIP using the existing archive library. This is a real .xlsx file, independent of Windows CSV delimiter settings. The header is blue, frozen and filterable. Amount cells are numeric with three decimal places; receipt identifiers and Arabic/product text are inline strings, never formulas. `report_download_web.dart` passes Base64 workbook bytes to the browser download bridge; report data is not uploaded.
+
+Compact INV-/CS- references in Excel are display aliases derived deterministically from saved identifiers using SHA-256. They are not new primary keys and do not rename stored sales, users or receipt snapshots. Sales history search accepts these references. The redundant Type column is removed; refund transactions keep an explicit Refund marker in Status.
+
+
+### Unpaid cart persistence
+
+`CartManager` owns the active cart and held-sale UI state. Every mutation queues a scoped local snapshot through `LocalPosStore.cartState/saveCartState`. `SaleSyncService.bind` restores the account/store draft, and clearing the session detaches the view without deleting drafts. `enqueueChecked` atomically saves the paid receipt and clears the active unpaid draft. `CartScreen` exposes Hold sale, Held sales, save progress and retry. Held carts do not change stock or reports. Tests in `test/checkout/cart_drafts_test.dart` cover disk reopen, account isolation, swaps, failure recovery and acceptance of payment.

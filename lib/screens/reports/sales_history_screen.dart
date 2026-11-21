@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,7 +9,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_colors.dart';
 import '../../models/sale_record.dart';
 import '../../services/report_download.dart';
-import '../../utils/report_csv.dart';
+import '../../utils/report_workbook.dart';
 import '../../widgets/sale_receipt_view.dart';
 
 /// Owner-only, store-scoped history and a transparent cashier leaderboard.
@@ -32,7 +33,8 @@ class SalesHistoryScreen extends StatefulWidget {
   final FirebaseFirestore? firestore;
   final String? Function()? currentUserId;
   final DateTime Function()? now;
-  final Future<void> Function(String csv, String filename)? exportReport;
+  final Future<void> Function(String workbookBase64, String filename)?
+  exportReport;
   final Future<DateTimeRange?> Function(
     BuildContext context,
     DateTimeRange? current,
@@ -176,7 +178,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     });
   }
 
-  // Shared filtering for the visible list and CSV export.
+  // Shared filtering for the visible list and Excel export.
   bool _inPeriod(_HistorySale sale) {
     if (_period == 'All time') return true;
     final date = sale.date;
@@ -226,7 +228,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
               (!_correctionsOnly || sale.hasCorrections) &&
               (_product == null || _matchingItems(sale).isNotEmpty) &&
               (query.isEmpty ||
-                  '${sale.receipt} ${sale.cashierName} ${sale.items.map((item) => '${item['name']} ${item['barcode']}').join(' ')}'
+                  '${sale.receipt} ${ReportWorkbook.reference('INV', sale.id)} ${ReportWorkbook.reference('CS', sale.cashierUid)} ${sale.cashierName} ${sale.items.map((item) => '${item['name']} ${item['barcode']}').join(' ')}'
                       .toLowerCase()
                       .contains(query)),
         )
@@ -439,13 +441,12 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     if (rows.isEmpty || _uid != _ownerUid) return;
     final data = <List<Object?>>[
       [
-        'Receipt',
+        'Receipt no.',
         'Date (local)',
         'Cashier',
-        'Cashier ID',
+        'Cashier code',
         'Payment',
         'Status',
-        'Type',
         'Receipt total (BD)',
         'Recorded refund (BD)',
         'Net completed receipt (BD)',
@@ -457,13 +458,12 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       ],
       for (final sale in rows)
         [
-          sale.receipt,
+          ReportWorkbook.reference('INV', sale.id),
           _exportDate(sale.date),
           sale.cashierName,
-          sale.cashierUid,
+          ReportWorkbook.reference('CS', sale.cashierUid),
           sale.method,
-          sale.status,
-          sale.refund ? 'Refund' : 'Sale',
+          sale.refund ? 'Refund · ${sale.status}' : sale.status,
           sale.total,
           _number(sale.data['refund'] ?? sale.data['refundAmount']).abs(),
           _netReceipt(sale),
@@ -484,16 +484,16 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     try {
       final now = widget.now?.call() ?? DateTime.now();
       final filename =
-          'shoppad-sales-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.csv';
+          'shoppad-sales-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.xlsx';
       await (widget.exportReport ?? downloadReport)(
-        ReportCsv.encode(data),
+        base64Encode(ReportWorkbook.encode(data)),
         filename,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Filtered report prepared for download. Open the CSV in Excel.',
+              'Filtered report prepared for download. Open the Excel workbook.',
             ),
           ),
         );
@@ -669,7 +669,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                 OutlinedButton.icon(
                   onPressed: rows.isEmpty ? null : _export,
                   icon: const Icon(Icons.download_outlined),
-                  label: const Text('Export CSV'),
+                  label: const Text('Export Excel'),
                 ),
               IconButton(
                 tooltip: 'Clear report filters',

@@ -1,4 +1,4 @@
 const supportsReportDownload = false;
-Future<void> downloadReport(String csv, String filename) async {
-  throw UnsupportedError('CSV download is available in the web version.');
+Future<void> downloadReport(String workbookBase64, String filename) async {
+  throw UnsupportedError('Excel download is available in the web version.');
 }

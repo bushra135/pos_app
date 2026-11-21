@@ -287,18 +287,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       child: Column(
         children: [
           _buildHeader(),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: isLoading ? null : _switchToCashier,
-                icon: const Icon(Icons.point_of_sale),
-                label: const Text('Switch to cashier'),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 20),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
             child: GridView.count(
@@ -313,10 +302,8 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                   icon: Icons.attach_money,
                   color: AppColors.success,
                   title: "Today's Sales",
-                  value: "\$${todaySales.toStringAsFixed(2)}",
-                  subtitle: todaySales > 0
-                      ? "+${(todaySales / 100).toStringAsFixed(1)}%"
-                      : "+0%",
+                  value: "BD ${todaySales.toStringAsFixed(3)}",
+                  subtitle: 'Sales recorded today',
                 ),
                 _buildMetricCard(
                   icon: Icons.warning_amber,
@@ -391,33 +378,60 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
               ],
             ),
           ),
-          GestureDetector(
-            onTap: _copyStoreCode,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-              decoration: BoxDecoration(
-                color: AppColors.surface.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                border: Border.all(
-                  color: AppColors.surface.withValues(alpha: 0.18),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    storeCode.isEmpty ? 'No Code' : storeCode,
-                    style: const TextStyle(
-                      color: AppColors.onBrand,
-                      fontSize: AppTypography.label,
-                      fontWeight: FontWeight.w700,
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              GestureDetector(
+                onTap: _copyStoreCode,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 11,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface.withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                    border: Border.all(
+                      color: AppColors.surface.withValues(alpha: 0.18),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.copy, color: AppColors.onBrand, size: 18),
-                ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        storeCode.isEmpty ? 'No Code' : storeCode,
+                        style: const TextStyle(
+                          color: AppColors.onBrand,
+                          fontSize: AppTypography.label,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.copy,
+                        color: AppColors.onBrand,
+                        size: 18,
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: isLoading ? null : _switchToCashier,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.onBrand,
+                  backgroundColor: AppColors.surface.withValues(alpha: 0.16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                ),
+                icon: const Icon(Icons.point_of_sale, size: 18),
+                label: const Text('Switch to cashier'),
+              ),
+            ],
           ),
         ],
       ),

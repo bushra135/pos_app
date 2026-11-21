@@ -77,7 +77,7 @@ class SaleSyncService extends ChangeNotifier {
     _productSubscription?.cancel();
     _queueSubscription = null;
     _productSubscription = null;
-    CartManager.clearCart();
+    CartManager.detach();
     _changed();
   }
 
@@ -85,7 +85,11 @@ class SaleSyncService extends ChangeNotifier {
     if (_uid == uid && _storeCode == storeCode) return;
     await _queueSubscription?.cancel();
     await _productSubscription?.cancel();
-    if (_uid != uid || _storeCode != storeCode) CartManager.clearCart();
+    await CartManager.bind(store, uid, storeCode);
+    if (currentUserId() != uid) {
+      CartManager.detach();
+      throw StateError('Your account has changed.');
+    }
     _uid = uid;
     _storeCode = storeCode;
     _pending = await store.pendingSales(uid, storeCode);
@@ -262,6 +266,8 @@ class SaleSyncService extends ChangeNotifier {
         'Offline checkout supports cash only. Reconnect for BenefitPay.',
       );
     }
+    // Flush draft writes before atomically accepting payment and retiring the draft.
+    await CartManager.flush();
     await store.enqueueChecked(sale);
     // Only a successful durable write permits checkout to clear the cart.
     if (!online || offlineMode) {
@@ -432,6 +438,7 @@ class SaleSyncService extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (CartManager.isBoundTo(store, _uid, _storeCode)) CartManager.detach();
     _disposed = true;
     _timer?.cancel();
     _queueSubscription?.cancel();

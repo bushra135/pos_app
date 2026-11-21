@@ -10,6 +10,14 @@ import '../../app/app_typography.dart';
 import 'verify_email_screen.dart';
 
 class CreateAccountScreen extends StatefulWidget {
+  final String initialFullName;
+  final String initialEmail;
+  final String initialPassword;
+  final String initialConfirmPassword;
+  final String initialStoreName;
+  final String initialStoreCode;
+  final bool initialIsOwner;
+
   const CreateAccountScreen({
     super.key,
     this.initialFullName = '',
@@ -20,14 +28,6 @@ class CreateAccountScreen extends StatefulWidget {
     this.initialStoreCode = '',
     this.initialIsOwner = true,
   });
-
-  final String initialFullName;
-  final String initialEmail;
-  final String initialPassword;
-  final String initialConfirmPassword;
-  final String initialStoreName;
-  final String initialStoreCode;
-  final bool initialIsOwner;
 
   @override
   State<CreateAccountScreen> createState() => _CreateAccountScreenState();
