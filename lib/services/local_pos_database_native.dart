@@ -6,7 +6,5 @@ import 'package:sembast/sembast_io.dart';
 Future<Database> openLocalPosDatabase() async {
   final directory = await getApplicationSupportDirectory();
   await directory.create(recursive: true);
-  return databaseFactoryIo.openDatabase(
-    '${directory.path}${Platform.pathSeparator}shoppad_pos.db',
-  );
+  return databaseFactoryIo.openDatabase('${directory.path}${Platform.pathSeparator}shoppad_pos.db');
 }

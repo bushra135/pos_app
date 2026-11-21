@@ -32,11 +32,7 @@ abstract final class CartManager {
     if (generation != _generation) return;
     final state = await store.cartState(uid, code);
     if (generation != _generation) return;
-    final restored = await _withCachedImages(
-      store,
-      code,
-      _readItems(state?['active'], code),
-    );
+    final restored = await _withCachedImages(store, code, _readItems(state?['active'], code));
     if (generation != _generation) return;
     final held = (state?['held'] as List? ?? []).map((entry) {
       final row = Map<String, Object?>.from(entry as Map);
@@ -87,9 +83,7 @@ abstract final class CartManager {
             quantity is! int ||
             quantity <= 0 ||
             row['productId'] is! String) {
-          throw StateError(
-            'This saved cart needs review before it can be restored.',
-          );
+          throw StateError('This saved cart needs review before it can be restored.');
         }
         return CartItem(
           name: row['name'].toString(),
@@ -146,8 +140,7 @@ abstract final class CartManager {
         if (generation == _generation) saveError = null;
       } catch (_) {
         if (generation == _generation) {
-          saveError =
-              'Cart could not be saved on this device. Retry before leaving.';
+          saveError = 'Cart could not be saved on this device. Retry before leaving.';
         }
       } finally {
         _pendingWrites--;
@@ -177,9 +170,7 @@ abstract final class CartManager {
     final index = items.indexWhere(
       (item) =>
           item.storeCode == storeCode &&
-          (productId.isNotEmpty
-              ? item.productId == productId
-              : item.barcode == barcode),
+          (productId.isNotEmpty ? item.productId == productId : item.barcode == barcode),
     );
     if (index != -1) {
       items[index].quantity++;
@@ -217,8 +208,7 @@ abstract final class CartManager {
     _save();
   }
 
-  static double get total =>
-      items.fold(0, (value, item) => value + item.totalPrice);
+  static double get total => items.fold(0, (value, item) => value + item.totalPrice);
   static void clearCart() {
     items.clear();
     _save();
@@ -264,21 +254,14 @@ abstract final class CartManager {
       await flush();
       final store = _store;
       final uid = _uid, code = _code;
-      if (store == null ||
-          uid == null ||
-          code == null ||
-          generation != _generation) {
+      if (store == null || uid == null || code == null || generation != _generation) {
         throw StateError('Your account has changed.');
       }
       final restored = await _withCachedImages(store, code, active);
       if (generation != _generation) {
         throw StateError('Your account has changed.');
       }
-      await store.saveCartState(
-        uid,
-        code,
-        _snapshot(active: restored, held: held),
-      );
+      await store.saveCartState(uid, code, _snapshot(active: restored, held: held));
       if (generation != _generation) return;
       items
         ..clear()

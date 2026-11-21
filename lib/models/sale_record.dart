@@ -85,9 +85,7 @@ class SaleRecord {
     createdAt: DateTime.parse(json['createdAt'] as String),
     correctStockShortages: json['correctStockShortages'] == true,
     items: (json['items'] as List)
-        .map(
-          (item) => SaleLine.fromJson(Map<String, dynamic>.from(item as Map)),
-        )
+        .map((item) => SaleLine.fromJson(Map<String, dynamic>.from(item as Map)))
         .toList(),
   );
 }

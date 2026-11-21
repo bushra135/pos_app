@@ -33,20 +33,12 @@ class ReportSale {
       'amount',
     ]);
 
-    final discount = reportNumber(data, [
-      'discount',
-      'discountAmount',
-      'totalDiscount',
-    ]).abs();
+    final discount = reportNumber(data, ['discount', 'discountAmount', 'totalDiscount']).abs();
 
-    final status = (data['status'] ?? data['type'] ?? '')
-        .toString()
-        .toLowerCase();
+    final status = (data['status'] ?? data['type'] ?? '').toString().toLowerCase();
 
     final isRefund =
-        status.contains('refund') ||
-        status.contains('return') ||
-        status.contains('cancel');
+        status.contains('refund') || status.contains('return') || status.contains('cancel');
 
     final refundAmount = reportNumber(data, [
       'refund',
@@ -76,9 +68,7 @@ class ReportSale {
         : explicitTotal + discount;
 
     // Refund documents reduce net sales; refunds within a sale reduce that sale's total.
-    final double netSales = isRefund
-        ? -refund
-        : math.max(0.0, explicitTotal - refund);
+    final double netSales = isRefund ? -refund : math.max(0.0, explicitTotal - refund);
 
     final rawItems = data['items'] ?? data['cartItems'] ?? data['products'];
     final items = <Map<String, dynamic>>[];
@@ -100,6 +90,35 @@ class ReportSale {
         data['paymentMethod'] ?? data['paymentType'] ?? data['payment'],
       ),
       items: items,
+    );
+  }
+}
+
+/// Shared line interpretation for dashboard reports and local assistant answers.
+class ReportSaleItem {
+  final String key, name;
+  final double quantity, subtotal;
+
+  const ReportSaleItem({
+    required this.key,
+    required this.name,
+    required this.quantity,
+    required this.subtotal,
+  });
+
+  factory ReportSaleItem.fromMap(Map<String, dynamic> item) {
+    final name = (item['name'] ?? item['productName'] ?? item['title'] ?? 'Unknown Product')
+        .toString();
+    final quantity = reportNumber(item, ['quantity', 'qty', 'count']);
+    final price = reportNumber(item, ['price', 'unitPrice', 'salePrice']);
+    final subtotal = reportNumber(item, ['subtotal', 'total', 'lineTotal']);
+    // Preserve legacy behavior: missing/nonpositive quantities mean one unit.
+    final units = quantity <= 0 ? 1.0 : quantity;
+    return ReportSaleItem(
+      key: reportProductKey(item, name),
+      name: name,
+      quantity: units,
+      subtotal: subtotal > 0 ? subtotal : price * units,
     );
   }
 }

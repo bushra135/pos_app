@@ -10,14 +10,6 @@ import '../../app/app_typography.dart';
 import 'verify_email_screen.dart';
 
 class CreateAccountScreen extends StatefulWidget {
-  final String initialFullName;
-  final String initialEmail;
-  final String initialPassword;
-  final String initialConfirmPassword;
-  final String initialStoreName;
-  final String initialStoreCode;
-  final bool initialIsOwner;
-
   const CreateAccountScreen({
     super.key,
     this.initialFullName = '',
@@ -28,6 +20,14 @@ class CreateAccountScreen extends StatefulWidget {
     this.initialStoreCode = '',
     this.initialIsOwner = true,
   });
+
+  final String initialFullName;
+  final String initialEmail;
+  final String initialPassword;
+  final String initialConfirmPassword;
+  final String initialStoreName;
+  final String initialStoreCode;
+  final bool initialIsOwner;
 
   @override
   State<CreateAccountScreen> createState() => _CreateAccountScreenState();
@@ -44,8 +44,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _storeNameController = TextEditingController();
   final TextEditingController _storeCodeController = TextEditingController();
 
@@ -88,8 +87,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   bool _hasUppercase(String password) => RegExp(r'[A-Z]').hasMatch(password);
   bool _hasLowercase(String password) => RegExp(r'[a-z]').hasMatch(password);
   bool _hasNumber(String password) => RegExp(r'[0-9]').hasMatch(password);
-  bool _hasSpecialCharacter(String password) =>
-      RegExp(r'[^A-Za-z0-9]').hasMatch(password);
+  bool _hasSpecialCharacter(String password) => RegExp(r'[^A-Za-z0-9]').hasMatch(password);
 
   // Validation uses the same requirements shown below the password field.
   bool _isStrongPassword(String password) {
@@ -102,9 +100,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _sendVerificationAndContinue(User user) async {
@@ -166,8 +162,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     User? createdUser;
     var profileSaved = false;
     try {
-      final UserCredential userCredential = await _auth
-          .createUserWithEmailAndPassword(email: email, password: password);
+      final UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
 
       createdUser = userCredential.user;
       final String uid = createdUser!.uid;
@@ -232,9 +230,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           /* Retry through sign-in if cleanup is unavailable. */
         }
       }
-      _showMessage(
-        'Could not create the store account. Check the store code and try again.',
-      );
+      _showMessage('Could not create the store account. Check the store code and try again.');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -269,11 +265,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       padding: const EdgeInsets.only(top: 5),
       child: Row(
         children: [
-          Icon(
-            isMet ? Icons.check_circle : Icons.radio_button_unchecked,
-            size: 17,
-            color: color,
-          ),
+          Icon(isMet ? Icons.check_circle : Icons.radio_button_unchecked, size: 17, color: color),
           const SizedBox(width: 8),
           Text(
             label,
@@ -299,22 +291,13 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         children: [
           const Text(
             'Use a strong password',
-            style: TextStyle(
-              fontSize: AppTypography.caption,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(fontSize: AppTypography.caption, fontWeight: FontWeight.w600),
           ),
-          _passwordRequirement(
-            'At least 12 characters',
-            _hasMinimumLength(password),
-          ),
+          _passwordRequirement('At least 12 characters', _hasMinimumLength(password)),
           _passwordRequirement('One uppercase letter', _hasUppercase(password)),
           _passwordRequirement('One lowercase letter', _hasLowercase(password)),
           _passwordRequirement('One number', _hasNumber(password)),
-          _passwordRequirement(
-            'One special character',
-            _hasSpecialCharacter(password),
-          ),
+          _passwordRequirement('One special character', _hasSpecialCharacter(password)),
         ],
       ),
     );
@@ -345,12 +328,42 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     );
   }
 
-  Widget _fieldLabel(String label) => Text(
-    label,
-    style: const TextStyle(
-      fontSize: AppTypography.label,
-      fontWeight: FontWeight.w600,
-    ),
+  // One field layout keeps labels, spacing and decoration consistent.
+  Widget _accountField({
+    required String label,
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    bool obscureText = false,
+    ValueChanged<String>? onChanged,
+    String? errorText,
+    Widget? suffixIcon,
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(fontSize: AppTypography.label, fontWeight: FontWeight.w600),
+      ),
+      const SizedBox(height: 8),
+      TextField(
+        controller: controller,
+        obscureText: obscureText,
+        onChanged: onChanged,
+        decoration: _inputDecoration(
+          hintText: hint,
+          icon: icon,
+          errorText: errorText,
+          suffixIcon: suffixIcon,
+        ),
+      ),
+    ],
+  );
+
+  Widget _passwordToggle(bool visible, VoidCallback toggle) => IconButton(
+    color: AppColors.primaryDark,
+    onPressed: toggle,
+    icon: Icon(visible ? Icons.visibility_outlined : Icons.visibility_off_outlined),
   );
 
   @override
@@ -363,9 +376,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
             child: Container(
               width: double.infinity,
               margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              constraints: BoxConstraints(
-                minHeight: MediaQuery.of(context).size.height * 0.85,
-              ),
+              constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height * 0.85),
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: AppColors.surface,
@@ -376,10 +387,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                 children: [
                   const Text(
                     'I am a...',
-                    style: TextStyle(
-                      fontSize: AppTypography.section,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(fontSize: AppTypography.section, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 10),
 
@@ -393,141 +401,69 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
                   const SizedBox(height: 30),
 
-                  _fieldLabel('Full Name'),
-                  const SizedBox(height: 8),
-                  TextField(
+                  _accountField(
+                    label: 'Full Name',
                     controller: _fullNameController,
-                    decoration: _inputDecoration(
-                      hintText: 'Enter your full name',
-                      icon: Icons.person_outline,
-                    ),
+                    hint: 'Enter your full name',
+                    icon: Icons.person_outline,
                   ),
-
                   const SizedBox(height: 20),
-
-                  _fieldLabel('Email'),
-                  const SizedBox(height: 8),
-                  TextField(
+                  _accountField(
+                    label: 'Email',
                     controller: _emailController,
-                    decoration: _inputDecoration(
-                      hintText: 'Enter your email',
-                      icon: Icons.email_outlined,
-                    ),
+                    hint: 'Enter your email',
+                    icon: Icons.email_outlined,
                   ),
-
                   const SizedBox(height: 20),
-
-                  _fieldLabel('Password'),
-                  const SizedBox(height: 8),
-                  TextField(
+                  _accountField(
+                    label: 'Password',
                     controller: _passwordController,
+                    hint: 'Create a password',
+                    icon: Icons.lock_outline,
                     obscureText: !_isPasswordVisible,
-                    onChanged: (_) {
-                      setState(() {
-                        _hasStartedPassword = true;
-                      });
-                    },
-                    decoration: _inputDecoration(
-                      hintText: 'Create a password',
-                      icon: Icons.lock_outline,
-                      errorText:
-                          _hasAttemptedSubmit &&
-                              !_isStrongPassword(_passwordController.text)
-                          ? 'Please meet all password requirements.'
-                          : null,
-                      suffixIcon: IconButton(
-                        color: AppColors.primaryDark,
-                        onPressed: () {
-                          setState(() {
-                            _isPasswordVisible = !_isPasswordVisible;
-                          });
-                        },
-                        icon: Icon(
-                          _isPasswordVisible
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                        ),
-                      ),
+                    onChanged: (_) => setState(() => _hasStartedPassword = true),
+                    errorText: _hasAttemptedSubmit && !_isStrongPassword(_passwordController.text)
+                        ? 'Please meet all password requirements.'
+                        : null,
+                    suffixIcon: _passwordToggle(
+                      _isPasswordVisible,
+                      () => setState(() => _isPasswordVisible = !_isPasswordVisible),
                     ),
                   ),
-
-                  if (_hasStartedPassword)
-                    _passwordRequirements(_passwordController.text),
-
+                  if (_hasStartedPassword) _passwordRequirements(_passwordController.text),
                   const SizedBox(height: 20),
-
-                  _fieldLabel('Confirm Password'),
-                  const SizedBox(height: 8),
-                  TextField(
+                  _accountField(
+                    label: 'Confirm Password',
                     controller: _confirmPasswordController,
+                    hint: 'Confirm your password',
+                    icon: Icons.lock_outline,
                     obscureText: !_isConfirmPasswordVisible,
                     onChanged: (_) => setState(() {}),
-                    decoration: _inputDecoration(
-                      hintText: 'Confirm your password',
-                      icon: Icons.lock_outline,
-                      errorText:
-                          _hasAttemptedSubmit &&
-                              _confirmPasswordController.text.isNotEmpty &&
-                              _confirmPasswordController.text !=
-                                  _passwordController.text
-                          ? 'Passwords do not match.'
-                          : null,
-                      suffixIcon: IconButton(
-                        color: AppColors.primaryDark,
-                        onPressed: () {
-                          setState(() {
-                            _isConfirmPasswordVisible =
-                                !_isConfirmPasswordVisible;
-                          });
-                        },
-                        icon: Icon(
-                          _isConfirmPasswordVisible
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                        ),
-                      ),
+                    errorText:
+                        _hasAttemptedSubmit &&
+                            _confirmPasswordController.text.isNotEmpty &&
+                            _confirmPasswordController.text != _passwordController.text
+                        ? 'Passwords do not match.'
+                        : null,
+                    suffixIcon: _passwordToggle(
+                      _isConfirmPasswordVisible,
+                      () => setState(() => _isConfirmPasswordVisible = !_isConfirmPasswordVisible),
                     ),
                   ),
-
                   const SizedBox(height: 20),
-
-                  if (_isOwner) ...[
-                    _fieldLabel('Store Name'),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _storeNameController,
-                      decoration: _inputDecoration(
-                        hintText: 'Enter your store name',
-                        icon: Icons.store_outlined,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      "You'll create a new store and receive a store code",
-                      style: TextStyle(
-                        fontSize: AppTypography.caption,
-                        color: AppColors.muted,
-                      ),
-                    ),
-                  ] else ...[
-                    _fieldLabel('Store Code'),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _storeCodeController,
-                      decoration: _inputDecoration(
-                        hintText: 'Enter store code',
-                        icon: Icons.numbers,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      "Ask your store owner for the store code",
-                      style: TextStyle(
-                        fontSize: AppTypography.caption,
-                        color: AppColors.muted,
-                      ),
-                    ),
-                  ],
+                  _accountField(
+                    label: _isOwner ? 'Store Name' : 'Store Code',
+                    controller: _isOwner ? _storeNameController : _storeCodeController,
+                    hint: _isOwner ? 'Enter your store name' : 'Enter store code',
+                    icon: _isOwner ? Icons.store_outlined : Icons.numbers,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _isOwner
+                        ? "You'll create a new store and receive a store code"
+                        : 'Ask your store owner for the store code',
+                    style: const TextStyle(fontSize: AppTypography.caption, color: AppColors.muted),
+                  ),
 
                   const SizedBox(height: 30),
 
@@ -538,9 +474,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       height: 50,
                       decoration: BoxDecoration(
                         color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(
-                          AppSpacing.controlRadius,
-                        ),
+                        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                       ),
                       child: Center(
                         child: _isLoading

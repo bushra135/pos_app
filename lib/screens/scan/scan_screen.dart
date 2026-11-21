@@ -100,20 +100,14 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     // Keep a held label latched. It must leave the camera before it is rearmed.
     if (codes.contains(_barcodeGuard.heldCode)) {
       _releaseTimer?.cancel();
-      _releaseTimer = Timer(
-        const Duration(milliseconds: 1600),
-        _barcodeGuard.release,
-      );
+      _releaseTimer = Timer(const Duration(milliseconds: 1600), _barcodeGuard.release);
     }
     if (_isManualEntryVisible || _isProductInfoOpen || codes.isEmpty) return;
     if (_pendingBarcodes.length >= _maximumPendingScans) return;
     final code = codes.first;
     if (!_barcodeGuard.accept(code)) return;
     _releaseTimer?.cancel();
-    _releaseTimer = Timer(
-      const Duration(milliseconds: 1600),
-      _barcodeGuard.release,
-    );
+    _releaseTimer = Timer(const Duration(milliseconds: 1600), _barcodeGuard.release);
     if (_isAddingProduct) {
       _pendingBarcodes.add(code);
     } else {
@@ -157,8 +151,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         storeCode: storeCode,
       );
       setState(() {
-        _statusMessage =
-            '$name · BD ${(data['price'] as num).toStringAsFixed(3)} added';
+        _statusMessage = '$name · BD ${(data['price'] as num).toStringAsFixed(3)} added';
         _hasScanError = false;
         _lastAddedProductId = productId;
         _lastAddedStoreCode = storeCode;
@@ -206,10 +199,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SelectableText(
-                    code,
-                    style: const TextStyle(color: AppColors.primaryDark),
-                  ),
+                  SelectableText(code, style: const TextStyle(color: AppColors.primaryDark)),
                   const SizedBox(height: 12),
                   FutureBuilder<({CatalogProduct? product, String? error})>(
                     future: lookup,
@@ -245,9 +235,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                               child: ProductImage(
                                 source: product.imageUrl,
                                 placeholder: const Center(
-                                  child: Icon(
-                                    Icons.image_not_supported_outlined,
-                                  ),
+                                  child: Icon(Icons.image_not_supported_outlined),
                                 ),
                                 fit: BoxFit.contain,
                               ),
@@ -255,20 +243,13 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                           const SizedBox(height: 12),
                           Text(
                             product.name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 18,
-                            ),
+                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
                           ),
-                          if (product.category.isNotEmpty)
-                            Text(product.category),
+                          if (product.category.isNotEmpty) Text(product.category),
                           const SizedBox(height: 10),
                           SelectableText(
                             '${product.provider} · data ODbL · images CC BY-SA\n${product.sourceUrl}',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppColors.muted,
-                            ),
+                            style: const TextStyle(fontSize: 11, color: AppColors.muted),
                           ),
                         ],
                       );
@@ -289,10 +270,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
               },
               child: const Text('Copy barcode'),
             ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Close'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close')),
           ],
         ),
       );
@@ -308,9 +286,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
 
   void _undoLastAddition() {
     final index = CartManager.items.indexWhere(
-      (item) =>
-          item.productId == _lastAddedProductId &&
-          item.storeCode == _lastAddedStoreCode,
+      (item) => item.productId == _lastAddedProductId && item.storeCode == _lastAddedStoreCode,
     );
     if (index < 0) return;
     setState(() {
@@ -346,10 +322,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
             icon: const Icon(Icons.arrow_back),
           ),
           const Expanded(
-            child: Text(
-              'Scan & sell',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
+            child: Text('Scan & sell', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           ),
           IconButton(
             onPressed: _usesBrowserScanner ? null : _toggleTorch,
@@ -362,10 +335,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   }
 
   String get _browserCartSummary {
-    final units = CartManager.items.fold<int>(
-      0,
-      (sum, item) => sum + item.quantity,
-    );
+    final units = CartManager.items.fold<int>(0, (sum, item) => sum + item.quantity);
     return '$units items · BD ${CartManager.total.toStringAsFixed(3)}';
   }
 
@@ -401,11 +371,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         summary: _browserCartSummary,
         onBarcode: (code) async {
           if (!mounted) {
-            return jsonEncode({
-              'ok': false,
-              'message': 'Scanner closed',
-              'summary': '',
-            });
+            return jsonEncode({'ok': false, 'message': 'Scanner closed', 'summary': ''});
           }
           if (!_isManualEntryVisible && !_isProductInfoOpen) {
             await _addProductByBarcode(code);
@@ -425,8 +391,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         setState(() {
           _hasScanError = true;
           _browserPreviewFailed = true;
-          _statusMessage =
-              'Could not open browser camera. Retry or use Enter barcode.';
+          _statusMessage = 'Could not open browser camera. Retry or use Enter barcode.';
         });
       }
     } finally {
@@ -450,10 +415,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                       icon: const Icon(Icons.refresh),
                       label: const Text('Retry camera'),
                     )
-                  : const Text(
-                      'Starting camera...',
-                      style: TextStyle(color: Colors.white),
-                    ),
+                  : const Text('Starting camera...', style: TextStyle(color: Colors.white)),
             ),
           ),
         ),
@@ -551,21 +513,14 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     child: Row(
       children: [
         const Expanded(
-          child: Text(
-            'Current sale',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-          ),
+          child: Text('Current sale', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         ),
         TextButton.icon(
           onPressed: _isAddingProduct
               ? null
-              : () => setState(
-                  () => _isManualEntryVisible = !_isManualEntryVisible,
-                ),
+              : () => setState(() => _isManualEntryVisible = !_isManualEntryVisible),
           icon: Icon(
-            _isManualEntryVisible
-                ? Icons.close_rounded
-                : Icons.keyboard_outlined,
+            _isManualEntryVisible ? Icons.close_rounded : Icons.keyboard_outlined,
             size: 18,
           ),
           label: Text(_isManualEntryVisible ? 'Close entry' : 'Enter barcode'),
@@ -585,13 +540,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
             size: 20,
           ),
           const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              _statusMessage!,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+          Expanded(child: Text(_statusMessage!, maxLines: 2, overflow: TextOverflow.ellipsis)),
           if (!_hasScanError && _lastAddedProductId != null)
             TextButton(
               onPressed: _isAddingProduct ? null : _undoLastAddition,
@@ -617,11 +566,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                 final item = CartManager.items[index];
                 return ListTile(
                   dense: true,
-                  title: Text(
-                    item.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                   subtitle: Text(
                     'BD ${item.price.toStringAsFixed(3)} each | BD ${item.totalPrice.toStringAsFixed(3)}',
                   ),
@@ -667,10 +612,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  '$unitCount items',
-                  style: const TextStyle(color: AppColors.muted),
-                ),
+                child: Text('$unitCount items', style: const TextStyle(color: AppColors.muted)),
               ),
               Flexible(
                 child: Text(
@@ -689,9 +631,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _isAddingProduct || unitCount == 0
-                  ? null
-                  : widget.onGoToCart,
+              onPressed: _isAddingProduct || unitCount == 0 ? null : widget.onGoToCart,
               icon: const Icon(Icons.shopping_cart_checkout),
               label: const Text('Review sale'),
             ),
@@ -708,10 +648,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         if (mounted && _browserScannerOpen) _positionBrowserCamera();
       });
     }
-    final unitCount = CartManager.items.fold<int>(
-      0,
-      (total, item) => total + item.quantity,
-    );
+    final unitCount = CartManager.items.fold<int>(0, (total, item) => total + item.quantity);
     return Scaffold(
       backgroundColor: AppColors.background,
       resizeToAvoidBottomInset: true,

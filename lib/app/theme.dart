@@ -66,10 +66,7 @@ abstract final class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.background,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         hintStyle: const TextStyle(color: AppColors.muted),
         labelStyle: const TextStyle(color: AppColors.muted),
         border: OutlineInputBorder(
@@ -82,10 +79,7 @@ abstract final class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-          borderSide: const BorderSide(
-            color: AppColors.primaryDark,
-            width: 1.6,
-          ),
+          borderSide: const BorderSide(color: AppColors.primaryDark, width: 1.6),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -132,9 +126,7 @@ abstract final class AppTheme {
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
-      tooltipTheme: const TooltipThemeData(
-        waitDuration: Duration(milliseconds: 400),
-      ),
+      tooltipTheme: const TooltipThemeData(waitDuration: Duration(milliseconds: 400)),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.primaryDark,
@@ -194,14 +186,10 @@ abstract final class AppTheme {
         backgroundColor: AppColors.surface,
         showDragHandle: true,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(AppSpacing.cardRadius),
-          ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.cardRadius)),
         ),
       ),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: AppColors.primaryDark,
-      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.primaryDark),
       dividerColor: AppColors.border,
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.text,
@@ -217,9 +205,7 @@ abstract final class AppTheme {
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.cardRadius)),
       ),
       textTheme: ThemeData.light().textTheme
           .copyWith(

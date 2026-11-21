@@ -13,12 +13,7 @@ import '../profile/profile_screen.dart';
 import '../scan/scan_screen.dart';
 
 class CashierHomeScreen extends StatefulWidget {
-  const CashierHomeScreen({
-    super.key,
-    this.onSwitchToOwner,
-    this.firestore,
-    this.currentUserId,
-  });
+  const CashierHomeScreen({super.key, this.onSwitchToOwner, this.firestore, this.currentUserId});
 
   final FirebaseFirestore? firestore;
   final String? Function()? currentUserId;
@@ -32,8 +27,7 @@ class CashierHomeScreen extends StatefulWidget {
 
 class _CashierHomeScreenState extends State<CashierHomeScreen> {
   int selectedIndex = 0;
-  FirebaseFirestore get _firestore =>
-      widget.firestore ?? FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore => widget.firestore ?? FirebaseFirestore.instance;
   String? get _userId => widget.currentUserId != null
       ? widget.currentUserId!()
       : FirebaseAuth.instance.currentUser?.uid;
@@ -83,13 +77,9 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       final firstName = fullName.isNotEmpty ? fullName.split(' ')[0] : '';
 
       final storeCode = userData['storeCode'] ?? '';
-      String fetchedStoreName =
-          store['storeName'] ?? userData['storeName'] ?? '';
+      String fetchedStoreName = store['storeName'] ?? userData['storeName'] ?? '';
       if (sync == null && storeCode.isNotEmpty) {
-        final storeDoc = await _firestore
-            .collection('stores')
-            .doc(storeCode)
-            .get();
+        final storeDoc = await _firestore.collection('stores').doc(storeCode).get();
         if (storeDoc.exists) {
           fetchedStoreName = storeDoc.data()?['storeName'] ?? '';
         }
@@ -161,9 +151,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
 
       // Availability is separate from owner-controlled account approval.
       final newStatus = !isActive;
-      await _firestore.collection('users').doc(uid).update({
-        'onDuty': newStatus,
-      });
+      await _firestore.collection('users').doc(uid).update({'onDuty': newStatus});
 
       if (!mounted) return;
       setState(() => isActive = newStatus);
@@ -212,9 +200,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
           children: [
             const SaleSyncPanel(),
             Expanded(
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : currentScreen,
+              child: isLoading ? const Center(child: CircularProgressIndicator()) : currentScreen,
             ),
           ],
         ),
@@ -233,14 +219,8 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
         unselectedItemColor: AppColors.muted,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.qr_code_scanner),
-            label: "Scan",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart),
-            label: "Cart",
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.qr_code_scanner), label: "Scan"),
+          BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: "Cart"),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
         ],
       ),
@@ -271,10 +251,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                       children: [
                         const Text(
                           "Welcome back, ",
-                          style: TextStyle(
-                            color: AppColors.onBrand,
-                            fontSize: AppTypography.body,
-                          ),
+                          style: TextStyle(color: AppColors.onBrand, fontSize: AppTypography.body),
                         ),
                         Text(
                           cashierName.isEmpty ? "Cashier" : cashierName,
@@ -289,20 +266,13 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                     GestureDetector(
                       onTap: _toggleUserStatus,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           // Keep status readable over the colored header.
                           color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(
-                            AppSpacing.cardRadius,
-                          ),
+                          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                           border: Border.all(
-                            color: isActive
-                                ? AppColors.success
-                                : AppColors.danger,
+                            color: isActive ? AppColors.success : AppColors.danger,
                             width: 1.5,
                           ),
                         ),
@@ -313,19 +283,13 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                                   ? Icons.check_circle_rounded
                                   : Icons.pause_circle_filled_rounded,
                               size: 16,
-                              color: isActive
-                                  ? AppColors.success
-                                  : AppColors.danger,
+                              color: isActive ? AppColors.success : AppColors.danger,
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              isActive
-                                  ? "Active • Ready"
-                                  : "Inactive • Offline",
+                              isActive ? "Active • Ready" : "Inactive • Offline",
                               style: TextStyle(
-                                color: isActive
-                                    ? AppColors.success
-                                    : AppColors.danger,
+                                color: isActive ? AppColors.success : AppColors.danger,
                                 fontWeight: FontWeight.w700,
                                 fontSize: AppTypography.caption,
                               ),
@@ -397,10 +361,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
               children: [
                 const Text(
                   "Quick Actions",
-                  style: TextStyle(
-                    fontSize: AppTypography.section,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: TextStyle(fontSize: AppTypography.section, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 15),
                 Row(
@@ -434,9 +395,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
-                              builder: (_) => const ProductsScreen(),
-                            ),
+                            MaterialPageRoute(builder: (_) => const ProductsScreen()),
                           );
                         },
                       ),
@@ -473,10 +432,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
           const SizedBox(height: 10),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: AppTypography.metric,
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(fontSize: AppTypography.metric, fontWeight: FontWeight.w700),
           ),
           Text(label, style: const TextStyle(fontSize: AppTypography.label)),
         ],
@@ -504,10 +460,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                color: highlighted ? AppColors.onBrand : AppColors.primaryDark,
-              ),
+              Icon(icon, color: highlighted ? AppColors.onBrand : AppColors.primaryDark),
               const SizedBox(height: 8),
               Text(
                 label,
@@ -520,10 +473,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
               if (subtitle != null)
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    color: AppColors.text,
-                    fontSize: AppTypography.caption,
-                  ),
+                  style: const TextStyle(color: AppColors.text, fontSize: AppTypography.caption),
                 ),
             ],
           ),

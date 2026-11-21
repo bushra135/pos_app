@@ -31,26 +31,22 @@ class FirestoreSaleGateway implements SaleGateway {
   final FirebaseAuth? _auth;
   final String? Function()? _currentUserId;
 
-  String? _userId() => _currentUserId != null
-      ? _currentUserId()
-      : (_auth ?? FirebaseAuth.instance).currentUser?.uid;
+  String? _userId() =>
+      _currentUserId != null ? _currentUserId() : (_auth ?? FirebaseAuth.instance).currentUser?.uid;
 
   @override
   Future<void> commit(SaleRecord sale) async {
     final quantities = _validate(sale);
     final uid = _userId();
     if (uid == null || uid != sale.cashierUid) {
-      throw const SaleConflictException(
-        'Sign in as the cashier for this sale.',
-      );
+      throw const SaleConflictException('Sign in as the cashier for this sale.');
     }
 
     // References and the sale ID are fixed outside the retryable callback.
     final saleRef = _firestore.collection('sales').doc(sale.id);
     final userRef = _firestore.collection('users').doc(uid);
     final products = {
-      for (final id in quantities.keys)
-        id: _firestore.collection('products').doc(id),
+      for (final id in quantities.keys) id: _firestore.collection('products').doc(id),
     };
 
     await _firestore.runTransaction((transaction) async {
@@ -63,17 +59,13 @@ class FirestoreSaleGateway implements SaleGateway {
           !['owner', 'cashier'].contains(profileData['role']) ||
           profileData['isActive'] == false ||
           profileData['status'] == 'disabled') {
-        throw const SaleConflictException(
-          'Your account is not authorized to sell for this store.',
-        );
+        throw const SaleConflictException('Your account is not authorized to sell for this store.');
       }
 
       // A lost acknowledgement or restarted app must never deduct stock twice.
       if (existing.exists) {
         if (!_matches(existing.data()!, sale)) {
-          throw const SaleConflictException(
-            'This receipt ID already belongs to a different sale.',
-          );
+          throw const SaleConflictException('This receipt ID already belongs to a different sale.');
         }
         return;
       }
@@ -83,9 +75,7 @@ class FirestoreSaleGateway implements SaleGateway {
         final snapshot = await transaction.get(entry.value);
         final data = snapshot.data();
         if (data == null || data['storeCode'] != sale.storeCode) {
-          throw const SaleConflictException(
-            'A product was removed or belongs to another store.',
-          );
+          throw const SaleConflictException('A product was removed or belongs to another store.');
         }
         stock[entry.key] = data;
       }
@@ -109,9 +99,7 @@ class FirestoreSaleGateway implements SaleGateway {
             '${entry.value} requested. Review this sale before retrying.',
           );
         }
-        final shortage = entry.value > available
-            ? entry.value - available.toInt()
-            : 0;
+        final shortage = entry.value > available ? entry.value - available.toInt() : 0;
         if (shortage > 0) {
           corrections[entry.key] = {
             'productId': entry.key,
@@ -140,8 +128,7 @@ class FirestoreSaleGateway implements SaleGateway {
         'tax': 0.0,
         'status': 'completed',
         'type': 'sale',
-        if (corrections.isNotEmpty)
-          'stockCorrections': corrections.values.toList(),
+        if (corrections.isNotEmpty) 'stockCorrections': corrections.values.toList(),
         if (corrections.isNotEmpty)
           'stockCorrectionUnits': corrections.values.fold<int>(
             0,
@@ -158,16 +145,14 @@ class FirestoreSaleGateway implements SaleGateway {
               'saleId': sale.id,
               'recordedAt': FieldValue.serverTimestamp(),
             },
-          if (stock[entry.key]!.containsKey('quantity'))
-            'quantity': entry.value,
+          if (stock[entry.key]!.containsKey('quantity')) 'quantity': entry.value,
         });
       }
     });
   }
 
   Map<String, int> _validate(SaleRecord sale) {
-    bool validId(String value) =>
-        value.trim().isNotEmpty && !value.contains('/');
+    bool validId(String value) => value.trim().isNotEmpty && !value.contains('/');
     if (!validId(sale.id) ||
         !validId(sale.cashierUid) ||
         sale.storeCode.trim().isEmpty ||
@@ -188,11 +173,8 @@ class FirestoreSaleGateway implements SaleGateway {
         throw const SaleConflictException('A sale item has invalid details.');
       }
       final previous = lines[item.productId];
-      if (previous != null &&
-          (previous.barcode != item.barcode || previous.price != item.price)) {
-        throw const SaleConflictException(
-          'Duplicate product lines have inconsistent details.',
-        );
+      if (previous != null && (previous.barcode != item.barcode || previous.price != item.price)) {
+        throw const SaleConflictException('Duplicate product lines have inconsistent details.');
       }
       lines[item.productId] = item;
       quantities.update(

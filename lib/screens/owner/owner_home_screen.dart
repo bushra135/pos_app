@@ -30,8 +30,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   int _selectedIndex = 0;
   bool _cashierMode = false;
 
-  FirebaseFirestore get _firestore =>
-      widget.firestore ?? FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore => widget.firestore ?? FirebaseFirestore.instance;
   String? get _userId => widget.currentUserId != null
       ? widget.currentUserId!()
       : FirebaseAuth.instance.currentUser?.uid;
@@ -193,18 +192,14 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
     Clipboard.setData(ClipboardData(text: storeCode));
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Store code copied')));
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Store code copied')));
   }
 
   // Keep performance navigation alongside cashier management on the home card.
   void _openTopCashiers() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const SalesHistoryScreen(showTopCashiers: true),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const SalesHistoryScreen(showTopCashiers: true)));
   }
 
   Future<void> _openCashiersManagement() async {
@@ -212,9 +207,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => CashiersManagementScreen(storeCode: storeCode),
-      ),
+      MaterialPageRoute(builder: (_) => CashiersManagementScreen(storeCode: storeCode)),
     );
 
     await _loadDashboardData(storeCode);
@@ -252,9 +245,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           children: [
             const SaleSyncPanel(),
             Expanded(
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : currentScreen,
+              child: isLoading ? const Center(child: CircularProgressIndicator()) : currentScreen,
             ),
           ],
         ),
@@ -267,14 +258,8 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         unselectedItemColor: AppColors.muted,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.inventory),
-            label: "Products",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: "Reports",
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.inventory), label: "Products"),
+          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: "Reports"),
           BottomNavigationBarItem(icon: Icon(Icons.smart_toy), label: "AI"),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
         ],
@@ -385,16 +370,11 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
               GestureDetector(
                 onTap: _copyStoreCode,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 11,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                   decoration: BoxDecoration(
                     color: AppColors.surface.withValues(alpha: 0.22),
                     borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                    border: Border.all(
-                      color: AppColors.surface.withValues(alpha: 0.18),
-                    ),
+                    border: Border.all(color: AppColors.surface.withValues(alpha: 0.18)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -408,11 +388,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      const Icon(
-                        Icons.copy,
-                        color: AppColors.onBrand,
-                        size: 18,
-                      ),
+                      const Icon(Icons.copy, color: AppColors.onBrand, size: 18),
                     ],
                   ),
                 ),
@@ -423,10 +399,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.onBrand,
                   backgroundColor: AppColors.surface.withValues(alpha: 0.16),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
                 icon: const Icon(Icons.point_of_sale, size: 18),
                 label: const Text('Switch to cashier'),
@@ -447,18 +420,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.text.withValues(alpha: 0.07),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
+      decoration: _dashboardCardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -516,18 +478,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         child: Container(
           padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-            border: Border.all(color: AppColors.border),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.text.withValues(alpha: 0.07),
-                blurRadius: 18,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
+          decoration: _dashboardCardDecoration(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -588,10 +539,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                   ),
                 ],
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Divider(height: 1),
-              ),
+              const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
               OutlinedButton.icon(
                 onPressed: _openTopCashiers,
                 icon: const Icon(Icons.emoji_events_outlined),
@@ -604,3 +552,17 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     );
   }
 }
+
+// Both dashboard card types use the same border and shadow.
+BoxDecoration _dashboardCardDecoration() => BoxDecoration(
+  color: AppColors.surface,
+  borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+  border: Border.all(color: AppColors.border),
+  boxShadow: [
+    BoxShadow(
+      color: AppColors.text.withValues(alpha: 0.07),
+      blurRadius: 18,
+      offset: const Offset(0, 10),
+    ),
+  ],
+);

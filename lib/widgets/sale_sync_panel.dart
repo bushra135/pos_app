@@ -21,9 +21,7 @@ class SaleSyncPanel extends StatelessWidget {
       listenable: Listenable.merge([sync, CartManager.revision]),
       builder: (context, _) {
         final count = sync.pendingSales.length;
-        final conflicts = sync.pendingSales
-            .where((sale) => sale.isConflict)
-            .length;
+        final conflicts = sync.pendingSales.where((sale) => sale.isConflict).length;
         final draftError = CartManager.saveError;
         final color = conflicts > 0 || draftError != null
             ? AppColors.danger
@@ -61,9 +59,7 @@ class SaleSyncPanel extends StatelessWidget {
         }
 
         return Material(
-          color: conflicts > 0 || draftError != null
-              ? AppColors.dangerSoft
-              : AppColors.soft,
+          color: conflicts > 0 || draftError != null ? AppColors.dangerSoft : AppColors.soft,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: Row(
@@ -79,10 +75,7 @@ class SaleSyncPanel extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    status,
-                    style: TextStyle(color: color, fontSize: 12),
-                  ),
+                  child: Text(status, style: TextStyle(color: color, fontSize: 12)),
                 ),
                 TextButton(
                   onPressed: draftError == null
@@ -148,10 +141,7 @@ class SaleSyncPanel extends StatelessWidget {
                   if (sync.lastError != null)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        sync.lastError!,
-                        style: const TextStyle(color: AppColors.danger),
-                      ),
+                      child: Text(sync.lastError!, style: const TextStyle(color: AppColors.danger)),
                     ),
                   FilledButton.icon(
                     onPressed: sync.syncing ? null : sync.synchronize,
@@ -162,11 +152,7 @@ class SaleSyncPanel extends StatelessWidget {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.sync),
-                    label: Text(
-                      sync.syncing
-                          ? 'Synchronizing...'
-                          : 'Check connection & sync',
-                    ),
+                    label: Text(sync.syncing ? 'Synchronizing...' : 'Check connection & sync'),
                   ),
                   const SizedBox(height: 12),
                   Expanded(
@@ -174,12 +160,9 @@ class SaleSyncPanel extends StatelessWidget {
                         ? const Center(child: Text('No pending cash sales'))
                         : ListView.separated(
                             itemCount: sync.pendingSales.length,
-                            separatorBuilder: (_, index) =>
-                                const SizedBox(height: 10),
-                            itemBuilder: (context, index) => _PendingSaleCard(
-                              pending: sync.pendingSales[index],
-                              sync: sync,
-                            ),
+                            separatorBuilder: (_, index) => const SizedBox(height: 10),
+                            itemBuilder: (context, index) =>
+                                _PendingSaleCard(pending: sync.pendingSales[index], sync: sync),
                           ),
                   ),
                 ],
@@ -211,23 +194,17 @@ class _PendingSaleCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SelectableText(
-            sale.receiptNumber,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
+          SelectableText(sale.receiptNumber, style: const TextStyle(fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
           Text(
             '${MaterialLocalizations.of(context).formatShortDate(sale.createdAt.toLocal())}'
             ' · BD ${sale.total.toStringAsFixed(3)} · Cash received',
           ),
           const SizedBox(height: 6),
-          for (final item in sale.items)
-            Text('${item.quantity} × ${item.name}'),
+          for (final item in sale.items) Text('${item.quantity} × ${item.name}'),
           const SizedBox(height: 8),
           Text(
-            pending.isConflict
-                ? 'Needs attention'
-                : 'Pending server confirmation',
+            pending.isConflict ? 'Needs attention' : 'Pending server confirmation',
             style: TextStyle(
               color: pending.isConflict ? AppColors.danger : AppColors.warning,
               fontWeight: FontWeight.bold,

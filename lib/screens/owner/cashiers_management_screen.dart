@@ -12,8 +12,7 @@ class CashiersManagementScreen extends StatefulWidget {
   const CashiersManagementScreen({super.key, required this.storeCode});
 
   @override
-  State<CashiersManagementScreen> createState() =>
-      _CashiersManagementScreenState();
+  State<CashiersManagementScreen> createState() => _CashiersManagementScreenState();
 }
 
 class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
@@ -79,9 +78,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
     try {
       final uid = (data['uid'] ?? '').toString();
       // Enabling an invite keeps it invited; a registered account becomes active.
-      final newStatus = isActive
-          ? (uid.isEmpty ? 'invited' : 'active')
-          : 'disabled';
+      final newStatus = isActive ? (uid.isEmpty ? 'invited' : 'active') : 'disabled';
 
       await _firestore.collection('users').doc(docId).update({
         'isActive': isActive,
@@ -91,11 +88,9 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isActive ? 'Cashier enabled' : 'Cashier disabled'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(isActive ? 'Cashier enabled' : 'Cashier disabled')));
     } catch (e) {
       debugPrint('Error updating cashier status: $e');
 
@@ -115,16 +110,10 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
           title: const Text('Delete Cashier'),
           content: Text('Are you sure you want to delete "$name"?'),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text(
-                'Delete',
-                style: TextStyle(color: AppColors.danger),
-              ),
+              child: const Text('Delete', style: TextStyle(color: AppColors.danger)),
             ),
           ],
         );
@@ -138,9 +127,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Cashier deleted')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cashier deleted')));
     } catch (e) {
       debugPrint('Error deleting cashier: $e');
 
@@ -186,11 +173,9 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
 
                 if (!mounted || !context.mounted) return;
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(e.toString().replaceAll('Exception: ', '')),
-                  ),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))));
 
                 setDialogState(() => isSaving = false);
               }
@@ -269,10 +254,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          decoration: _inputDecoration(
-                            label: 'Email',
-                            icon: Icons.email_rounded,
-                          ),
+                          decoration: _inputDecoration(label: 'Email', icon: Icons.email_rounded),
                           validator: (value) {
                             final email = value?.trim() ?? '';
 
@@ -293,9 +275,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
                                     ? null
                                     : () => Navigator.of(dialogContext).pop(),
                                 style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
                                   side: BorderSide(color: AppColors.border),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
@@ -317,9 +297,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
                                 onPressed: isSaving ? null : submit,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primary,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
                                   ),
@@ -357,10 +335,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
     );
   }
 
-  InputDecoration _inputDecoration({
-    required String label,
-    required IconData icon,
-  }) {
+  InputDecoration _inputDecoration({required String label, required IconData icon}) {
     return InputDecoration(
       labelText: label,
       prefixIcon: Icon(icon),
@@ -414,9 +389,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
       final aName = (a.data()['fullName'] ?? '').toString().toLowerCase();
       final bName = (b.data()['fullName'] ?? '').toString().toLowerCase();
 
-      final statusCompare = (statusOrder[aStatus] ?? 3).compareTo(
-        statusOrder[bStatus] ?? 3,
-      );
+      final statusCompare = (statusOrder[aStatus] ?? 3).compareTo(statusOrder[bStatus] ?? 3);
 
       if (statusCompare != 0) return statusCompare;
 
@@ -440,10 +413,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
             backgroundColor: AppColors.surface.withValues(alpha: 0.24),
             child: IconButton(
               onPressed: () => Navigator.pop(context),
-              icon: const Icon(
-                Icons.arrow_back_rounded,
-                color: AppColors.onBrand,
-              ),
+              icon: const Icon(Icons.arrow_back_rounded, color: AppColors.onBrand),
             ),
           ),
           const SizedBox(width: 14),
@@ -490,36 +460,19 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.page,
-        16,
-        AppSpacing.page,
-        8,
-      ),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.page, 16, AppSpacing.page, 8),
       child: Row(
         children: [
           Expanded(
-            child: _SummaryPill(
-              label: 'Active',
-              value: '$active',
-              color: AppColors.success,
-            ),
+            child: _SummaryPill(label: 'Active', value: '$active', color: AppColors.success),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: _SummaryPill(
-              label: 'Invited',
-              value: '$invited',
-              color: AppColors.warning,
-            ),
+            child: _SummaryPill(label: 'Invited', value: '$invited', color: AppColors.warning),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: _SummaryPill(
-              label: 'Disabled',
-              value: '$disabled',
-              color: AppColors.danger,
-            ),
+            child: _SummaryPill(label: 'Disabled', value: '$disabled', color: AppColors.danger),
           ),
         ],
       ),
@@ -555,9 +508,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
             radius: 24,
             backgroundColor: status.bgColor,
             child: Icon(
-              status.label == 'Invited'
-                  ? Icons.mark_email_unread_rounded
-                  : Icons.person_rounded,
+              status.label == 'Invited' ? Icons.mark_email_unread_rounded : Icons.person_rounded,
               color: status.color,
             ),
           ),
@@ -591,10 +542,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         color: status.bgColor,
                         borderRadius: BorderRadius.circular(99),
@@ -645,10 +593,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
                   value: 'delete',
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.delete_outline_rounded,
-                        color: AppColors.danger,
-                      ),
+                      Icon(Icons.delete_outline_rounded, color: AppColors.danger),
                       SizedBox(width: 10),
                       Text('Delete', style: TextStyle(color: AppColors.danger)),
                     ],
@@ -676,11 +621,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
                 color: AppColors.soft,
                 borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
               ),
-              child: const Icon(
-                Icons.people_alt_rounded,
-                color: AppColors.primaryDark,
-                size: 34,
-              ),
+              child: const Icon(Icons.people_alt_rounded, color: AppColors.primaryDark, size: 34),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -707,21 +648,13 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: AppColors.onBrand,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
               icon: const Icon(Icons.person_add_alt_1_rounded),
               label: const Text(
                 'Invite Cashier',
-                style: TextStyle(
-                  fontSize: AppTypography.button,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontSize: AppTypography.button, fontWeight: FontWeight.w600),
               ),
             ),
           ],
@@ -749,10 +682,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
           icon: const Icon(Icons.person_add_alt_1_rounded),
           label: const Text(
             'Invite Cashier',
-            style: TextStyle(
-              fontSize: AppTypography.button,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(fontSize: AppTypography.button, fontWeight: FontWeight.w600),
           ),
         ),
       ),
@@ -790,8 +720,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
                             96,
                           ),
                           itemCount: docs.length,
-                          separatorBuilder: (_, _) =>
-                              const SizedBox(height: 12),
+                          separatorBuilder: (_, _) => const SizedBox(height: 12),
                           itemBuilder: (context, index) {
                             return _buildCashierCard(docs[index]);
                           },
@@ -814,11 +743,7 @@ class _SummaryPill extends StatelessWidget {
   final String value;
   final Color color;
 
-  const _SummaryPill({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
+  const _SummaryPill({required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -866,9 +791,5 @@ class _CashierStatus {
   final Color color;
   final Color bgColor;
 
-  const _CashierStatus({
-    required this.label,
-    required this.color,
-    required this.bgColor,
-  });
+  const _CashierStatus({required this.label, required this.color, required this.bgColor});
 }

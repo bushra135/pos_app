@@ -23,8 +23,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   String? get _uid => widget.currentUserId != null
       ? widget.currentUserId!()
       : FirebaseAuth.instance.currentUser?.uid;
-  FirebaseFirestore get _firestore =>
-      widget.firestore ?? FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore => widget.firestore ?? FirebaseFirestore.instance;
   static const _requestTimeout = Duration(seconds: 10);
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -57,11 +56,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       final uid = _uid;
       if (uid == null) return;
 
-      final userDoc = await _firestore
-          .collection('users')
-          .doc(uid)
-          .get()
-          .timeout(_requestTimeout);
+      final userDoc = await _firestore.collection('users').doc(uid).get().timeout(_requestTimeout);
       final fullName = (userDoc.data()?['fullName'] ?? '').toString().trim();
 
       if (fullName.isEmpty) return;
@@ -99,16 +94,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     _scrollToBottom();
 
     try {
-      final answer = await _buildAnswer(
-        question,
-      ).timeout(const Duration(seconds: 15));
+      final answer = await _buildAnswer(question).timeout(const Duration(seconds: 15));
 
       if (!mounted) return;
 
       setState(() {
-        messages.add(
-          _ChatMessage(isUser: false, text: answer, hasReport: true),
-        );
+        messages.add(_ChatMessage(isUser: false, text: answer, hasReport: true));
         _isThinking = false;
       });
 
@@ -122,8 +113,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         messages.add(
           _ChatMessage(
             isUser: false,
-            text:
-                'Local analysis could not load store data. Check your connection and try again.',
+            text: 'Local analysis could not load store data. Check your connection and try again.',
           ),
         );
         _isThinking = false;
@@ -139,12 +129,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final data = await _loadStoreData();
     final q = question.toLowerCase();
 
-    if (_containsAny(q, [
-      'low stock',
-      'stock alert',
-      'out of stock',
-      'empty stock',
-    ])) {
+    if (_containsAny(q, ['low stock', 'stock alert', 'out of stock', 'empty stock'])) {
       return _lowStockAlerts(data);
     }
 
@@ -168,12 +153,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       return _paymentSummary(data);
     }
 
-    if (_containsAny(q, [
-      'best hour',
-      'busy hour',
-      'peak hour',
-      'sales hour',
-    ])) {
+    if (_containsAny(q, ['best hour', 'busy hour', 'peak hour', 'sales hour'])) {
       return _bestSalesHourToday(data);
     }
 
@@ -209,11 +189,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final uid = _uid;
     if (uid == null) throw Exception('No user found');
 
-    final userDoc = await _firestore
-        .collection('users')
-        .doc(uid)
-        .get()
-        .timeout(_requestTimeout);
+    final userDoc = await _firestore.collection('users').doc(uid).get().timeout(_requestTimeout);
     final storeCode = (userDoc.data()?['storeCode'] ?? '').toString().trim();
 
     if (storeCode.isEmpty) throw Exception('Store code not found');
@@ -238,8 +214,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
     final products = productDocs.map((doc) {
       final item = doc.data();
-      final name = (item['name'] ?? item['productName'] ?? 'Unknown Product')
-          .toString();
+      final name = (item['name'] ?? item['productName'] ?? 'Unknown Product').toString();
 
       const minStockKeys = ['minStock', 'minQuantity', 'minimumStock'];
 
@@ -247,9 +222,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         key: reportProductKey(item, name),
         name: name,
         stock: reportNumber(item, ['stock', 'quantity']).toInt(),
-        minStock: minStockKeys.any(item.containsKey)
-            ? reportNumber(item, minStockKeys).toInt()
-            : 5,
+        minStock: minStockKeys.any(item.containsKey) ? reportNumber(item, minStockKeys).toInt() : 5,
       );
     }).toList();
 
@@ -268,14 +241,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final sales = _salesInRange(data.sales, range);
     final validSales = sales.where((sale) => !sale.isRefund).toList();
 
-    final total = sales.fold<double>(
-      0,
-      (subtotal, sale) => subtotal + sale.netTotal,
-    );
-    final gross = sales.fold<double>(
-      0,
-      (subtotal, sale) => subtotal + sale.grossTotal,
-    );
+    final total = sales.fold<double>(0, (subtotal, sale) => subtotal + sale.netTotal);
+    final gross = sales.fold<double>(0, (subtotal, sale) => subtotal + sale.grossTotal);
     final orders = validSales.length;
     final averageOrder = orders == 0 ? 0.0 : total / orders;
 
@@ -304,22 +271,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   }) {
     final sales = _salesInRange(data.sales, range);
 
-    final total = sales.fold<double>(
-      0,
-      (subtotal, sale) => subtotal + sale.netTotal,
-    );
-    final gross = sales.fold<double>(
-      0,
-      (subtotal, sale) => subtotal + sale.grossTotal,
-    );
-    final discounts = sales.fold<double>(
-      0,
-      (subtotal, sale) => subtotal + sale.discount,
-    );
-    final refunds = sales.fold<double>(
-      0,
-      (subtotal, sale) => subtotal + sale.refund,
-    );
+    final total = sales.fold<double>(0, (subtotal, sale) => subtotal + sale.netTotal);
+    final gross = sales.fold<double>(0, (subtotal, sale) => subtotal + sale.grossTotal);
+    final discounts = sales.fold<double>(0, (subtotal, sale) => subtotal + sale.discount);
+    final refunds = sales.fold<double>(0, (subtotal, sale) => subtotal + sale.refund);
     final orders = sales.where((sale) => !sale.isRefund).length;
     final averageOrder = orders == 0 ? 0.0 : total / orders;
 
@@ -337,10 +292,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   String _topProductsThisWeek(_StoreData data) {
     final range = _currentWeekRange();
-    final sales = _salesInRange(
-      data.sales,
-      range,
-    ).where((sale) => !sale.isRefund).toList();
+    final sales = _salesInRange(data.sales, range).where((sale) => !sale.isRefund).toList();
 
     final products =
         _aggregateProducts(sales).values.where((product) {
@@ -367,10 +319,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   String _topRevenueProducts(_StoreData data) {
     final range = _currentMonthRange();
-    final sales = _salesInRange(
-      data.sales,
-      range,
-    ).where((sale) => !sale.isRefund).toList();
+    final sales = _salesInRange(data.sales, range).where((sale) => !sale.isRefund).toList();
 
     final products = _aggregateProducts(sales).values.where((product) {
       return product.revenue > 0;
@@ -392,10 +341,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   String _slowMovingProducts(_StoreData data) {
     final range = _currentMonthRange();
-    final sales = _salesInRange(
-      data.sales,
-      range,
-    ).where((sale) => !sale.isRefund).toList();
+    final sales = _salesInRange(data.sales, range).where((sale) => !sale.isRefund).toList();
 
     final metrics = _aggregateProducts(sales);
 
@@ -478,9 +424,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       }
     }
 
-    recommendations.sort(
-      (a, b) => b.recommendedQty.compareTo(a.recommendedQty),
-    );
+    recommendations.sort((a, b) => b.recommendedQty.compareTo(a.recommendedQty));
 
     if (recommendations.isEmpty) {
       return "No restock needed right now. Your inventory looks healthy.";
@@ -495,29 +439,21 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   String _paymentSummary(_StoreData data) {
     final range = _currentMonthRange();
-    final sales = _salesInRange(
-      data.sales,
-      range,
-    ).where((sale) => !sale.isRefund).toList();
+    final sales = _salesInRange(data.sales, range).where((sale) => !sale.isRefund).toList();
 
     final payments = <String, double>{};
 
     for (final sale in sales) {
-      payments[sale.paymentMethod] =
-          (payments[sale.paymentMethod] ?? 0) + sale.netTotal;
+      payments[sale.paymentMethod] = (payments[sale.paymentMethod] ?? 0) + sale.netTotal;
     }
 
     if (payments.isEmpty) {
       return "No payment data found for this month yet.";
     }
 
-    final entries = payments.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    final entries = payments.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
 
-    final total = entries.fold<double>(
-      0,
-      (subtotal, entry) => subtotal + entry.value,
-    );
+    final total = entries.fold<double>(0, (subtotal, entry) => subtotal + entry.value);
 
     final lines = entries.map((entry) {
       final percent = total == 0 ? 0 : (entry.value / total) * 100;
@@ -529,10 +465,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   String _bestSalesHourToday(_StoreData data) {
     final range = _todayRange();
-    final sales = _salesInRange(
-      data.sales,
-      range,
-    ).where((sale) => !sale.isRefund).toList();
+    final sales = _salesInRange(data.sales, range).where((sale) => !sale.isRefund).toList();
 
     final hourlySales = List<double>.filled(24, 0);
     final hourlyOrders = List<int>.filled(24, 0);
@@ -570,22 +503,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final range = _currentMonthRange();
     final sales = _salesInRange(data.sales, range);
 
-    final gross = sales.fold<double>(
-      0,
-      (subtotal, sale) => subtotal + sale.grossTotal,
-    );
-    final discounts = sales.fold<double>(
-      0,
-      (subtotal, sale) => subtotal + sale.discount,
-    );
-    final refunds = sales.fold<double>(
-      0,
-      (subtotal, sale) => subtotal + sale.refund,
-    );
-    final net = sales.fold<double>(
-      0,
-      (subtotal, sale) => subtotal + sale.netTotal,
-    );
+    final gross = sales.fold<double>(0, (subtotal, sale) => subtotal + sale.grossTotal);
+    final discounts = sales.fold<double>(0, (subtotal, sale) => subtotal + sale.discount);
+    final refunds = sales.fold<double>(0, (subtotal, sale) => subtotal + sale.refund);
+    final net = sales.fold<double>(0, (subtotal, sale) => subtotal + sale.netTotal);
 
     return [
       "Net sales summary this month:",
@@ -601,14 +522,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final today = _salesInRange(data.sales, _todayRange());
     final month = _salesInRange(data.sales, _currentMonthRange());
 
-    final todaySales = today.fold<double>(
-      0,
-      (subtotal, sale) => subtotal + sale.netTotal,
-    );
-    final monthSales = month.fold<double>(
-      0,
-      (subtotal, sale) => subtotal + sale.netTotal,
-    );
+    final todaySales = today.fold<double>(0, (subtotal, sale) => subtotal + sale.netTotal);
+    final monthSales = month.fold<double>(0, (subtotal, sale) => subtotal + sale.netTotal);
 
     final todayOrders = today.where((sale) => !sale.isRefund).length;
     final monthOrders = month.where((sale) => !sale.isRefund).length;
@@ -680,10 +595,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   _DateRange _currentMonthRange() {
     final now = DateTime.now();
 
-    return _DateRange(
-      start: DateTime(now.year, now.month),
-      end: DateTime(now.year, now.month + 1),
-    );
+    return _DateRange(start: DateTime(now.year, now.month), end: DateTime(now.year, now.month + 1));
   }
 
   bool _containsAny(String value, List<String> keywords) {
@@ -739,10 +651,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                         _buildSuggestions(),
                       ] else ...[
                         for (final message in messages.skip(1))
-                          _MessageBubble(
-                            message: message,
-                            onOpenReports: _openReports,
-                          ),
+                          _MessageBubble(message: message, onOpenReports: _openReports),
                       ],
                       if (_isThinking) const _TypingBubble(),
                     ],
@@ -785,11 +694,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               color: AppColors.primaryDark,
               borderRadius: BorderRadius.circular(15),
             ),
-            child: const Icon(
-              Icons.auto_awesome_rounded,
-              color: Colors.white,
-              size: 24,
-            ),
+            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
           ),
           const SizedBox(width: 12),
           const Expanded(
@@ -812,9 +717,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             ),
           ),
           IconButton(
-            onPressed: _isThinking || messages.length == 1
-                ? null
-                : _startNewConversation,
+            onPressed: _isThinking || messages.length == 1 ? null : _startNewConversation,
             tooltip: 'New conversation',
             icon: const Icon(Icons.edit_square, size: 21),
           ),
@@ -844,11 +747,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(
-              Icons.auto_awesome_rounded,
-              color: AppColors.primaryDark,
-              size: 28,
-            ),
+            child: const Icon(Icons.auto_awesome_rounded, color: AppColors.primaryDark, size: 28),
           ),
           const SizedBox(height: 20),
           const Text(
@@ -881,37 +780,21 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   Widget _buildInfoPill(IconData icon, String label) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-    decoration: BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(30),
-    ),
+    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(30)),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 14, color: AppColors.primaryDark),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 11, color: AppColors.primaryDark),
-        ),
+        Text(label, style: const TextStyle(fontSize: 11, color: AppColors.primaryDark)),
       ],
     ),
   );
 
   Widget _buildSuggestions() {
     const prompts = [
-      (
-        Icons.trending_up_rounded,
-        'Sales snapshot',
-        "Today's sales summary",
-        'How is today going?',
-      ),
-      (
-        Icons.inventory_2_outlined,
-        'Stock check',
-        'Low stock alerts',
-        'See what is running low',
-      ),
+      (Icons.trending_up_rounded, 'Sales snapshot', "Today's sales summary", 'How is today going?'),
+      (Icons.inventory_2_outlined, 'Stock check', 'Low stock alerts', 'See what is running low'),
       (
         Icons.star_outline_rounded,
         'Best sellers',
@@ -963,9 +846,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                       borderRadius: BorderRadius.circular(18),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(18),
-                        onTap: _isThinking
-                            ? null
-                            : () => _sendMessage(prompt.$3),
+                        onTap: _isThinking ? null : () => _sendMessage(prompt.$3),
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
@@ -980,11 +861,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                   color: AppColors.accentSoft,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: Icon(
-                                  prompt.$1,
-                                  color: AppColors.primaryDark,
-                                  size: 21,
-                                ),
+                                child: Icon(prompt.$1, color: AppColors.primaryDark, size: 21),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -1001,10 +878,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                     const SizedBox(height: 3),
                                     Text(
                                       prompt.$4,
-                                      style: const TextStyle(
-                                        color: AppColors.muted,
-                                        fontSize: 12,
-                                      ),
+                                      style: const TextStyle(color: AppColors.muted, fontSize: 12),
                                     ),
                                   ],
                                 ),
@@ -1040,11 +914,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             children: [
               Row(
                 children: [
-                  Icon(
-                    Icons.analytics_outlined,
-                    size: 14,
-                    color: AppColors.primaryDark,
-                  ),
+                  Icon(Icons.analytics_outlined, size: 14, color: AppColors.primaryDark),
                   const SizedBox(width: 5),
                   Text(
                     'Local analysis',
@@ -1058,10 +928,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   Expanded(
                     child: Text(
                       'English prompts',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.muted,
-                      ),
+                      style: const TextStyle(fontSize: 11, color: AppColors.muted),
                     ),
                   ),
                   IconButton(
@@ -1109,10 +976,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                           hintText: 'Ask about your store…',
                           counterText: '',
                           filled: false,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
@@ -1179,9 +1043,7 @@ class _MessageBubble extends StatelessWidget {
               Row(
                 children: [
                   Icon(
-                    isUser
-                        ? Icons.person_outline_rounded
-                        : Icons.auto_awesome_rounded,
+                    isUser ? Icons.person_outline_rounded : Icons.auto_awesome_rounded,
                     size: 17,
                     color: AppColors.primaryDark,
                   ),
@@ -1202,13 +1064,11 @@ class _MessageBubble extends StatelessWidget {
                       visualDensity: VisualDensity.compact,
                       icon: const Icon(Icons.copy_rounded, size: 16),
                       onPressed: () async {
-                        await Clipboard.setData(
-                          ClipboardData(text: message.text),
-                        );
+                        await Clipboard.setData(ClipboardData(text: message.text));
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Answer copied')),
-                          );
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(const SnackBar(content: Text('Answer copied')));
                         }
                       },
                     ),
@@ -1220,11 +1080,7 @@ class _MessageBubble extends StatelessWidget {
                 textDirection: RegExp(r'[\u0600-\u06FF]').hasMatch(explanation)
                     ? TextDirection.rtl
                     : TextDirection.ltr,
-                style: const TextStyle(
-                  color: AppColors.text,
-                  fontSize: 14,
-                  height: 1.65,
-                ),
+                style: const TextStyle(color: AppColors.text, fontSize: 14, height: 1.65),
               ),
               if (message.hasReport)
                 Padding(
@@ -1250,11 +1106,7 @@ class _TypingBubble extends StatelessWidget {
     padding: EdgeInsets.all(16),
     child: Row(
       children: [
-        SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
+        SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
         SizedBox(width: 12),
         Expanded(
           child: Text(
@@ -1272,11 +1124,7 @@ class _ChatMessage {
   final String text;
   final bool hasReport;
 
-  const _ChatMessage({
-    required this.isUser,
-    required this.text,
-    this.hasReport = false,
-  });
+  const _ChatMessage({required this.isUser, required this.text, this.hasReport = false});
 }
 
 // Local insight models.
@@ -1309,7 +1157,7 @@ class _SaleInfo {
   final double refund;
   final bool isRefund;
   final String paymentMethod;
-  final List<_SaleItem> items;
+  final List<ReportSaleItem> items;
 
   const _SaleInfo({
     required this.createdAt,
@@ -1324,38 +1172,7 @@ class _SaleInfo {
 
   factory _SaleInfo.fromMap(Map<String, dynamic> data) {
     final summary = ReportSale.fromMap(data);
-    final rawItems = data['items'] ?? data['cartItems'] ?? data['products'];
-    final items = <_SaleItem>[];
-
-    if (rawItems is List) {
-      for (final rawItem in rawItems) {
-        final item = reportMap(rawItem);
-        if (item.isEmpty) continue;
-
-        final name =
-            (item['name'] ??
-                    item['productName'] ??
-                    item['title'] ??
-                    'Unknown Product')
-                .toString();
-
-        final quantity = reportNumber(item, ['quantity', 'qty', 'count']);
-        final price = reportNumber(item, ['price', 'unitPrice', 'salePrice']);
-        final subtotal = reportNumber(item, ['subtotal', 'total', 'lineTotal']);
-
-        // For missing values, assume one unit and calculate the subtotal from its price.
-        final safeQuantity = quantity <= 0 ? 1.0 : quantity;
-
-        items.add(
-          _SaleItem(
-            key: reportProductKey(item, name),
-            name: name,
-            quantity: safeQuantity,
-            subtotal: subtotal > 0 ? subtotal : price * safeQuantity,
-          ),
-        );
-      }
-    }
+    final items = summary.items.map(ReportSaleItem.fromMap).toList();
 
     return _SaleInfo(
       createdAt: reportDate(data['createdAt']),
@@ -1368,20 +1185,6 @@ class _SaleInfo {
       items: items,
     );
   }
-}
-
-class _SaleItem {
-  final String key;
-  final String name;
-  final double quantity;
-  final double subtotal;
-
-  const _SaleItem({
-    required this.key,
-    required this.name,
-    required this.quantity,
-    required this.subtotal,
-  });
 }
 
 class _ProductMetric {

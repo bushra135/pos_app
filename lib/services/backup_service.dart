@@ -17,11 +17,7 @@ class RestoreResult {
 /// Store-scoped recovery copies. Existing records are never rolled backwards.
 /// Server security rules must also enforce owner-only access to backup paths.
 class BackupService {
-  BackupService({
-    required this.db,
-    required this.currentUid,
-    required this.hasPendingSales,
-  });
+  BackupService({required this.db, required this.currentUid, required this.hasPendingSales});
   final FirebaseFirestore db;
   final String? Function() currentUid;
   final Future<bool> Function() hasPendingSales;
@@ -41,15 +37,12 @@ class BackupService {
     return uid;
   }
 
-  CollectionReference<Map<String, dynamic>> _backupCollection(
-    String storeCode,
-  ) => db.collection('stores').doc(storeCode).collection('backups');
+  CollectionReference<Map<String, dynamic>> _backupCollection(String storeCode) =>
+      db.collection('stores').doc(storeCode).collection('backups');
 
   Future<List<BackupSummary>> listBackups(String storeCode) async {
     await _requireStoreOwner(storeCode);
-    final rows = await _backupCollection(
-      storeCode,
-    ).where('complete', isEqualTo: true).get(_server);
+    final rows = await _backupCollection(storeCode).where('complete', isEqualTo: true).get(_server);
     final summaries = rows.docs
         .where(
           (row) =>
@@ -114,14 +107,9 @@ class BackupService {
     }
     await _requireStoreOwner(storeCode);
     if (await hasPendingSales()) {
-      throw StateError(
-        'Sales changed during backup. Retry after synchronization.',
-      );
+      throw StateError('Sales changed during backup. Retry after synchronization.');
     }
-    await ref.update({
-      'complete': true,
-      'completedAt': FieldValue.serverTimestamp(),
-    });
+    await ref.update({'complete': true, 'completedAt': FieldValue.serverTimestamp()});
     return BackupSummary(ref.id, now, products.docs.length, sales.docs.length);
   }
 
@@ -140,21 +128,16 @@ class BackupService {
         manifest['complete'] != true ||
         manifest['version'] != 1 ||
         manifest['storeCode'] != storeCode) {
-      throw StateError(
-        'This backup is incomplete or belongs to another store.',
-      );
+      throw StateError('This backup is incomplete or belongs to another store.');
     }
     final products = await ref.collection('products').get(_server);
     final sales = await ref.collection('sales').get(_server);
-    if (products.docs.length != manifest['products'] ||
-        sales.docs.length != manifest['sales']) {
+    if (products.docs.length != manifest['products'] || sales.docs.length != manifest['sales']) {
       throw StateError('The backup is incomplete. No records were restored.');
     }
     for (final row in [...products.docs, ...sales.docs]) {
       if (row.data()['storeCode'] != storeCode) {
-        throw StateError(
-          'Invalid store data in backup. No records were restored.',
-        );
+        throw StateError('Invalid store data in backup. No records were restored.');
       }
     }
     var recoveredProducts = 0;
@@ -168,9 +151,7 @@ class BackupService {
             'Restore stopped: pending sales detected. Completed records remain restored; retry safely after synchronization.',
           );
         }
-        final target = db
-            .collection(isProduct ? 'products' : 'sales')
-            .doc(row.id);
+        final target = db.collection(isProduct ? 'products' : 'sales').doc(row.id);
         final inserted = await db.runTransaction<bool>((transaction) async {
           final existing = await transaction.get(target);
           if (existing.exists) return false;

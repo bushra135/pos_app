@@ -17,9 +17,7 @@ Future<void> main() async {
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  FirebaseFirestore.instance.settings = const Settings(
-    persistenceEnabled: true,
-  );
+  FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
 
   if (kIsWeb) {
     // Mobile platforms persist sessions automatically; this setting is web-only.

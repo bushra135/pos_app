@@ -50,10 +50,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   @override
   void initState() {
     super.initState();
-    _saleId = (widget.firestore ?? FirebaseFirestore.instance)
-        .collection('sales')
-        .doc()
-        .id;
+    _saleId = (widget.firestore ?? FirebaseFirestore.instance).collection('sales').doc().id;
     _saleTime = DateTime.now();
     _receiptSync = SaleSyncService.maybeInstance;
     _receiptSync?.addListener(_refreshReceiptSync);
@@ -89,10 +86,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     try {
       await HapticFeedback.lightImpact();
       await _successPlayer.stop();
-      await _successPlayer.play(
-        AssetSource('sounds/payment_success.mp3'),
-        volume: 1,
-      );
+      await _successPlayer.play(AssetSource('sounds/payment_success.mp3'), volume: 1);
     } catch (e) {
       // Audio failure must not undo a successfully saved sale.
       debugPrint('Error playing payment success sound: $e');
@@ -116,17 +110,12 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       final userData = Map<String, dynamic>.from(contextData['profile'] as Map);
       final String fullName = (userData['fullName'] ?? '').toString();
       final String firstName = fullName.split(' ').first;
-      final String fetchedStoreCode = (userData['storeCode'] ?? '')
-          .toString()
-          .trim();
+      final String fetchedStoreCode = (userData['storeCode'] ?? '').toString().trim();
 
       final storeData = Map<String, dynamic>.from(contextData['store'] as Map);
-      final fetchedStoreName =
-          (storeData['storeName'] ?? userData['storeName'] ?? '').toString();
-      final fetchedBenefitNumber = (storeData['benefitNumber'] ?? '')
-          .toString();
-      final fetchedBenefitQrBase64 = (storeData['benefitQrBase64'] ?? '')
-          .toString();
+      final fetchedStoreName = (storeData['storeName'] ?? userData['storeName'] ?? '').toString();
+      final fetchedBenefitNumber = (storeData['benefitNumber'] ?? '').toString();
+      final fetchedBenefitQrBase64 = (storeData['benefitQrBase64'] ?? '').toString();
 
       if (!mounted) return;
 
@@ -153,9 +142,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   Future<void> _confirmPayment() async {
     if (isSavingSale || completedSale != null) return;
     if (CartManager.items.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Cart is empty')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cart is empty')));
       return;
     }
 
@@ -179,9 +166,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       final items = <SaleLine>[];
       for (final item in CartManager.items) {
         if (item.productId.isEmpty || item.storeCode != storeCode) {
-          throw StateError(
-            'Remove this cart item and scan it again for your store.',
-          );
+          throw StateError('Remove this cart item and scan it again for your store.');
         }
         items.add(
           SaleLine(
@@ -225,9 +210,9 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       unawaited(_playPaymentSuccessSound());
 
       if (result.status == SaleSubmissionStatus.synced) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sale confirmed and stock updated')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Sale confirmed and stock updated')));
       } else {
         await showDialog<void>(
           context: context,
@@ -242,12 +227,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
               '$receiptNumber\n\n${result.message ?? 'Stock and reports will update when this receipt is confirmed online.'}\n\n'
               'No need to submit this sale again. It will retry automatically. Keep this browser data until synchronization completes; check Sales status for progress.',
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-            ],
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
           ),
         );
       }
@@ -287,10 +267,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                color: isSelected ? AppColors.onBrand : AppColors.muted,
-              ),
+              Icon(icon, color: isSelected ? AppColors.onBrand : AppColors.muted),
               const SizedBox(height: 6),
               Text(
                 title,
@@ -318,10 +295,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Text(
-              name,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
+            child: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
           ),
           Text('x$quantity', style: const TextStyle(color: AppColors.muted)),
           const SizedBox(width: 12),
@@ -406,17 +380,10 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                       child: Row(
                         children: [
                           CircleAvatar(
-                            backgroundColor: AppColors.surface.withValues(
-                              alpha: 0.25,
-                            ),
+                            backgroundColor: AppColors.surface.withValues(alpha: 0.25),
                             child: IconButton(
-                              onPressed: isSavingSale
-                                  ? null
-                                  : () => Navigator.pop(context),
-                              icon: const Icon(
-                                Icons.arrow_back,
-                                color: AppColors.onBrand,
-                              ),
+                              onPressed: isSavingSale ? null : () => Navigator.pop(context),
+                              icon: const Icon(Icons.arrow_back, color: AppColors.onBrand),
                             ),
                           ),
                           const SizedBox(width: 14),
@@ -472,8 +439,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                     _buildPaymentOption(
                                       title: 'Cash',
                                       icon: Icons.payments_outlined,
-                                      isSelected:
-                                          selectedPaymentMethod == 'Cash',
+                                      isSelected: selectedPaymentMethod == 'Cash',
                                       onTap: () {
                                         setState(() {
                                           selectedPaymentMethod = 'Cash';
@@ -484,8 +450,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                     _buildPaymentOption(
                                       title: 'BenefitPay',
                                       icon: Icons.qr_code,
-                                      isSelected:
-                                          selectedPaymentMethod == 'BenefitPay',
+                                      isSelected: selectedPaymentMethod == 'BenefitPay',
                                       onTap: () {
                                         setState(() {
                                           selectedPaymentMethod = 'BenefitPay';
@@ -503,8 +468,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                     borderRadius: BorderRadius.circular(16),
                                   ),
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       const Text(
                                         'Total Amount',
@@ -536,8 +500,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                       child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           const Text(
                                             'BenefitPay Number',
@@ -570,9 +533,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                         children: [
                                           const Text(
                                             'Scan to pay',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w600,
-                                            ),
+                                            style: TextStyle(fontWeight: FontWeight.w600),
                                           ),
                                           const SizedBox(height: 12),
                                           _buildQrPreview(),
@@ -603,46 +564,29 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                 ),
                                 const SizedBox(height: 14),
                                 Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text(
-                                      'Store',
-                                      style: TextStyle(color: AppColors.muted),
-                                    ),
+                                    const Text('Store', style: TextStyle(color: AppColors.muted)),
                                     Text(
-                                      storeName.isEmpty
-                                          ? 'My Store'
-                                          : storeName,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      storeName.isEmpty ? 'My Store' : storeName,
+                                      style: const TextStyle(fontWeight: FontWeight.w600),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
                                 Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text(
-                                      'Cashier',
-                                      style: TextStyle(color: AppColors.muted),
-                                    ),
+                                    const Text('Cashier', style: TextStyle(color: AppColors.muted)),
                                     Text(
-                                      cashierName.isEmpty
-                                          ? 'Cashier'
-                                          : cashierName,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      cashierName.isEmpty ? 'Cashier' : cashierName,
+                                      style: const TextStyle(fontWeight: FontWeight.w600),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
                                 Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     const Text(
                                       'Receipt No.',
@@ -650,9 +594,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                     ),
                                     Text(
                                       receiptNumber,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      style: const TextStyle(fontWeight: FontWeight.w600),
                                     ),
                                   ],
                                 ),
@@ -669,8 +611,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                 Divider(color: AppColors.border),
                                 const SizedBox(height: 10),
                                 Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     const Text(
                                       'Subtotal',
@@ -681,16 +622,13 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                     ),
                                     Text(
                                       'BD ${CartManager.total.toStringAsFixed(3)}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      style: const TextStyle(fontWeight: FontWeight.w600),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
                                 const Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       'Discount',
@@ -699,18 +637,12 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    Text(
-                                      'BD 0.000',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
+                                    Text('BD 0.000', style: TextStyle(fontWeight: FontWeight.w600)),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
                                 const Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       'Tax',
@@ -719,18 +651,12 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    Text(
-                                      'BD 0.000',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
+                                    Text('BD 0.000', style: TextStyle(fontWeight: FontWeight.w600)),
                                   ],
                                 ),
                                 const SizedBox(height: 10),
                                 Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     const Text(
                                       'Total',
@@ -758,9 +684,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                             child: ElevatedButton(
                               onPressed: isSavingSale ? null : _confirmPayment,
                               style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 18,
-                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 18),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),

@@ -66,10 +66,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
       if (!userDoc.exists) {
         setState(() {
@@ -136,10 +133,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // The receipt screen reads this Base64 payment image from the store record.
       final String base64String = base64Encode(bytes);
 
-      await FirebaseFirestore.instance
-          .collection('stores')
-          .doc(storeCode)
-          .update({'benefitQrBase64': base64String});
+      await FirebaseFirestore.instance.collection('stores').doc(storeCode).update({
+        'benefitQrBase64': base64String,
+      });
 
       setState(() {
         benefitQrBase64 = base64String;
@@ -174,10 +170,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final String newBenefitNumber = benefitNumberController.text.trim();
 
-      await FirebaseFirestore.instance
-          .collection('stores')
-          .doc(storeCode)
-          .update({'benefitNumber': newBenefitNumber});
+      await FirebaseFirestore.instance.collection('stores').doc(storeCode).update({
+        'benefitNumber': newBenefitNumber,
+      });
 
       setState(() {
         isSaving = false;
@@ -195,9 +190,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save payment settings: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to save payment settings: $e')));
     }
   }
 
@@ -271,12 +266,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.page,
-            0,
-            AppSpacing.page,
-            24,
-          ),
+          padding: const EdgeInsets.fromLTRB(AppSpacing.page, 0, AppSpacing.page, 24),
           child: Column(
             children: [
               Container(
@@ -294,11 +284,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const CircleAvatar(
                       radius: 42,
                       backgroundColor: AppColors.surface,
-                      child: Icon(
-                        Icons.person_outline,
-                        size: 42,
-                        color: AppColors.primaryDark,
-                      ),
+                      child: Icon(Icons.person_outline, size: 42, color: AppColors.primaryDark),
                     ),
                     const SizedBox(height: 14),
                     Text(
@@ -369,16 +355,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Card(
                   child: ListTile(
                     leading: Icon(
-                      widget.cashierMode
-                          ? Icons.manage_accounts_outlined
-                          : Icons.point_of_sale,
+                      widget.cashierMode ? Icons.manage_accounts_outlined : Icons.point_of_sale,
                       color: AppColors.primaryDark,
                     ),
-                    title: Text(
-                      widget.cashierMode
-                          ? 'Switch to owner'
-                          : 'Switch to cashier',
-                    ),
+                    title: Text(widget.cashierMode ? 'Switch to owner' : 'Switch to cashier'),
                     subtitle: Text(
                       widget.cashierMode
                           ? 'Return to store management'
@@ -409,9 +389,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Column(
                   children: [
                     InkWell(
-                      borderRadius: BorderRadius.circular(
-                        AppSpacing.controlRadius,
-                      ),
+                      borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                       onTap: () {
                         setState(() {
                           isPaymentExpanded = !isPaymentExpanded;
@@ -424,9 +402,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             height: 46,
                             decoration: BoxDecoration(
                               color: AppColors.soft,
-                              borderRadius: BorderRadius.circular(
-                                AppSpacing.controlRadius,
-                              ),
+                              borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                             ),
                             child: const Icon(
                               Icons.payments_outlined,
@@ -458,9 +434,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           Icon(
-                            isPaymentExpanded
-                                ? Icons.keyboard_arrow_up
-                                : Icons.keyboard_arrow_down,
+                            isPaymentExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                             color: AppColors.muted,
                           ),
                         ],
@@ -478,9 +452,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           filled: true,
                           fillColor: AppColors.background,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppSpacing.controlRadius,
-                            ),
+                            borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -497,10 +469,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             const Text(
                               'Benefit QR',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.text,
-                              ),
+                              style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.text),
                             ),
                             const SizedBox(height: 12),
                             _buildQrPreview(),
@@ -511,9 +480,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 icon: const Icon(Icons.upload_outlined),
                                 label: const Text('Upload QR'),
                                 style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(
-                                    color: AppColors.primaryDark,
-                                  ),
+                                  side: const BorderSide(color: AppColors.primaryDark),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -532,9 +499,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  AppSpacing.controlRadius,
-                                ),
+                                borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                               ),
                             ),
                             child: isSaving
@@ -567,15 +532,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: ListTile(
                     leading: const Icon(Icons.backup_outlined),
                     title: const Text('Backup & recovery'),
-                    subtitle: const Text(
-                      'Create a cloud copy or recover missing records',
-                    ),
+                    subtitle: const Text('Create a cloud copy or recover missing records'),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => BackupScreen(storeCode: storeCode),
-                      ),
+                      MaterialPageRoute(builder: (_) => BackupScreen(storeCode: storeCode)),
                     ),
                   ),
                 ),
@@ -599,18 +560,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Text(
                       'AI Assisted Pocket Register',
-                      style: TextStyle(
-                        fontSize: AppTypography.caption,
-                        color: AppColors.muted,
-                      ),
+                      style: TextStyle(fontSize: AppTypography.caption, color: AppColors.muted),
                     ),
                     SizedBox(height: 6),
                     Text(
                       'Version 1.0.0',
-                      style: TextStyle(
-                        fontSize: AppTypography.caption,
-                        color: AppColors.muted,
-                      ),
+                      style: TextStyle(fontSize: AppTypography.caption, color: AppColors.muted),
                     ),
                   ],
                 ),
@@ -673,10 +628,7 @@ class _InfoRow extends StatelessWidget {
         Container(
           width: 52,
           height: 52,
-          decoration: BoxDecoration(
-            color: iconBg,
-            borderRadius: BorderRadius.circular(16),
-          ),
+          decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(16)),
           child: Icon(icon, color: iconColor, size: 26),
         ),
         const SizedBox(width: 14),
@@ -686,10 +638,7 @@ class _InfoRow extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  fontSize: AppTypography.caption,
-                  color: AppColors.muted,
-                ),
+                style: const TextStyle(fontSize: AppTypography.caption, color: AppColors.muted),
               ),
               const SizedBox(height: 4),
               Text(

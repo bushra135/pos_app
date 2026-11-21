@@ -1,2 +1,6 @@
 # Shared analyzer rules for the team.
 include: package:flutter_lints/flutter.yaml
+
+# Keep normal statements readable without excessive wrapping.
+formatter:
+  page_width: 100

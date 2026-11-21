@@ -68,10 +68,7 @@ class _BackupScreenState extends State<BackupScreen> {
           'Pause sales on all store devices and synchronize them first. This copies server products, sales and store/payment settings. Unsynchronized sales on other devices are not included. Internet is required.',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Create backup'),
@@ -118,10 +115,7 @@ class _BackupScreenState extends State<BackupScreen> {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
               child: const Text('Restore missing records'),
@@ -145,12 +139,7 @@ class _BackupScreenState extends State<BackupScreen> {
           content: Text(
             '${result.products} products and ${result.sales} sales recovered.\nCount recovered product stock before selling. Reopen Profile to refresh restored settings.',
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Done'),
-            ),
-          ],
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Done'))],
         ),
       );
     });
@@ -164,10 +153,7 @@ class _BackupScreenState extends State<BackupScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text(
-            'Cloud backups',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
+          const Text('Cloud backups', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const Text(
             'Linked to this store account on Firebase. These are manual recovery copies, not iCloud backups or a full database rollback.',
           ),
@@ -183,25 +169,15 @@ class _BackupScreenState extends State<BackupScreen> {
             icon: const Icon(Icons.backup_outlined),
             label: const Text('Create backup'),
           ),
-          TextButton(
-            onPressed: _isBusy ? null : _loadBackups,
-            child: const Text('Refresh'),
-          ),
+          TextButton(onPressed: _isBusy ? null : _loadBackups, child: const Text('Refresh')),
           if (_isBusy) const LinearProgressIndicator(),
           if (_errorMessage != null)
-            SelectableText(
-              _errorMessage!,
-              style: const TextStyle(color: Colors.red),
-            ),
+            SelectableText(_errorMessage!, style: const TextStyle(color: Colors.red)),
           for (final backup in _backups)
             Card(
               child: ListTile(
-                title: Text(
-                  backup.createdAt.toLocal().toString().split('.').first,
-                ),
-                subtitle: Text(
-                  '${backup.products} products Ã‚| ${backup.sales} sales',
-                ),
+                title: Text(backup.createdAt.toLocal().toString().split('.').first),
+                subtitle: Text('${backup.products} products Ã‚| ${backup.sales} sales'),
                 trailing: IconButton(
                   tooltip: 'Preview recovery',
                   onPressed: _isBusy ? null : () => _restoreBackup(backup),

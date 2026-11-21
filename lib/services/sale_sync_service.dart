@@ -119,9 +119,7 @@ class SaleSyncService extends ChangeNotifier {
               try {
                 await store.cacheProducts(
                   storeCode,
-                  snapshot.docs
-                      .map((doc) => {...doc.data(), 'id': doc.id})
-                      .toList(),
+                  snapshot.docs.map((doc) => {...doc.data(), 'id': doc.id}).toList(),
                 );
               } catch (error) {
                 lastError = 'Could not save the offline catalogue: $error';
@@ -172,9 +170,7 @@ class SaleSyncService extends ChangeNotifier {
       cached = await store.contextFor(uid);
     }
     if (cached == null) {
-      throw StateError(
-        'Connect once to prepare this account for offline sales.',
-      );
+      throw StateError('Connect once to prepare this account for offline sales.');
     }
     if (currentUserId() != uid) throw StateError('Your account has changed.');
     final profile = Map<String, dynamic>.from(cached['profile'] as Map);
@@ -226,16 +222,10 @@ class SaleSyncService extends ChangeNotifier {
     }
     product ??= await store.productByBarcode(code, barcode);
     if (product == null) {
-      throw StateError(
-        'This product is not available in the offline catalogue.',
-      );
+      throw StateError('This product is not available in the offline catalogue.');
     }
     final stock = _stock(product);
-    final reserved = await store.reservedQuantity(
-      uid,
-      code,
-      product['id'] as String,
-    );
+    final reserved = await store.reservedQuantity(uid, code, product['id'] as String);
     final inCart = CartManager.items
         .where((item) => item.productId == product!['id'])
         .fold<int>(0, (totalQuantity, item) => totalQuantity + item.quantity);
@@ -248,10 +238,7 @@ class SaleSyncService extends ChangeNotifier {
 
   Future<SaleSubmission> submit(SaleRecord sale) {
     final result = _submissionTail.then((_) => _submit(sale));
-    _submissionTail = result.then<void>(
-      (_) {},
-      onError: (Object error, StackTrace stackTrace) {},
-    );
+    _submissionTail = result.then<void>((_) {}, onError: (Object error, StackTrace stackTrace) {});
     return result;
   }
 
@@ -262,9 +249,7 @@ class SaleSyncService extends ChangeNotifier {
       throw StateError('The cart belongs to a different account or store.');
     }
     if ((!online || offlineMode) && sale.paymentMethod != 'Cash') {
-      throw StateError(
-        'Offline checkout supports cash only. Reconnect for BenefitPay.',
-      );
+      throw StateError('Offline checkout supports cash only. Reconnect for BenefitPay.');
     }
     // Flush draft writes before atomically accepting payment and retiring the draft.
     await CartManager.flush();
@@ -319,8 +304,7 @@ class SaleSyncService extends ChangeNotifier {
           '$lastError Your receipt is saved and will retry automatically.',
         );
       }
-      final message =
-          'Server rejected this receipt (${error.code}). Review and retry.';
+      final message = 'Server rejected this receipt (${error.code}). Review and retry.';
       await store.markConflict(sale.id, message);
       return SaleSubmission(SaleSubmissionStatus.conflict, message);
     } catch (error) {
@@ -335,16 +319,11 @@ class SaleSyncService extends ChangeNotifier {
     }
   }
 
-  Future<void> _observeLateConfirmation(
-    SaleRecord sale,
-    Future<void> confirmation,
-  ) async {
+  Future<void> _observeLateConfirmation(SaleRecord sale, Future<void> confirmation) async {
     try {
       await confirmation;
       await store.remove(sale.id);
-      if (_uid == sale.cashierUid &&
-          _storeCode == sale.storeCode &&
-          !_disposed) {
+      if (_uid == sale.cashierUid && _storeCode == sale.storeCode && !_disposed) {
         _pending = await store.pendingSales(sale.cashierUid, sale.storeCode);
         online = true;
         lastError = null;
@@ -378,10 +357,7 @@ class SaleSyncService extends ChangeNotifier {
     _changed();
     try {
       for (final row in pending) {
-        if (_uid != uid ||
-            _storeCode != code ||
-            currentUserId() != uid ||
-            offlineMode) {
+        if (_uid != uid || _storeCode != code || currentUserId() != uid || offlineMode) {
           break;
         }
         if (row.isConflict) continue;
@@ -427,10 +403,7 @@ class SaleSyncService extends ChangeNotifier {
   static int _stock(Map<String, dynamic> product) {
     final value = product['stock'] ?? product['quantity'];
     final number = value is num ? value : num.tryParse(value.toString());
-    if (number == null ||
-        !number.isFinite ||
-        number < 0 ||
-        number != number.toInt()) {
+    if (number == null || !number.isFinite || number < 0 || number != number.toInt()) {
       throw StateError('This product has invalid stock data.');
     }
     return number.toInt();

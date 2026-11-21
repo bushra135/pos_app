@@ -22,10 +22,7 @@ abstract final class ProductImageData {
     final initialCodec = await ui.instantiateImageCodecWithSize(
       buffer,
       getTargetSize: (intrinsicWidth, intrinsicHeight) {
-        final scale = math.min(
-          1.0,
-          maxDimension / math.max(intrinsicWidth, intrinsicHeight),
-        );
+        final scale = math.min(1.0, maxDimension / math.max(intrinsicWidth, intrinsicHeight));
         width = math.max(1, (intrinsicWidth * scale).round());
         height = math.max(1, (intrinsicHeight * scale).round());
         return ui.TargetImageSize(width: width, height: height);
@@ -59,8 +56,6 @@ abstract final class ProductImageData {
       width = math.max(1, (width * 0.75).floor());
       height = math.max(1, (height * 0.75).floor());
     }
-    throw const FormatException(
-      'Could not resize this image. Choose another image.',
-    );
+    throw const FormatException('Could not resize this image. Choose another image.');
   }
 }

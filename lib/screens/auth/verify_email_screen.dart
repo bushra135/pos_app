@@ -27,8 +27,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   bool _busy = false;
   int _cooldown = 0;
   String? _error;
-  String _notice =
-      'Send a verification link to your email to activate your ShopPad account.';
+  String _notice = 'Send a verification link to your email to activate your ShopPad account.';
 
   @override
   void initState() {
@@ -49,10 +48,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     }
     if (error is FirebaseAuthException) {
       return switch (error.code) {
-        'too-many-requests' =>
-          'Too many requests. Please wait a few minutes before trying again.',
-        'network-request-failed' =>
-          'Check your internet connection and try again.',
+        'too-many-requests' => 'Too many requests. Please wait a few minutes before trying again.',
+        'network-request-failed' => 'Check your internet connection and try again.',
         'user-token-expired' ||
         'invalid-user-token' ||
         'user-disabled' => 'Please use a different account and sign in again.',
@@ -117,10 +114,9 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
           .getIdToken(true)
           .timeout(const Duration(seconds: 20));
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const AuthWrapper()),
-        (_) => false,
-      );
+      Navigator.of(
+        context,
+      ).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const AuthWrapper()), (_) => false);
     } catch (error) {
       if (mounted) {
         setState(() => _error = _verificationError(error));
@@ -187,10 +183,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                       const SizedBox(height: 8),
                       const Text(
                         'Verify your email',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 12),
                       Text(
@@ -222,9 +215,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                               ? const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
+                                  child: CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Icon(Icons.verified_user_outlined),
                           label: const Text('I have verified my email'),
@@ -233,9 +224,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                       TextButton(
                         onPressed: _busy || _cooldown > 0 ? null : _send,
                         child: Text(
-                          _cooldown > 0
-                              ? 'Resend in ${_cooldown}s'
-                              : 'Resend verification email',
+                          _cooldown > 0 ? 'Resend in ${_cooldown}s' : 'Resend verification email',
                         ),
                       ),
                       TextButton(

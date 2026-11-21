@@ -6,10 +6,7 @@ import '../models/sale_record.dart';
 
 /// Generates the saved receipt from its fixed sale snapshot, never the live cart.
 abstract final class ReceiptService {
-  static Future<Uint8List> generatePdf(
-    SaleRecord sale, {
-    required String status,
-  }) async {
+  static Future<Uint8List> generatePdf(SaleRecord sale, {required String status}) async {
     final font = pw.Font.ttf(await rootBundle.load('assets/fonts/Cairo.ttf'));
     final document = pw.Document();
     final date = sale.createdAt.toLocal().toString().split('.').first;
@@ -28,10 +25,7 @@ abstract final class ReceiptService {
           pw.SizedBox(height: 12),
           pw.Text(sale.receiptNumber),
           pw.Text(date),
-          pw.Text(
-            'Cashier: ${sale.cashierName}',
-            textDirection: _direction(sale.cashierName),
-          ),
+          pw.Text('Cashier: ${sale.cashierName}', textDirection: _direction(sale.cashierName)),
           pw.Text('Payment: ${sale.paymentMethod}'),
           pw.Text('Status: $status'),
           pw.SizedBox(height: 16),
@@ -47,10 +41,8 @@ abstract final class ReceiptService {
                   ],
                 )
                 .toList(),
-            cellBuilder: (column, value, row) => pw.Text(
-              value.toString(),
-              textDirection: _direction(value.toString()),
-            ),
+            cellBuilder: (column, value, row) =>
+                pw.Text(value.toString(), textDirection: _direction(value.toString())),
             headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
             cellStyle: const pw.TextStyle(fontSize: 10),
           ),
@@ -75,7 +67,5 @@ abstract final class ReceiptService {
   }
 
   static pw.TextDirection _direction(String text) =>
-      RegExp(r'[\u0600-\u06FF]').hasMatch(text)
-      ? pw.TextDirection.rtl
-      : pw.TextDirection.ltr;
+      RegExp(r'[\u0600-\u06FF]').hasMatch(text) ? pw.TextDirection.rtl : pw.TextDirection.ltr;
 }

@@ -15,8 +15,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
-    with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _auth = FirebaseAuth.instance;
@@ -27,10 +26,8 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void initState() {
     super.initState();
-    _backgroundController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 11),
-    )..repeat();
+    _backgroundController = AnimationController(vsync: this, duration: const Duration(seconds: 11))
+      ..repeat();
   }
 
   @override
@@ -56,15 +53,11 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _loading = true);
     try {
       // AuthWrapper handles navigation when the Firebase auth state changes.
-      await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: _password.text,
-      );
+      await _auth.signInWithEmailAndPassword(email: email, password: _password.text);
     } on FirebaseAuthException catch (error) {
       final message = switch (error.code) {
         'user-not-found' => 'Your email or password is incorrect.',
-        'wrong-password' ||
-        'invalid-credential' => 'Your email or password is incorrect.',
+        'wrong-password' || 'invalid-credential' => 'Your email or password is incorrect.',
         'invalid-email' => 'Enter a valid email address.',
         'too-many-requests' => 'Too many attempts. Please try again later.',
         _ => 'Unable to sign in right now. Please try again.',
@@ -122,10 +115,7 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
-                      minHeight: math.max(
-                        0,
-                        constraints.maxHeight - (wide ? 68 : 53),
-                      ),
+                      minHeight: math.max(0, constraints.maxHeight - (wide ? 68 : 53)),
                     ),
                     // Keep the brand inside the colored header on tall screens.
                     child: Align(
@@ -207,10 +197,7 @@ class _LoginScreenState extends State<LoginScreen>
       const SizedBox(height: 5),
       Text(
         'Smart tools for your store',
-        style: TextStyle(
-          color: AppColors.onBrand,
-          fontSize: AppTypography.body,
-        ),
+        style: TextStyle(color: AppColors.onBrand, fontSize: AppTypography.body),
       ),
     ],
   );
@@ -245,10 +232,7 @@ class _LoginScreenState extends State<LoginScreen>
           const SizedBox(height: 6),
           const Text(
             'Sign in to continue to your workspace.',
-            style: TextStyle(
-              color: AppColors.muted,
-              fontSize: AppTypography.body,
-            ),
+            style: TextStyle(color: AppColors.muted, fontSize: AppTypography.body),
           ),
           const SizedBox(height: 27),
           const Text(
@@ -265,10 +249,7 @@ class _LoginScreenState extends State<LoginScreen>
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
             autofillHints: const [AutofillHints.username, AutofillHints.email],
-            decoration: _input(
-              'you@example.com',
-              Icons.alternate_email_rounded,
-            ),
+            decoration: _input('you@example.com', Icons.alternate_email_rounded),
           ),
           const SizedBox(height: 18),
           const Text(
@@ -292,9 +273,7 @@ class _LoginScreenState extends State<LoginScreen>
               suffix: IconButton(
                 onPressed: () => setState(() => _showPassword = !_showPassword),
                 icon: Icon(
-                  _showPassword
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
+                  _showPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
                 ),
                 color: AppColors.primaryDark,
               ),
@@ -304,15 +283,10 @@ class _LoginScreenState extends State<LoginScreen>
             alignment: Alignment.centerRight,
             child: TextButton(
               onPressed: _resetPassword,
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primaryDark,
-              ),
+              style: TextButton.styleFrom(foregroundColor: AppColors.primaryDark),
               child: const Text(
                 'Forgot password?',
-                style: TextStyle(
-                  fontSize: AppTypography.button,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontSize: AppTypography.button, fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -340,9 +314,7 @@ class _LoginScreenState extends State<LoginScreen>
                   disabledForegroundColor: AppColors.onBrand,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                      AppSpacing.controlRadius,
-                    ),
+                    borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                   ),
                 ),
                 child: _loading
@@ -398,10 +370,7 @@ class _LoginScreenState extends State<LoginScreen>
             ),
             child: const Text(
               'Create account',
-              style: TextStyle(
-                fontSize: AppTypography.button,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(fontSize: AppTypography.button, fontWeight: FontWeight.w700),
             ),
           ),
         ],
@@ -409,29 +378,23 @@ class _LoginScreenState extends State<LoginScreen>
     ),
   );
 
-  InputDecoration _input(String hint, IconData icon, {Widget? suffix}) =>
-      InputDecoration(
-        hintText: hint,
-        prefixIcon: Icon(icon, size: 20, color: AppColors.primaryDark),
-        suffixIcon: suffix,
-        filled: true,
-        fillColor: AppColors.background,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
-        border: _border(),
-        enabledBorder: _border(),
-        focusedBorder: _border(color: AppColors.primaryDark, width: 1.6),
-      );
-
-  OutlineInputBorder _border({
-    Color color = AppColors.border,
-    double width = 1,
-  }) => OutlineInputBorder(
-    borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-    borderSide: BorderSide(color: color, width: width),
+  InputDecoration _input(String hint, IconData icon, {Widget? suffix}) => InputDecoration(
+    hintText: hint,
+    prefixIcon: Icon(icon, size: 20, color: AppColors.primaryDark),
+    suffixIcon: suffix,
+    filled: true,
+    fillColor: AppColors.background,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    border: _border(),
+    enabledBorder: _border(),
+    focusedBorder: _border(color: AppColors.primaryDark, width: 1.6),
   );
+
+  OutlineInputBorder _border({Color color = AppColors.border, double width = 1}) =>
+      OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+        borderSide: BorderSide(color: color, width: width),
+      );
 }
 
 class _HeaderSheenPainter extends CustomPainter {
@@ -447,11 +410,7 @@ class _HeaderSheenPainter extends CustomPainter {
     final ry = size.height * 0.47;
 
     // Draw the glow first so the animated rings appear above it.
-    canvas.drawCircle(
-      center,
-      rx * 0.92,
-      Paint()..color = AppColors.accent.withValues(alpha: 0.20),
-    );
+    canvas.drawCircle(center, rx * 0.92, Paint()..color = AppColors.accent.withValues(alpha: 0.20));
 
     for (var ring = 0; ring < 3; ring++) {
       final tilt = (ring - 1) * 0.62;
@@ -470,9 +429,7 @@ class _HeaderSheenPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = ring == 1 ? 1.1 : 0.8
-          ..color = AppColors.surface.withValues(
-            alpha: ring == 1 ? 0.25 : 0.13,
-          ),
+          ..color = AppColors.surface.withValues(alpha: ring == 1 ? 0.25 : 0.13),
       );
 
       final start = phase * (ring.isEven ? 1 : -1) + ring * 2.08;
@@ -493,10 +450,7 @@ class _HeaderSheenPainter extends CustomPainter {
       canvas.drawArc(oval, start, sweep, false, trail);
 
       final angle = start + sweep * 0.72;
-      final position = Offset(
-        rx * math.cos(angle),
-        oval.height * 0.5 * math.sin(angle),
-      );
+      final position = Offset(rx * math.cos(angle), oval.height * 0.5 * math.sin(angle));
       canvas.drawCircle(
         position,
         ring == 1 ? 4.3 : 3,
@@ -504,11 +458,7 @@ class _HeaderSheenPainter extends CustomPainter {
           ..color = AppColors.surface.withValues(alpha: 0.84)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
       );
-      canvas.drawCircle(
-        position,
-        ring == 1 ? 2.2 : 1.5,
-        Paint()..color = AppColors.accentSoft,
-      );
+      canvas.drawCircle(position, ring == 1 ? 2.2 : 1.5, Paint()..color = AppColors.accentSoft);
       canvas.restore();
     }
 
@@ -522,14 +472,10 @@ class _HeaderSheenPainter extends CustomPainter {
       width: size.width * 0.14,
       height: size.height * 2.3,
     );
-    canvas.drawRect(
-      streak,
-      Paint()..color = AppColors.surface.withValues(alpha: 0.09),
-    );
+    canvas.drawRect(streak, Paint()..color = AppColors.surface.withValues(alpha: 0.09));
     canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _HeaderSheenPainter oldDelegate) =>
-      oldDelegate.progress != progress;
+  bool shouldRepaint(covariant _HeaderSheenPainter oldDelegate) => oldDelegate.progress != progress;
 }

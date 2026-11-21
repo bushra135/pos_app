@@ -32,16 +32,10 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
     if (exporting) return;
     setState(() => exporting = true);
     try {
-      final bytes = await ReceiptService.generatePdf(
-        widget.sale,
-        status: widget.status,
-      );
+      final bytes = await ReceiptService.generatePdf(widget.sale, status: widget.status);
       if (!mounted) return;
       if (print) {
-        await Printing.layoutPdf(
-          name: widget.sale.receiptNumber,
-          onLayout: (_) async => bytes,
-        );
+        await Printing.layoutPdf(name: widget.sale.receiptNumber, onLayout: (_) async => bytes);
       } else {
         await Printing.sharePdf(
           bytes: bytes,
@@ -53,9 +47,7 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Could not export receipt. Your sale is already saved. Try again.',
-            ),
+            content: Text('Could not export receipt. Your sale is already saved. Try again.'),
           ),
         );
       }
@@ -88,11 +80,7 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                         color: AppColors.successSoft,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
-                        Icons.check_rounded,
-                        color: AppColors.success,
-                        size: 36,
-                      ),
+                      child: const Icon(Icons.check_rounded, color: AppColors.success, size: 36),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -105,10 +93,7 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                   Text(
                     widget.status,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: AppColors.muted, fontSize: 12),
                   ),
                   const SizedBox(height: 24),
                   Card(
@@ -119,10 +104,7 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                         children: [
                           Text(
                             sale.storeName,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                            ),
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 6),
                           SelectableText(
@@ -135,10 +117,7 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                           const SizedBox(height: 6),
                           Text(
                             '${two(date.day)}/${two(date.month)}/${date.year} · ${two(date.hour)}:${two(date.minute)}',
-                            style: const TextStyle(
-                              color: AppColors.muted,
-                              fontSize: 12,
-                            ),
+                            style: const TextStyle(color: AppColors.muted, fontSize: 12),
                           ),
                           const SizedBox(height: 12),
                           Wrap(
@@ -166,10 +145,7 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                           const Divider(height: 32),
                           const Text(
                             'Items',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
-                            ),
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                           ),
                           const SizedBox(height: 8),
                           for (final line in sale.items)
@@ -180,14 +156,11 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           line.name,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                          style: const TextStyle(fontWeight: FontWeight.w600),
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
@@ -206,9 +179,7 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                                     child: Text(
                                       'BD ${line.subtotal.toStringAsFixed(3)}',
                                       textAlign: TextAlign.end,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      style: const TextStyle(fontWeight: FontWeight.w600),
                                     ),
                                   ),
                                 ],
@@ -242,16 +213,12 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                     alignment: WrapAlignment.center,
                     children: [
                       OutlinedButton.icon(
-                        onPressed: exporting
-                            ? null
-                            : () => _export(print: false),
+                        onPressed: exporting ? null : () => _export(print: false),
                         icon: const Icon(Icons.ios_share_rounded),
                         label: const Text('Share PDF'),
                       ),
                       OutlinedButton.icon(
-                        onPressed: exporting
-                            ? null
-                            : () => _export(print: true),
+                        onPressed: exporting ? null : () => _export(print: true),
                         icon: const Icon(Icons.print_outlined),
                         label: const Text('Print'),
                       ),

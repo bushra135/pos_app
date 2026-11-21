@@ -23,12 +23,7 @@ import '../../widgets/scanner_error_panel.dart';
 
 /// Manages store products, images, and low stock alert thresholds.
 class ProductsScreen extends StatefulWidget {
-  const ProductsScreen({
-    super.key,
-    this.firestore,
-    this.currentUserId,
-    this.catalog,
-  });
+  const ProductsScreen({super.key, this.firestore, this.currentUserId, this.catalog});
   final FirebaseFirestore? firestore;
   final String? Function()? currentUserId;
   final BarcodeCatalogService? catalog;
@@ -65,8 +60,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     height: 1.5,
   );
 
-  FirebaseFirestore get _firestore =>
-      widget.firestore ?? FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore => widget.firestore ?? FirebaseFirestore.instance;
   final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController searchController = TextEditingController();
 
@@ -118,17 +112,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> _productsStream() {
-    return _firestore
-        .collection('products')
-        .where('storeCode', isEqualTo: storeCode)
-        .snapshots();
+    return _firestore.collection('products').where('storeCode', isEqualTo: storeCode).snapshots();
   }
 
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _storeProductDocs(
     QuerySnapshot<Map<String, dynamic>>? snapshot,
   ) {
-    final docs =
-        snapshot?.docs ?? <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    final docs = snapshot?.docs ?? <QueryDocumentSnapshot<Map<String, dynamic>>>[];
 
     // The product list and alerts share store filtering and name sorting.
     final filtered = docs.where((doc) {
@@ -172,8 +162,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   int _minStockFrom(Map<String, dynamic> item) {
     // Support legacy field names without modifying stored records.
-    final value =
-        item['minStock'] ?? item['minQuantity'] ?? item['minimumStock'] ?? 5;
+    final value = item['minStock'] ?? item['minQuantity'] ?? item['minimumStock'] ?? 5;
 
     if (value is num) return value.toInt();
 
@@ -232,12 +221,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                     child: MobileScanner(
                       key: ValueKey(cameraAttempt),
-                      errorBuilder: (context, error, child) =>
-                          ScannerErrorPanel(
-                            error: error,
-                            onRetry: () =>
-                                setScannerState(() => cameraAttempt++),
-                          ),
+                      errorBuilder: (context, error, child) => ScannerErrorPanel(
+                        error: error,
+                        onRetry: () => setScannerState(() => cameraAttempt++),
+                      ),
                       onDetect: (capture) {
                         if (scannedCode != null || capture.barcodes.isEmpty) {
                           return;
@@ -270,10 +257,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     child: Text(
                       'Scan product barcode',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.surface,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: TextStyle(color: AppColors.surface, fontWeight: FontWeight.w700),
                     ),
                   ),
                 ],
@@ -322,29 +306,15 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final productFirestore = _firestore;
     final catalogue = widget.catalog ?? BarcodeCatalogService.shared;
     final messenger = ScaffoldMessenger.of(context);
-    final nameController = TextEditingController(
-      text: product?['name']?.toString() ?? '',
-    );
-    final categoryController = TextEditingController(
-      text: product?['category']?.toString() ?? '',
-    );
-    final priceController = TextEditingController(
-      text: product?['price']?.toString() ?? '',
-    );
-    final stockController = TextEditingController(
-      text: product?['stock']?.toString() ?? '',
-    );
+    final nameController = TextEditingController(text: product?['name']?.toString() ?? '');
+    final categoryController = TextEditingController(text: product?['category']?.toString() ?? '');
+    final priceController = TextEditingController(text: product?['price']?.toString() ?? '');
+    final stockController = TextEditingController(text: product?['stock']?.toString() ?? '');
     final minStockController = TextEditingController(
-      text:
-          (product?['minStock'] ??
-                  product?['minQuantity'] ??
-                  product?['minimumStock'] ??
-                  5)
-              .toString(),
+      text: (product?['minStock'] ?? product?['minQuantity'] ?? product?['minimumStock'] ?? 5)
+          .toString(),
     );
-    final barcodeController = TextEditingController(
-      text: product?['barcode']?.toString() ?? '',
-    );
+    final barcodeController = TextEditingController(text: product?['barcode']?.toString() ?? '');
     final existingImage = product?['image']?.toString().trim() ?? '';
     final imageController = TextEditingController(
       // Embedded image data belongs in the preview, not in the URL text field.
@@ -391,20 +361,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 );
                 if (image == null || !context.mounted) return;
 
-                final bytes = await image.readAsBytes().timeout(
-                  _requestTimeout,
-                );
+                final bytes = await image.readAsBytes().timeout(_requestTimeout);
                 if (!context.mounted) return;
-                final imageData = await ProductImageData.prepare(
-                  bytes,
-                ).timeout(_requestTimeout);
+                final imageData = await ProductImageData.prepare(bytes).timeout(_requestTimeout);
                 if (!context.mounted) return;
 
                 setDialogState(() {
                   preparedImage = imageData;
-                  pickedImageBytes = Uri.parse(
-                    imageData,
-                  ).data!.contentAsBytes();
+                  pickedImageBytes = Uri.parse(imageData).data!.contentAsBytes();
                   imagePreviewUrl = '';
                   imageController.clear();
                 });
@@ -426,12 +390,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
               if (isSavingProduct || isChoosingImage || isLookingUp) return;
               final String name = nameController.text.trim();
               final String category = categoryController.text.trim();
-              final double? price = double.tryParse(
-                priceController.text.trim(),
-              );
+              final double? price = double.tryParse(priceController.text.trim());
               final int? stock = int.tryParse(stockController.text.trim());
-              final int minStock =
-                  int.tryParse(minStockController.text.trim()) ?? 5;
+              final int minStock = int.tryParse(minStockController.text.trim()) ?? 5;
               final String barcode = barcodeController.text.trim();
 
               if (storeCode.isEmpty) {
@@ -471,16 +432,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 if (!context.mounted) return;
 
                 // Barcodes must be unique within the store, excluding the product being edited.
-                final bool barcodeExists = duplicateBarcodeQuery.docs.any((
-                  doc,
-                ) {
+                final bool barcodeExists = duplicateBarcodeQuery.docs.any((doc) {
                   final data = doc.data();
-                  final productStoreCode = (data['storeCode'] ?? '')
-                      .toString()
-                      .trim();
+                  final productStoreCode = (data['storeCode'] ?? '').toString().trim();
 
-                  return doc.id != productRef.id &&
-                      productStoreCode == storeCode;
+                  return doc.id != productRef.id && productStoreCode == storeCode;
                 });
 
                 if (barcodeExists) {
@@ -514,10 +470,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   await productRef.update(productData).timeout(_requestTimeout);
                 } else {
                   await productRef
-                      .set({
-                        ...productData,
-                        'createdAt': FieldValue.serverTimestamp(),
-                      })
+                      .set({...productData, 'createdAt': FieldValue.serverTimestamp()})
                       .timeout(_requestTimeout);
                 }
                 if (!context.mounted) return;
@@ -527,9 +480,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   messenger.showSnackBar(
                     SnackBar(
                       content: Text(
-                        isEdit
-                            ? 'Product updated successfully'
-                            : 'Product added successfully',
+                        isEdit ? 'Product updated successfully' : 'Product added successfully',
                       ),
                     ),
                   );
@@ -537,9 +488,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               } catch (e) {
                 debugPrint('Product save error: $e');
                 if (!context.mounted) return;
-                setDialogState(
-                  () => saveError = _productSaveError(e, saveStage),
-                );
+                setDialogState(() => saveError = _productSaveError(e, saveStage));
               } finally {
                 if (context.mounted) {
                   setDialogState(() => isSavingProduct = false);
@@ -547,8 +496,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               }
             }
 
-            final hasImage =
-                pickedImageBytes != null || imagePreviewUrl.trim().isNotEmpty;
+            final hasImage = pickedImageBytes != null || imagePreviewUrl.trim().isNotEmpty;
             final isBusy = isSavingProduct || isChoosingImage || isLookingUp;
 
             return PopScope(
@@ -561,9 +509,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     padding: const EdgeInsets.all(22),
                     decoration: BoxDecoration(
                       color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(
-                        AppSpacing.cardRadius,
-                      ),
+                      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                       boxShadow: [
                         BoxShadow(
                           color: AppColors.text.withValues(alpha: 0.08),
@@ -603,9 +549,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 height: 56,
                                 decoration: BoxDecoration(
                                   color: AppColors.soft,
-                                  borderRadius: BorderRadius.circular(
-                                    AppSpacing.controlRadius,
-                                  ),
+                                  borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                                 ),
                                 child: IconButton(
                                   icon: const Icon(
@@ -615,22 +559,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                   onPressed: isBusy
                                       ? null
                                       : () async {
-                                          final result = await _scanBarcode(
-                                            context,
-                                          );
+                                          final result = await _scanBarcode(context);
 
-                                          if (result != null &&
-                                              context.mounted) {
-                                            if (barcodeController.text.trim() !=
-                                                result) {
+                                          if (result != null && context.mounted) {
+                                            if (barcodeController.text.trim() != result) {
                                               setDialogState(() {
                                                 catalogueSource = null;
                                               });
                                             }
                                             barcodeController.text = result;
                                             if (!isEdit) {
-                                              await lookupKey.currentState
-                                                  ?.lookup();
+                                              await lookupKey.currentState?.lookup();
                                             }
                                           }
                                         },
@@ -679,10 +618,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             padding: const EdgeInsets.only(top: 6, bottom: 12),
                             child: SelectableText(
                               'Source: ${catalogueSource!['provider']} · data ODbL · images CC BY-SA\n${catalogueSource!['url']}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.muted,
-                              ),
+                              style: const TextStyle(fontSize: 11, color: AppColors.muted),
                             ),
                           ),
                         _buildField(
@@ -692,12 +628,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           onChanged: (value) {
                             if (categoryManuallyEdited) return;
                             final current = categoryController.text.trim();
-                            if (current.isNotEmpty &&
-                                current != automaticCategory) {
+                            if (current.isNotEmpty && current != automaticCategory) {
                               return;
                             }
-                            final suggestion =
-                                ProductCategorySuggestion.fromName(value);
+                            final suggestion = ProductCategorySuggestion.fromName(value);
                             setDialogState(() {
                               automaticCategory = suggestion;
                               categoryController.text = suggestion ?? '';
@@ -718,19 +652,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             padding: EdgeInsets.only(bottom: 12),
                             child: Text(
                               'Suggested from product name · you can change it',
-                              style: TextStyle(
-                                color: AppColors.muted,
-                                fontSize: 12,
-                              ),
+                              style: TextStyle(color: AppColors.muted, fontSize: 12),
                             ),
                           ),
                         _buildField(
                           priceController,
                           'Price',
                           enabled: !isBusy,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         ),
                         _buildField(
                           stockController,
@@ -768,22 +697,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 onPressed: isBusy ? null : chooseImage,
                                 icon: const Icon(Icons.upload_file_rounded),
                                 label: Text(
-                                  isChoosingImage
-                                      ? 'Preparing image...'
-                                      : 'Choose Image',
+                                  isChoosingImage ? 'Preparing image...' : 'Choose Image',
                                 ),
                                 style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                  side: const BorderSide(
-                                    color: AppColors.primaryDark,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  side: const BorderSide(color: AppColors.primaryDark),
                                   foregroundColor: AppColors.primaryDark,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      AppSpacing.controlRadius,
-                                    ),
+                                    borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                                   ),
                                 ),
                               ),
@@ -805,15 +726,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                   icon: const Icon(Icons.close_rounded),
                                   label: const Text('Remove'),
                                   style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
                                     side: BorderSide(color: AppColors.border),
                                     foregroundColor: AppColors.text,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(
-                                        AppSpacing.controlRadius,
-                                      ),
+                                      borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                                     ),
                                   ),
                                 ),
@@ -825,9 +742,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         if (isSavingProduct) ...[
                           Text(
                             '$saveStage...',
-                            style: const TextStyle(
-                              color: AppColors.primaryDark,
-                            ),
+                            style: const TextStyle(color: AppColors.primaryDark),
                           ),
                           const SizedBox(height: 8),
                           LinearProgressIndicator(
@@ -838,28 +753,19 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           const SizedBox(height: 14),
                         ],
                         if (saveError != null) ...[
-                          Text(
-                            saveError!,
-                            style: const TextStyle(color: AppColors.danger),
-                          ),
+                          Text(saveError!, style: const TextStyle(color: AppColors.danger)),
                           const SizedBox(height: 14),
                         ],
                         Row(
                           children: [
                             Expanded(
                               child: OutlinedButton(
-                                onPressed: isSavingProduct
-                                    ? null
-                                    : () => Navigator.pop(context),
+                                onPressed: isSavingProduct ? null : () => Navigator.pop(context),
                                 style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 15,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 15),
                                   side: BorderSide(color: AppColors.border),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      AppSpacing.controlRadius,
-                                    ),
+                                    borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                                   ),
                                 ),
                                 child: const Text(
@@ -877,13 +783,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 onPressed: isBusy ? null : saveProduct,
                                 style: ElevatedButton.styleFrom(
                                   elevation: 2,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 15,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 15),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      AppSpacing.controlRadius,
-                                    ),
+                                    borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                                   ),
                                 ),
                                 child: isSavingProduct
@@ -940,11 +842,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ? ProductImage(
               source: cleanUrl,
               placeholder: const Center(
-                child: Icon(
-                  Icons.broken_image_rounded,
-                  color: AppColors.muted,
-                  size: 42,
-                ),
+                child: Icon(Icons.broken_image_rounded, color: AppColors.muted, size: 42),
               ),
             )
           : const Column(
@@ -954,10 +852,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 SizedBox(height: 8),
                 Text(
                   'Add image by URL or upload from device',
-                  style: TextStyle(
-                    color: AppColors.muted,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -1012,10 +907,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 const Text('Existing receipts will stay in sales history.'),
                 if (errorMessage != null) ...[
                   const SizedBox(height: 12),
-                  Text(
-                    errorMessage!,
-                    style: const TextStyle(color: AppColors.danger),
-                  ),
+                  Text(errorMessage!, style: const TextStyle(color: AppColors.danger)),
                 ],
               ],
             ),
@@ -1045,8 +937,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             deleting = false;
                             errorMessage = error is TimeoutException
                                 ? 'Delete confirmation timed out. Refresh products before retrying.'
-                                : error is FirebaseException &&
-                                      error.code == 'permission-denied'
+                                : error is FirebaseException && error.code == 'permission-denied'
                                 ? 'You do not have permission to delete this product. Check your store account access.'
                                 : 'Could not delete the product. Check your connection and try again.';
                           });
@@ -1064,9 +955,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
-  void _showLowStockSheet(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> lowStockDocs,
-  ) {
+  void _showLowStockSheet(List<QueryDocumentSnapshot<Map<String, dynamic>>> lowStockDocs) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -1107,10 +996,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           color: lowStockDocs.isEmpty
                               ? AppColors.success.withValues(alpha: 0.12)
@@ -1120,9 +1006,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         child: Text(
                           '${lowStockDocs.length}',
                           style: TextStyle(
-                            color: lowStockDocs.isEmpty
-                                ? AppColors.success
-                                : AppColors.danger,
+                            color: lowStockDocs.isEmpty ? AppColors.success : AppColors.danger,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -1135,17 +1019,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         ? const Center(
                             child: Text(
                               'No low stock products right now',
-                              style: TextStyle(
-                                color: AppColors.muted,
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
                             ),
                           )
                         : ListView.separated(
                             controller: scrollController,
                             itemCount: lowStockDocs.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 10),
+                            separatorBuilder: (_, _) => const SizedBox(height: 10),
                             itemBuilder: (context, index) {
                               final doc = lowStockDocs[index];
                               final item = doc.data();
@@ -1154,35 +1034,22 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               final image = (item['image'] ?? '').toString();
                               final stock = _stockFrom(item);
                               final minStock = _minStockFrom(item);
-                              final status = stock <= 0
-                                  ? 'Out of stock'
-                                  : 'Low stock';
+                              final status = stock <= 0 ? 'Out of stock' : 'Low stock';
 
                               return Material(
                                 color: AppColors.surface,
-                                borderRadius: BorderRadius.circular(
-                                  AppSpacing.cardRadius,
-                                ),
+                                borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                                 child: InkWell(
-                                  borderRadius: BorderRadius.circular(
-                                    AppSpacing.cardRadius,
-                                  ),
+                                  borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    _showProductDialog(
-                                      docId: doc.id,
-                                      product: item,
-                                    );
+                                    _showProductDialog(docId: doc.id, product: item);
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.all(14),
                                     decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(
-                                        AppSpacing.cardRadius,
-                                      ),
-                                      border: Border.all(
-                                        color: AppColors.border,
-                                      ),
+                                      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                                      border: Border.all(color: AppColors.border),
                                     ),
                                     child: Row(
                                       children: [
@@ -1190,8 +1057,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                         const SizedBox(width: 12),
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
+                                            crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 name,
@@ -1210,8 +1076,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                                       ? AppColors.danger
                                                       : AppColors.warning,
                                                   fontWeight: FontWeight.w700,
-                                                  fontSize:
-                                                      AppTypography.caption,
+                                                  fontSize: AppTypography.caption,
                                                 ),
                                               ),
                                             ],
@@ -1259,9 +1124,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 tooltip: 'Low stock alerts',
                 onPressed: () => _showLowStockSheet(lowDocs),
                 icon: Icon(
-                  count > 0
-                      ? Icons.notifications_active_rounded
-                      : Icons.notifications_none_rounded,
+                  count > 0 ? Icons.notifications_active_rounded : Icons.notifications_none_rounded,
                   color: count > 0 ? AppColors.danger : AppColors.text,
                 ),
               ),
@@ -1270,10 +1133,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   right: 6,
                   top: 6,
                   child: Container(
-                    constraints: const BoxConstraints(
-                      minWidth: 18,
-                      minHeight: 18,
-                    ),
+                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
                     padding: const EdgeInsets.symmetric(horizontal: 5),
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
@@ -1303,11 +1163,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final image = ProductImage(
       source: imageUrl,
       fit: BoxFit.contain,
-      placeholder: const Icon(
-        Icons.inventory_2_outlined,
-        color: AppColors.muted,
-        size: 36,
-      ),
+      placeholder: const Icon(Icons.inventory_2_outlined, color: AppColors.muted, size: 36),
     );
 
     if (!expanded) {
@@ -1316,11 +1172,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
-      child: SizedBox(
-        width: double.infinity,
-        height: _imageHeight,
-        child: image,
-      ),
+      child: SizedBox(width: double.infinity, height: _imageHeight, child: image),
     );
   }
 
@@ -1381,12 +1233,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
     final contentWidth = cardWidth - _cardPadding * 2 - 2;
 
-    double measure(
-      String text,
-      TextStyle style, {
-      double inset = 0,
-      int? maxLines,
-    }) {
+    double measure(String text, TextStyle style, {double inset = 0, int? maxLines}) {
       painter.maxLines = maxLines;
       painter.text = TextSpan(text: text, style: style);
       painter.layout(maxWidth: math.max(1, contentWidth - inset));
@@ -1399,9 +1246,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       final item = doc.data();
       final stockStyle = _productStockStyle.copyWith(
         color: _stockColor(item),
-        fontWeight: _stockFrom(item) <= _minStockFrom(item)
-            ? FontWeight.w600
-            : FontWeight.w400,
+        fontWeight: _stockFrom(item) <= _minStockFrom(item) ? FontWeight.w600 : FontWeight.w400,
       );
       final headerHeight = math.max(
         _actionExtent,
@@ -1416,8 +1261,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         measure(_priceLabel(item), _productPriceStyle),
         measure(_stockText(item), stockStyle, inset: 16) + 8,
       );
-      final height =
-          _cardPadding * 2 + _imageHeight + headerHeight + footerHeight + 18;
+      final height = _cardPadding * 2 + _imageHeight + headerHeight + footerHeight + 18;
       if (height > extent) extent = height;
     }
     painter.dispose();
@@ -1469,10 +1313,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             : storeCode.isEmpty
             ? const Center(child: Text('Store code not found'))
             : Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 child: Column(
                   children: [
                     TextField(
@@ -1487,13 +1328,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         prefixIcon: const Icon(Icons.search),
                         filled: true,
                         fillColor: AppColors.surface,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 10,
-                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppSpacing.cardRadius,
-                          ),
+                          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                           borderSide: BorderSide.none,
                         ),
                       ),
@@ -1503,17 +1340,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                         stream: _productsStream(),
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                              ConnectionState.waiting) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
                           }
 
                           if (snapshot.hasError) {
-                            return const Center(
-                              child: Text('Something went wrong'),
-                            );
+                            return const Center(child: Text('Something went wrong'));
                           }
 
                           final docs = _storeProductDocs(snapshot.data);
@@ -1521,15 +1353,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           final filteredDocs = docs.where((doc) {
                             final item = doc.data();
 
-                            final String name = (item['name'] ?? '')
-                                .toString()
-                                .toLowerCase();
+                            final String name = (item['name'] ?? '').toString().toLowerCase();
                             final String category = (item['category'] ?? '')
                                 .toString()
                                 .toLowerCase();
-                            final String barcode = (item['barcode'] ?? '')
-                                .toString()
-                                .toLowerCase();
+                            final String barcode = (item['barcode'] ?? '').toString().toLowerCase();
 
                             return searchText.isEmpty ||
                                 name.contains(searchText) ||
@@ -1559,33 +1387,25 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                       .clamp(1, 6)
                                       .toInt();
                               final cardWidth =
-                                  (constraints.maxWidth -
-                                      _gridSpacing * (columns - 1)) /
-                                  columns;
-                              final cardExtent = _productCardExtent(
-                                filteredDocs,
-                                cardWidth,
-                              );
+                                  (constraints.maxWidth - _gridSpacing * (columns - 1)) / columns;
+                              final cardExtent = _productCardExtent(filteredDocs, cardWidth);
 
                               return GridView.builder(
                                 padding: const EdgeInsets.only(bottom: 90),
                                 itemCount: filteredDocs.length,
-                                gridDelegate:
-                                    SliverGridDelegateWithFixedCrossAxisCount(
-                                      crossAxisCount: columns,
-                                      crossAxisSpacing: _gridSpacing,
-                                      mainAxisSpacing: _gridSpacing,
-                                      mainAxisExtent: cardExtent,
-                                    ),
+                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: columns,
+                                  crossAxisSpacing: _gridSpacing,
+                                  mainAxisSpacing: _gridSpacing,
+                                  mainAxisExtent: cardExtent,
+                                ),
                                 itemBuilder: (context, index) {
                                   final doc = filteredDocs[index];
                                   final item = doc.data();
                                   final String docId = doc.id;
 
-                                  final String name = (item['name'] ?? '')
-                                      .toString();
-                                  final String image = (item['image'] ?? '')
-                                      .toString();
+                                  final String name = (item['name'] ?? '').toString();
+                                  final String image = (item['image'] ?? '').toString();
 
                                   final stockText = _stockText(item);
                                   final stockColor = _stockColor(item);
@@ -1596,32 +1416,24 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                       color: AppColors.surface,
                                       borderRadius: BorderRadius.circular(16),
                                       border: Border.all(
-                                        color: AppColors.border.withValues(
-                                          alpha: 0.35,
-                                        ),
+                                        color: AppColors.border.withValues(alpha: 0.35),
                                       ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: AppColors.text.withValues(
-                                            alpha: 0.04,
-                                          ),
+                                          color: AppColors.text.withValues(alpha: 0.04),
                                           blurRadius: 10,
                                           offset: const Offset(0, 3),
                                         ),
                                       ],
                                     ),
                                     child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         _productCardHeader(
                                           name,
-                                          onEdit: () => _showProductDialog(
-                                            docId: docId,
-                                            product: item,
-                                          ),
-                                          onDelete: () =>
-                                              _showDeleteDialog(docId, name),
+                                          onEdit: () =>
+                                              _showProductDialog(docId: docId, product: item),
+                                          onDelete: () => _showDeleteDialog(docId, name),
                                         ),
                                         const SizedBox(height: 6),
                                         _productImage(image, expanded: true),
@@ -1635,31 +1447,23 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                               ),
                                             ),
                                             Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 4,
-                                                  ),
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 4,
+                                              ),
                                               decoration: BoxDecoration(
-                                                color: stockColor.withValues(
-                                                  alpha: 0.1,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
+                                                color: stockColor.withValues(alpha: 0.1),
+                                                borderRadius: BorderRadius.circular(8),
                                               ),
                                               child: Text(
                                                 stockText,
-                                                style: _productStockStyle
-                                                    .copyWith(
-                                                      color: stockColor,
-                                                      fontWeight:
-                                                          _stockFrom(item) <=
-                                                              _minStockFrom(
-                                                                item,
-                                                              )
-                                                          ? FontWeight.w600
-                                                          : FontWeight.w400,
-                                                    ),
+                                                style: _productStockStyle.copyWith(
+                                                  color: stockColor,
+                                                  fontWeight:
+                                                      _stockFrom(item) <= _minStockFrom(item)
+                                                      ? FontWeight.w600
+                                                      : FontWeight.w400,
+                                                ),
                                               ),
                                             ),
                                           ],

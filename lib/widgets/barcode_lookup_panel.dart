@@ -67,15 +67,10 @@ class BarcodeLookupPanelState extends State<BarcodeLookupPanel> {
       if (mounted && generation == _generation) _generation++;
     });
     try {
-      final product = await widget.catalog
-          .lookup(code)
-          .timeout(const Duration(seconds: 4));
+      final product = await widget.catalog.lookup(code).timeout(const Duration(seconds: 4));
       if (!mounted || generation != _generation) return;
       if (widget.barcode.text.trim() != code) {
-        _finish(
-          generation,
-          'Barcode changed. Search again for the new barcode.',
-        );
+        _finish(generation, 'Barcode changed. Search again for the new barcode.');
         return;
       }
       if (product == null) {
@@ -93,16 +88,10 @@ class BarcodeLookupPanelState extends State<BarcodeLookupPanel> {
     } on CatalogLookupException catch (error) {
       _finish(generation, error.message);
     } on TimeoutException {
-      _finish(
-        generation,
-        'Product lookup timed out. Try again or enter the details manually.',
-      );
+      _finish(generation, 'Product lookup timed out. Try again or enter the details manually.');
     } catch (error, stack) {
       debugPrint('Catalogue lookup failed: $error $stack');
-      _finish(
-        generation,
-        'Lookup failed. Check your connection or enter the details manually.',
-      );
+      _finish(generation, 'Lookup failed. Check your connection or enter the details manually.');
     }
   }
 

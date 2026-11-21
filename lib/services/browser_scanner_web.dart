@@ -10,10 +10,7 @@ Future<String?> scanBrowserBarcode() async {
 }
 
 @JS('ShopPadBrowserScanner.open')
-external JSPromise<JSAny?> _openCheckout(
-  JSFunction onBarcode,
-  JSString summary,
-);
+external JSPromise<JSAny?> _openCheckout(JSFunction onBarcode, JSString summary);
 @JS('ShopPadBrowserScanner.close')
 external void closeBrowserScanner();
 
@@ -31,5 +28,4 @@ Future<bool> scanBrowserCheckout({
 
 @JS('ShopPadBrowserScanner.position')
 external void positionBrowserScanner(JSString bounds);
-void positionBrowserCamera(String bounds) =>
-    positionBrowserScanner(bounds.toJS);
+void positionBrowserCamera(String bounds) => positionBrowserScanner(bounds.toJS);

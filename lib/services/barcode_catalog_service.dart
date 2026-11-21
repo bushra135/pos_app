@@ -79,9 +79,7 @@ class BarcodeCatalogService {
 
   Future<CatalogProduct?> _fetch(String code) async {
     final now = _now();
-    _requests.removeWhere(
-      (time) => now.difference(time) >= const Duration(minutes: 1),
-    );
+    _requests.removeWhere((time) => now.difference(time) >= const Duration(minutes: 1));
     if (_requests.length >= 15) {
       throw const CatalogLookupException(
         'Please wait a minute before looking up more products. Manual entry is still available.',
@@ -178,9 +176,7 @@ class BarcodeCatalogService {
   CatalogProduct? _remember(String code, CatalogProduct? product) {
     if (_cache.length >= 100) _cache.remove(_cache.keys.first);
     _cache[code] = (
-      expires: _now().add(
-        product == null ? const Duration(minutes: 5) : const Duration(hours: 1),
-      ),
+      expires: _now().add(product == null ? const Duration(minutes: 5) : const Duration(hours: 1)),
       product: product,
     );
     return product;

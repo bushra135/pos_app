@@ -31,11 +31,7 @@ class LocalPosStore {
   Future<Map<String, Object?>?> cartState(String uid, String code) =>
       _cartSessions.record(_cartKey(uid, code)).get(database);
 
-  Future<void> saveCartState(
-    String uid,
-    String code,
-    Map<String, Object?> state,
-  ) async {
+  Future<void> saveCartState(String uid, String code, Map<String, Object?> state) async {
     await _cartSessions.record(_cartKey(uid, code)).put(database, state);
   }
 
@@ -43,8 +39,7 @@ class LocalPosStore {
   final _contexts = stringMapStoreFactory.store('cashier_contexts');
   final _products = stringMapStoreFactory.store('products');
 
-  static Future<LocalPosStore> open() async =>
-      LocalPosStore(await openLocalPosDatabase());
+  static Future<LocalPosStore> open() async => LocalPosStore(await openLocalPosDatabase());
 
   Finder _scope(String cashierUid, String storeCode) => Finder(
     filter: Filter.and([
@@ -54,23 +49,13 @@ class LocalPosStore {
     sortOrders: [SortOrder('sale.createdAt'), SortOrder('sale.id')],
   );
 
-  Stream<List<PendingSale>> watchSales(String cashierUid, String storeCode) =>
-      _sales
-          .query(finder: _scope(cashierUid, storeCode))
-          .onSnapshots(database)
-          .map(
-            (rows) =>
-                rows.map((row) => PendingSale.fromJson(row.value)).toList(),
-          );
+  Stream<List<PendingSale>> watchSales(String cashierUid, String storeCode) => _sales
+      .query(finder: _scope(cashierUid, storeCode))
+      .onSnapshots(database)
+      .map((rows) => rows.map((row) => PendingSale.fromJson(row.value)).toList());
 
-  Future<List<PendingSale>> pendingSales(
-    String cashierUid,
-    String storeCode,
-  ) async {
-    final rows = await _sales.find(
-      database,
-      finder: _scope(cashierUid, storeCode),
-    );
+  Future<List<PendingSale>> pendingSales(String cashierUid, String storeCode) async {
+    final rows = await _sales.find(database, finder: _scope(cashierUid, storeCode));
     return rows.map((row) => PendingSale.fromJson(row.value)).toList();
   }
 
@@ -99,9 +84,7 @@ class LocalPosStore {
         }
         return;
       }
-      if (sale.items.isEmpty ||
-          sale.storeCode.isEmpty ||
-          sale.cashierUid.isEmpty) {
+      if (sale.items.isEmpty || sale.storeCode.isEmpty || sale.cashierUid.isEmpty) {
         throw StateError('A sale must have a store, cashier and items.');
       }
       final quantities = <String, int>{};
@@ -128,16 +111,11 @@ class LocalPosStore {
             .record(_productKey(sale.storeCode, entry.key))
             .get(transaction);
         if (product == null) {
-          throw StateError(
-            'This product is not available in the offline catalogue.',
-          );
+          throw StateError('This product is not available in the offline catalogue.');
         }
         final value = product['stock'] ?? product['quantity'];
         final stock = value is num ? value : num.tryParse(value.toString());
-        if (stock == null ||
-            !stock.isFinite ||
-            stock < 0 ||
-            stock != stock.toInt()) {
+        if (stock == null || !stock.isFinite || stock < 0 || stock != stock.toInt()) {
           throw StateError('This product has invalid stock data.');
         }
         final reserved = pending.fold<int>(
@@ -153,9 +131,7 @@ class LocalPosStore {
         }
       }
       await record.put(transaction, {'sale': sale.toJson()});
-      final cart = _cartSessions.record(
-        _cartKey(sale.cashierUid, sale.storeCode),
-      );
+      final cart = _cartSessions.record(_cartKey(sale.cashierUid, sale.storeCode));
       final draft = await cart.get(transaction);
       if (draft != null) {
         await cart.put(transaction, {...draft, 'active': <Object?>[]});
@@ -187,11 +163,7 @@ class LocalPosStore {
     });
   }
 
-  Future<int> reservedQuantity(
-    String cashierUid,
-    String storeCode,
-    String productId,
-  ) async {
+  Future<int> reservedQuantity(String cashierUid, String storeCode, String productId) async {
     final sales = await pendingSales(cashierUid, storeCode);
     return sales.fold<int>(
       0,
@@ -220,10 +192,7 @@ class LocalPosStore {
   }
 
   /// Replace one store's snapshot atomically; another store's cache is untouched.
-  Future<void> cacheProducts(
-    String storeCode,
-    List<Map<String, dynamic>> products,
-  ) async {
+  Future<void> cacheProducts(String storeCode, List<Map<String, dynamic>> products) async {
     if (storeCode.isEmpty ||
         products.any(
           (product) =>
@@ -241,18 +210,12 @@ class LocalPosStore {
       for (final product in products) {
         await _products
             .record(_productKey(storeCode, product['id'] as String))
-            .put(
-              transaction,
-              Map<String, Object?>.from(_jsonValue(product) as Map),
-            );
+            .put(transaction, Map<String, Object?>.from(_jsonValue(product) as Map));
       }
     });
   }
 
-  Future<Map<String, dynamic>?> productByBarcode(
-    String storeCode,
-    String barcode,
-  ) async {
+  Future<Map<String, dynamic>?> productByBarcode(String storeCode, String barcode) async {
     final products = await _products.find(
       database,
       finder: Finder(
@@ -266,29 +229,22 @@ class LocalPosStore {
     if (products.length > 1) {
       throw StateError('Multiple products in this store use this barcode.');
     }
-    return products.isEmpty
-        ? null
-        : Map<String, dynamic>.from(products.single.value);
+    return products.isEmpty ? null : Map<String, dynamic>.from(products.single.value);
   }
 
   Future<Map<String, dynamic>?> productById(String storeCode, String id) async {
-    final product = await _products
-        .record(_productKey(storeCode, id))
-        .get(database);
+    final product = await _products.record(_productKey(storeCode, id)).get(database);
     return product == null ? null : Map<String, dynamic>.from(product);
   }
 
-  static String _productKey(String storeCode, String id) =>
-      jsonEncode([storeCode, id]);
+  static String _productKey(String storeCode, String id) => jsonEncode([storeCode, id]);
 
   // Firestore timestamps cannot be saved in the JSON-based local database.
   static Object? _jsonValue(Object? value) {
     if (value is Timestamp) return value.toDate().toIso8601String();
     if (value is DateTime) return value.toIso8601String();
     if (value is Map) {
-      return value.map(
-        (key, entry) => MapEntry(key.toString(), _jsonValue(entry)),
-      );
+      return value.map((key, entry) => MapEntry(key.toString(), _jsonValue(entry)));
     }
     if (value is Iterable) return value.map(_jsonValue).toList();
     return value;

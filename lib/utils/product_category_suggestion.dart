@@ -8,11 +8,7 @@ class ProductCategorySuggestion {
         .trim();
     if (text.isEmpty) return null;
     // Match phrases first so chocolate milk is not classified as confectionery.
-    for (final phrase in [
-      'chocolate milk',
-      'حليب بالشوكولاتة',
-      'حليب شوكولاتة',
-    ]) {
+    for (final phrase in ['chocolate milk', 'حليب بالشوكولاتة', 'حليب شوكولاتة']) {
       if (text.contains(phrase)) return 'Dairy';
     }
     final matches = <String>{};

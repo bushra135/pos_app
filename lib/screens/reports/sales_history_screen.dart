@@ -33,12 +33,8 @@ class SalesHistoryScreen extends StatefulWidget {
   final FirebaseFirestore? firestore;
   final String? Function()? currentUserId;
   final DateTime Function()? now;
-  final Future<void> Function(String workbookBase64, String filename)?
-  exportReport;
-  final Future<DateTimeRange?> Function(
-    BuildContext context,
-    DateTimeRange? current,
-  )?
+  final Future<void> Function(String workbookBase64, String filename)? exportReport;
+  final Future<DateTimeRange?> Function(BuildContext context, DateTimeRange? current)?
   selectDateRange;
   @override
   State<SalesHistoryScreen> createState() => _SalesHistoryScreenState();
@@ -92,11 +88,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       final uid = _uid;
       if (uid == null) throw StateError('Sign in as the store owner.');
       final profile =
-          (await _db
-                  .collection('users')
-                  .doc(uid)
-                  .get()
-                  .timeout(const Duration(seconds: 10)))
+          (await _db.collection('users').doc(uid).get().timeout(const Duration(seconds: 10)))
               .data();
       if (profile?['role'] != 'owner' ||
           profile?['isActive'] == false ||
@@ -105,9 +97,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       }
       final store = (profile?['storeCode'] ?? '').toString().trim();
       if (store.isEmpty) throw StateError('Store code not found.');
-      final query = _db
-          .collection('sales')
-          .where('storeCode', isEqualTo: store);
+      final query = _db.collection('sales').where('storeCode', isEqualTo: store);
       final results = await Future.wait([
         query.get().timeout(const Duration(seconds: 10)),
         _db
@@ -133,9 +123,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
         },
         onError: (Object error) {
           if (mounted && generation == _generation) {
-            setState(
-              () => _error = 'Could not refresh history. Tap refresh to retry.',
-            );
+            setState(() => _error = 'Could not refresh history. Tap refresh to retry.');
           }
         },
       );
@@ -152,12 +140,8 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   }
 
   void _accept(QuerySnapshot<Map<String, dynamic>> snapshot) {
-    final records =
-        snapshot.docs.map((doc) => _HistorySale(doc.id, doc.data())).toList()
-          ..sort(
-            (a, b) =>
-                (b.date ?? DateTime(1970)).compareTo(a.date ?? DateTime(1970)),
-          );
+    final records = snapshot.docs.map((doc) => _HistorySale(doc.id, doc.data())).toList()
+      ..sort((a, b) => (b.date ?? DateTime(1970)).compareTo(a.date ?? DateTime(1970)));
     setState(() {
       _sales = records;
       if (_product != null && !_productOptions.containsKey(_product)) {
@@ -171,8 +155,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       }
       _loading = false;
       _error = null;
-      if (_cashier != null &&
-          !records.any((sale) => sale.cashierKey == _cashier)) {
+      if (_cashier != null && !records.any((sale) => sale.cashierKey == _cashier)) {
         _cashier = null;
       }
     });
@@ -185,9 +168,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     if (date == null) return false;
     if (_period == 'Custom range' && _dateRange != null) {
       final start = DateUtils.dateOnly(_dateRange!.start);
-      final end = DateUtils.dateOnly(
-        _dateRange!.end,
-      ).add(const Duration(days: 1));
+      final end = DateUtils.dateOnly(_dateRange!.end).add(const Duration(days: 1));
       return !date.isBefore(start) && date.isBefore(end);
     }
     final now = (widget.now?.call() ?? DateTime.now()).toLocal();
@@ -204,8 +185,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   }
 
   int get _extraFilterCount =>
-      [_payment, _product, _status].whereType<String>().length +
-      (_correctionsOnly ? 1 : 0);
+      [_payment, _product, _status].whereType<String>().length + (_correctionsOnly ? 1 : 0);
   Map<String, String> get _productOptions => {
     for (final sale in _sales)
       for (final item in sale.items)
@@ -213,9 +193,8 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
           item,
         ): '${item['name'] ?? item['productName'] ?? 'Item'}${item['barcode'] == null ? '' : ' · ${item['barcode']}'}',
   };
-  List<Map<String, dynamic>> _matchingItems(_HistorySale sale) => sale.items
-      .where((item) => _product == null || _itemKey(item) == _product)
-      .toList();
+  List<Map<String, dynamic>> _matchingItems(_HistorySale sale) =>
+      sale.items.where((item) => _product == null || _itemKey(item) == _product).toList();
   List<_HistorySale> get _filteredSales {
     final query = _query.toLowerCase().trim();
     return _sales
@@ -237,9 +216,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
 
   double _netReceipt(_HistorySale sale) {
     if (!sale.completed) return 0;
-    final refund = _number(
-      sale.data['refund'] ?? sale.data['refundAmount'],
-    ).abs();
+    final refund = _number(sale.data['refund'] ?? sale.data['refundAmount']).abs();
     return sale.refund
         ? -(refund > 0 ? refund : sale.total.abs())
         : math.max(0, sale.total - refund);
@@ -250,10 +227,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       .fold<double>(
         0,
         (total, sale) =>
-            total +
-            _matchingItems(
-              sale,
-            ).fold<double>(0, (units, item) => units + _quantity(item)),
+            total + _matchingItems(sale).fold<double>(0, (units, item) => units + _quantity(item)),
       );
   double _matchingSoldValue(List<_HistorySale> sales) => sales
       .where((sale) => sale.completed && !sale.refund)
@@ -261,10 +235,9 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
         0,
         (total, sale) =>
             total +
-            _matchingItems(sale).fold<double>(
-              0,
-              (value, item) => value + _quantity(item) * _price(item),
-            ),
+            _matchingItems(
+              sale,
+            ).fold<double>(0, (value, item) => value + _quantity(item) * _price(item)),
       );
 
   Future<void> _changePeriod(String value) async {
@@ -327,12 +300,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       builder: (sheet) => StatefulBuilder(
         builder: (sheet, setSheet) => SafeArea(
           child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              20,
-              20,
-              20 + MediaQuery.viewInsetsOf(sheet).bottom,
-            ),
+            padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.viewInsetsOf(sheet).bottom),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -345,21 +313,14 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                 DropdownButtonFormField<String>(
                   initialValue: payment ?? '',
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Payment method',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Payment method'),
                   items: [
-                    const DropdownMenuItem(
-                      value: '',
-                      child: Text('All payments'),
-                    ),
+                    const DropdownMenuItem(value: '', child: Text('All payments')),
                     ...methods.map(
-                      (method) =>
-                          DropdownMenuItem(value: method, child: Text(method)),
+                      (method) => DropdownMenuItem(value: method, child: Text(method)),
                     ),
                   ],
-                  onChanged: (value) =>
-                      setSheet(() => payment = value == '' ? null : value),
+                  onChanged: (value) => setSheet(() => payment = value == '' ? null : value),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
@@ -367,42 +328,26 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'Product'),
                   items: [
-                    const DropdownMenuItem(
-                      value: '',
-                      child: Text('All products'),
-                    ),
+                    const DropdownMenuItem(value: '', child: Text('All products')),
                     ...products.entries.map(
                       (entry) => DropdownMenuItem(
                         value: entry.key,
-                        child: Text(
-                          entry.value,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        child: Text(entry.value, overflow: TextOverflow.ellipsis),
                       ),
                     ),
                   ],
-                  onChanged: (value) =>
-                      setSheet(() => product = value == '' ? null : value),
+                  onChanged: (value) => setSheet(() => product = value == '' ? null : value),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: status ?? '',
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Receipt status',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Receipt status'),
                   items: [
-                    const DropdownMenuItem(
-                      value: '',
-                      child: Text('All statuses'),
-                    ),
-                    ...statuses.map(
-                      (state) =>
-                          DropdownMenuItem(value: state, child: Text(state)),
-                    ),
+                    const DropdownMenuItem(value: '', child: Text('All statuses')),
+                    ...statuses.map((state) => DropdownMenuItem(value: state, child: Text(state))),
                   ],
-                  onChanged: (value) =>
-                      setSheet(() => status = value == '' ? null : value),
+                  onChanged: (value) => setSheet(() => status = value == '' ? null : value),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
@@ -468,9 +413,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
           _number(sale.data['refund'] ?? sale.data['refundAmount']).abs(),
           _netReceipt(sale),
           sale.correctionUnits,
-          _product == null
-              ? 'All products'
-              : _productOptions[_product] ?? 'Selected product',
+          _product == null ? 'All products' : _productOptions[_product] ?? 'Selected product',
           _matchingSoldUnits([sale]),
           _matchingSoldValue([sale]),
           sale.items
@@ -492,18 +435,14 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Filtered report prepared for download. Open the Excel workbook.',
-            ),
+            content: Text('Filtered report prepared for download. Open the Excel workbook.'),
           ),
         );
       }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not prepare the report. Retry the download.'),
-          ),
+          const SnackBar(content: Text('Could not prepare the report. Retry the download.')),
         );
       }
     }
@@ -521,20 +460,13 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
           _profiles[sale.cashierUid]?['role'] == 'owner') {
         continue;
       }
-      final name = (_profiles[sale.cashierUid]?['fullName'] ?? sale.cashierName)
-          .toString();
-      final row = totals.putIfAbsent(
-        sale.cashierKey,
-        () => _CashierTotal(sale.cashierKey, name),
-      );
+      final name = (_profiles[sale.cashierUid]?['fullName'] ?? sale.cashierName).toString();
+      final row = totals.putIfAbsent(sale.cashierKey, () => _CashierTotal(sale.cashierKey, name));
       row.orders++;
       row.fils +=
           (math.max(
                     0,
-                    sale.total -
-                        _number(
-                          sale.data['refund'] ?? sale.data['refundAmount'],
-                        ).abs(),
+                    sale.total - _number(sale.data['refund'] ?? sale.data['refundAmount']).abs(),
                   ) *
                   1000)
               .round();
@@ -584,21 +516,13 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                   initialValue: _period,
                   decoration: const InputDecoration(labelText: 'Period'),
                   isExpanded: true,
-                  items:
-                      [
-                            'All time',
-                            'Today',
-                            'Last 7 days',
-                            'This month',
-                            'Custom range',
-                          ]
-                          .map(
-                            (period) => DropdownMenuItem(
-                              value: period,
-                              child: Text(period),
-                            ),
-                          )
-                          .toList(),
+                  items: [
+                    'All time',
+                    'Today',
+                    'Last 7 days',
+                    'This month',
+                    'Custom range',
+                  ].map((period) => DropdownMenuItem(value: period, child: Text(period))).toList(),
                   onChanged: (value) => _changePeriod(value!),
                 ),
               ),
@@ -606,18 +530,14 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                 Text(
                   '${_dateLabel(_dateRange!.start).split(' ').first} — ${_dateLabel(_dateRange!.end).split(' ').first}',
                 ),
-              Expanded(
-                child: widget.showTopCashiers ? _leaderboard() : _history(),
-              ),
+              Expanded(child: widget.showTopCashiers ? _leaderboard() : _history()),
             ],
           ),
   );
 
   // Receipt list and independent cashier performance presentation.
   Widget _history() {
-    final cashiers = <String, String>{
-      for (final sale in _sales) sale.cashierKey: sale.cashierName,
-    };
+    final cashiers = <String, String>{for (final sale in _sales) sale.cashierKey: sale.cashierName};
     final rows = _filteredSales;
     return Column(
       children: [
@@ -648,8 +568,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                 ),
               ),
             ],
-            onChanged: (value) =>
-                setState(() => _cashier = value == '' ? null : value),
+            onChanged: (value) => setState(() => _cashier = value == '' ? null : value),
           ),
         ),
         Padding(
@@ -661,9 +580,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
               OutlinedButton.icon(
                 onPressed: _showFilters,
                 icon: const Icon(Icons.filter_alt_outlined),
-                label: Text(
-                  'Filters${_extraFilterCount == 0 ? '' : ' ($_extraFilterCount)'}',
-                ),
+                label: Text('Filters${_extraFilterCount == 0 ? '' : ' ($_extraFilterCount)'}'),
               ),
               if (supportsReportDownload || widget.exportReport != null)
                 OutlinedButton.icon(
@@ -705,10 +622,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                     return Card(
                       margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
                       child: ListTile(
-                        title: Text(
-                          sale.receipt,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        title: Text(sale.receipt, overflow: TextOverflow.ellipsis),
                         subtitle: Text(
                           '${sale.cashierName} · ${_dateLabel(sale.date)}\n${sale.method} · ${sale.refund ? 'Refund · ' : ''}${sale.status}',
                         ),
@@ -740,21 +654,12 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
-          child: Text(
-            'No completed cashier sales for this period.',
-            textAlign: TextAlign.center,
-          ),
+          child: Text('No completed cashier sales for this period.', textAlign: TextAlign.center),
         ),
       );
     }
     final tied =
-        rows
-            .where(
-              (row) =>
-                  row.fils == rows.first.fils &&
-                  row.orders == rows.first.orders,
-            )
-            .length >
+        rows.where((row) => row.fils == rows.first.fils && row.orders == rows.first.orders).length >
         1;
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -766,21 +671,14 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
         const SizedBox(height: 12),
         ...rows.asMap().entries.map((entry) {
           final row = entry.value;
-          final duplicateName =
-              rows.where((other) => other.name == row.name).length > 1;
-          final displayName = duplicateName
-              ? '${row.name} · ${_shortId(row.key)}'
-              : row.name;
-          final best =
-              row.fils == rows.first.fils && row.orders == rows.first.orders;
+          final duplicateName = rows.where((other) => other.name == row.name).length > 1;
+          final displayName = duplicateName ? '${row.name} · ${_shortId(row.key)}' : row.name;
+          final best = row.fils == rows.first.fils && row.orders == rows.first.orders;
           return Card(
             color: best ? AppColors.accentSoft : null,
             child: ListTile(
               leading: best
-                  ? const Icon(
-                      Icons.emoji_events_outlined,
-                      color: AppColors.primaryDark,
-                    )
+                  ? const Icon(Icons.emoji_events_outlined, color: AppColors.primaryDark)
                   : Text('${entry.key + 1}'),
               title: Text(
                 '${best ? (tied ? 'Joint top cashier · ' : 'Best cashier · ') : ''}$displayName',
@@ -845,34 +743,22 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                       final price = _number(item['price'] ?? item['unitPrice']);
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: Text(
-                          (item['name'] ?? item['productName'] ?? 'Item')
-                              .toString(),
-                        ),
+                        title: Text((item['name'] ?? item['productName'] ?? 'Item').toString()),
                         subtitle: Text(
                           'Barcode: ${item['barcode'] ?? 'Not recorded'}\n${quantity.toStringAsFixed(0)} × BD ${price.toStringAsFixed(3)}',
                         ),
-                        trailing: Text(
-                          'BD ${(quantity * price).toStringAsFixed(3)}',
-                        ),
+                        trailing: Text('BD ${(quantity * price).toStringAsFixed(3)}'),
                       );
                     }),
                     const Divider(),
-                    Text(
-                      'Discount: BD ${_number(sale.data['discount']).toStringAsFixed(3)}',
-                    ),
-                    Text(
-                      'Tax: BD ${_number(sale.data['tax']).toStringAsFixed(3)}',
-                    ),
+                    Text('Discount: BD ${_number(sale.data['discount']).toStringAsFixed(3)}'),
+                    Text('Tax: BD ${_number(sale.data['tax']).toStringAsFixed(3)}'),
                     Text(
                       'Refund: BD ${_number(sale.data['refund'] ?? sale.data['refundAmount']).abs().toStringAsFixed(3)}',
                     ),
                     Text(
                       'Total: BD ${sale.total.toStringAsFixed(3)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
-                      ),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
                     ),
                     if (sale.data['stockCorrections'] is List) ...[
                       const Divider(),
@@ -880,13 +766,11 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                         'Stock corrections',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      ...(sale.data['stockCorrections'] as List)
-                          .whereType<Map>()
-                          .map(
-                            (row) => Text(
-                              '${row['name'] ?? row['productId']}: ${row['stockBefore']} + ${row['addedQuantity']} − ${row['quantitySold']} = ${row['stockAfter']}',
-                            ),
-                          ),
+                      ...(sale.data['stockCorrections'] as List).whereType<Map>().map(
+                        (row) => Text(
+                          '${row['name'] ?? row['productId']}: ${row['stockBefore']} + ${row['addedQuantity']} − ${row['quantitySold']} = ${row['stockAfter']}',
+                        ),
+                      ),
                     ],
                     if (sale.exportableReceipt != null)
                       Padding(
@@ -930,18 +814,14 @@ class _HistorySale {
   final String id;
   final Map<String, dynamic> data;
   String get receipt => (data['receiptNumber'] ?? 'RCPT-$id').toString();
-  String get cashierUid =>
-      (data['cashierUid'] ?? data['cashierId'] ?? '').toString();
-  String get cashierName =>
-      (data['cashierName'] ?? 'Unknown cashier').toString();
+  String get cashierUid => (data['cashierUid'] ?? data['cashierId'] ?? '').toString();
+  String get cashierName => (data['cashierName'] ?? 'Unknown cashier').toString();
   String get cashierKey => cashierUid.isNotEmpty
       ? cashierUid
       : cashierName == 'Unknown cashier'
       ? 'unknown'
       : 'legacy:$cashierName';
-  String get method =>
-      (data['paymentMethod'] ?? data['paymentType'] ?? 'Not recorded')
-          .toString();
+  String get method => (data['paymentMethod'] ?? data['paymentType'] ?? 'Not recorded').toString();
   String get status => (data['status'] ?? 'completed').toString();
   int get correctionUnits => data['stockCorrectionUnits'] is num
       ? (data['stockCorrectionUnits'] as num).toInt()
@@ -952,14 +832,10 @@ class _HistorySale {
         )
       : 0;
   bool get hasCorrections => correctionUnits > 0;
-  bool get completed =>
-      ['completed', 'confirmed', 'paid'].contains(status.toLowerCase());
+  bool get completed => ['completed', 'confirmed', 'paid'].contains(status.toLowerCase());
   bool get refund =>
-      data['type']?.toString().toLowerCase() == 'refund' ||
-      data['isRefund'] == true ||
-      total < 0;
-  double get total =>
-      _number(data['total'] ?? data['totalAmount'] ?? data['grandTotal']);
+      data['type']?.toString().toLowerCase() == 'refund' || data['isRefund'] == true || total < 0;
+  double get total => _number(data['total'] ?? data['totalAmount'] ?? data['grandTotal']);
   List<Map<String, dynamic>> get items =>
       (data['items'] ?? data['cartItems'] ?? data['products']) is List
       ? ((data['items'] ?? data['cartItems'] ?? data['products']) as List)
@@ -1006,9 +882,7 @@ class _CashierTotal {
 }
 
 double _number(dynamic value) {
-  final parsed = value is num
-      ? value.toDouble()
-      : double.tryParse(value?.toString() ?? '') ?? 0;
+  final parsed = value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '') ?? 0;
   return parsed.isFinite ? parsed : 0;
 }
 
@@ -1018,16 +892,13 @@ String _dateLabel(DateTime? date) {
   return '${pad(date.day)}/${pad(date.month)}/${date.year} ${pad(date.hour)}:${pad(date.minute)}';
 }
 
-String _shortId(String value) =>
-    value.length <= 6 ? value : value.substring(value.length - 6);
+String _shortId(String value) => value.length <= 6 ? value : value.substring(value.length - 6);
 
 String _itemKey(Map<String, dynamic> item) {
   final barcode = (item['barcode'] ?? '').toString().trim();
   if (barcode.isNotEmpty) return 'barcode:$barcode';
   final id = (item['productId'] ?? item['id'] ?? '').toString().trim();
-  return id.isNotEmpty
-      ? 'id:$id'
-      : 'name:${item['name'] ?? item['productName'] ?? 'Item'}';
+  return id.isNotEmpty ? 'id:$id' : 'name:${item['name'] ?? item['productName'] ?? 'Item'}';
 }
 
 double _quantity(Map<String, dynamic> item) =>

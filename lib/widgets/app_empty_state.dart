@@ -3,12 +3,7 @@ import '../app/app_colors.dart';
 
 /// A scrollable empty state that also fits short screens and large text.
 class AppEmptyState extends StatelessWidget {
-  const AppEmptyState({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
+  const AppEmptyState({super.key, required this.icon, required this.title, required this.message});
   final IconData icon;
   final String title;
   final String message;

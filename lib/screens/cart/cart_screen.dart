@@ -40,9 +40,7 @@ class _CartScreenState extends State<CartScreen> {
 
   void _message(String message) {
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -56,15 +54,10 @@ class _CartScreenState extends State<CartScreen> {
         content: TextField(
           onChanged: (value) => note = value,
           maxLength: 60,
-          decoration: const InputDecoration(
-            labelText: 'Customer or note (optional)',
-          ),
+          decoration: const InputDecoration(labelText: 'Customer or note (optional)'),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, note),
             child: const Text('Hold sale'),
@@ -127,8 +120,7 @@ class _CartScreenState extends State<CartScreen> {
                       ? const Center(child: Text('No held sales'))
                       : ListView.separated(
                           itemCount: CartManager.heldSales.length,
-                          separatorBuilder: (_, index) =>
-                              const SizedBox(height: 12),
+                          separatorBuilder: (_, index) => const SizedBox(height: 12),
                           itemBuilder: (_, index) {
                             final row = CartManager.heldSales[index];
                             return Card(
@@ -142,10 +134,7 @@ class _CartScreenState extends State<CartScreen> {
                                   '${(row['items'] as List).length} products · BD ${(row['total'] as num).toStringAsFixed(3)}',
                                 ),
                                 trailing: const Icon(Icons.play_arrow),
-                                onTap: () => Navigator.pop(
-                                  sheetContext,
-                                  row['id'].toString(),
-                                ),
+                                onTap: () => Navigator.pop(sheetContext, row['id'].toString()),
                               ),
                             );
                           },
@@ -179,29 +168,21 @@ class _CartScreenState extends State<CartScreen> {
           runSpacing: 8,
           children: [
             OutlinedButton.icon(
-              onPressed:
-                  _draftBusy ||
-                      CartManager.items.isEmpty ||
-                      !CartManager.canSave
+              onPressed: _draftBusy || CartManager.items.isEmpty || !CartManager.canSave
                   ? null
                   : _holdSale,
               icon: const Icon(Icons.pause_circle_outline),
               label: const Text('Hold sale'),
             ),
             OutlinedButton.icon(
-              onPressed: _draftBusy || !CartManager.canSave
-                  ? null
-                  : _openHeldSales,
+              onPressed: _draftBusy || !CartManager.canSave ? null : _openHeldSales,
               icon: const Icon(Icons.restore),
               label: Text('Held sales (${CartManager.heldSales.length})'),
             ),
           ],
         ),
         if (_draftBusy)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: LinearProgressIndicator(),
-          ),
+          const Padding(padding: EdgeInsets.only(top: 8), child: LinearProgressIndicator()),
         if (CartManager.canSave)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -214,22 +195,16 @@ class _CartScreenState extends State<CartScreen> {
                       ? Icons.sync
                       : Icons.check_circle_outline,
                   size: 16,
-                  color: CartManager.saveError != null
-                      ? AppColors.danger
-                      : AppColors.muted,
+                  color: CartManager.saveError != null ? AppColors.danger : AppColors.muted,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     CartManager.saveError ??
-                        (CartManager.saving
-                            ? 'Saving cart...'
-                            : 'Cart saved on this device'),
+                        (CartManager.saving ? 'Saving cart...' : 'Cart saved on this device'),
                     style: TextStyle(
                       fontSize: AppTypography.caption,
-                      color: CartManager.saveError != null
-                          ? AppColors.danger
-                          : AppColors.muted,
+                      color: CartManager.saveError != null ? AppColors.danger : AppColors.muted,
                     ),
                   ),
                 ),
@@ -239,9 +214,7 @@ class _CartScreenState extends State<CartScreen> {
                       try {
                         await CartManager.flush();
                       } catch (_) {
-                        _message(
-                          'Cart is not saved yet. Check device storage and retry.',
-                        );
+                        _message('Cart is not saved yet. Check device storage and retry.');
                       }
                     },
                     child: const Text('Retry'),
@@ -255,9 +228,7 @@ class _CartScreenState extends State<CartScreen> {
 
   void _checkout() {
     if (CartManager.items.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Cart is empty')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cart is empty')));
       return;
     }
 
@@ -291,12 +262,7 @@ class _CartScreenState extends State<CartScreen> {
           child: Column(
             children: [
               Container(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.page,
-                  14,
-                  AppSpacing.page,
-                  10,
-                ),
+                padding: const EdgeInsets.fromLTRB(AppSpacing.page, 14, AppSpacing.page, 10),
                 child: Row(
                   children: [
                     GestureDetector(
@@ -327,10 +293,7 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: AppColors.primary,
                         borderRadius: BorderRadius.circular(12),
@@ -357,9 +320,7 @@ class _CartScreenState extends State<CartScreen> {
                             'Open Scan to add products using the camera or enter a barcode manually.',
                       )
                     : ListView.builder(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.page,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
                         itemCount: cartItems.length,
                         itemBuilder: (context, index) {
                           final item = cartItems[index];
@@ -369,9 +330,7 @@ class _CartScreenState extends State<CartScreen> {
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
                               color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(
-                                AppSpacing.cardRadius,
-                              ),
+                              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                               boxShadow: [
                                 BoxShadow(
                                   color: AppColors.text.withValues(alpha: 0.04),
@@ -401,8 +360,7 @@ class _CartScreenState extends State<CartScreen> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         item.name,
@@ -469,10 +427,7 @@ class _CartScreenState extends State<CartScreen> {
                                       CartManager.removeItem(index);
                                     });
                                   },
-                                  icon: const Icon(
-                                    Icons.delete,
-                                    color: AppColors.danger,
-                                  ),
+                                  icon: const Icon(Icons.delete, color: AppColors.danger),
                                 ),
                               ],
                             ),
@@ -482,12 +437,7 @@ class _CartScreenState extends State<CartScreen> {
               ),
               if (cartItems.isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.page,
-                    14,
-                    AppSpacing.page,
-                    16,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.page, 14, AppSpacing.page, 16),
                   decoration: const BoxDecoration(
                     color: AppColors.surface,
                     border: Border(top: BorderSide(color: AppColors.border)),
@@ -527,9 +477,7 @@ class _CartScreenState extends State<CartScreen> {
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(vertical: 17),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppSpacing.controlRadius,
-                              ),
+                              borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                             ),
                           ),
                           child: const Text(

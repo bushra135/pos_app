@@ -3,6 +3,33 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pos_app/models/report_sale.dart';
 
 void main() {
+  test('shared sale lines preserve legacy quantities, totals and identity', () {
+    final legacy = ReportSaleItem.fromMap({
+      'productName': 'Book',
+      'barcode': '00123',
+      'qty': '2',
+      'unitPrice': '1.5',
+    });
+    expect(legacy.key, '00123');
+    expect(legacy.name, 'Book');
+    expect(legacy.quantity, 2);
+    expect(legacy.subtotal, 3);
+    final explicit = ReportSaleItem.fromMap({
+      'name': 'Pen',
+      'id': 'p1',
+      'quantity': 0,
+      'qty': 8,
+      'price': 10,
+      'subtotal': 4,
+    });
+    expect(explicit.quantity, 1);
+    expect(explicit.subtotal, 4);
+    expect(explicit.key, 'p1');
+    final empty = ReportSaleItem.fromMap({});
+    expect(empty.name, 'Unknown Product');
+    expect(empty.quantity, 1);
+    expect(empty.subtotal, 0);
+  });
   group('Shared report interpretation', () {
     test('current sale keeps amounts and line data', () {
       final sale = ReportSale.fromMap({
@@ -45,11 +72,7 @@ void main() {
       expect(sale.grossSales, 0);
       expect(sale.refund, 6);
       expect(sale.netSales, -6);
-      final partial = ReportSale.fromMap({
-        'status': 'refunded',
-        'total': 6,
-        'refundAmount': 2,
-      });
+      final partial = ReportSale.fromMap({'status': 'refunded', 'total': 6, 'refundAmount': 2});
       expect(partial.netSales, -2);
     });
     test('item identity and date compatibility remain stable', () {

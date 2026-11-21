@@ -38,8 +38,7 @@ class _ProductImageState extends State<ProductImage> {
     try {
       if (source.startsWith('data:image/')) {
         _provider = MemoryImage(Uri.parse(source).data!.contentAsBytes());
-      } else if (source.startsWith('https://') ||
-          source.startsWith('http://')) {
+      } else if (source.startsWith('https://') || source.startsWith('http://')) {
         _provider = NetworkImage(source);
       }
     } on FormatException {

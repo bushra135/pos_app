@@ -3,11 +3,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 /// Keeps camera failures recoverable and shows the browser's actual reason.
 class ScannerErrorPanel extends StatelessWidget {
-  const ScannerErrorPanel({
-    super.key,
-    required this.error,
-    required this.onRetry,
-  });
+  const ScannerErrorPanel({super.key, required this.error, required this.onRetry});
   final MobileScannerException error;
   final VoidCallback onRetry;
 
@@ -23,11 +19,7 @@ class ScannerErrorPanel extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.videocam_off_outlined,
-                color: Colors.white,
-                size: 32,
-              ),
+              const Icon(Icons.videocam_off_outlined, color: Colors.white, size: 32),
               const SizedBox(height: 12),
               Text(
                 denied

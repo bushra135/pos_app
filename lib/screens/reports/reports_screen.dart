@@ -32,8 +32,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   String? get _uid => widget.currentUserId != null
       ? widget.currentUserId!()
       : FirebaseAuth.instance.currentUser?.uid;
-  FirebaseFirestore get _firestore =>
-      widget.firestore ?? FirebaseFirestore.instance;
+  FirebaseFirestore get _firestore => widget.firestore ?? FirebaseFirestore.instance;
   static const _requestTimeout = Duration(seconds: 10);
 
   ReportPeriod _selectedPeriod = ReportPeriod.week;
@@ -64,11 +63,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       final uid = _uid;
       if (uid == null) throw Exception('No user');
 
-      final userDoc = await _firestore
-          .collection('users')
-          .doc(uid)
-          .get()
-          .timeout(_requestTimeout);
+      final userDoc = await _firestore.collection('users').doc(uid).get().timeout(_requestTimeout);
       final storeCode = (userDoc.data()?['storeCode'] ?? '').toString().trim();
 
       if (storeCode.isEmpty) throw Exception('Store code not found');
@@ -86,9 +81,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           .timeout(_requestTimeout);
 
       final storeProducts = productsSnapshot.docs.where((doc) {
-        final productStoreCode = (doc.data()['storeCode'] ?? '')
-            .toString()
-            .trim();
+        final productStoreCode = (doc.data()['storeCode'] ?? '').toString().trim();
         return productStoreCode == storeCode;
       }).toList();
 
@@ -129,8 +122,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     // Seed inventory first so unsold products appear among the least-selling items.
     for (final doc in _productDocuments) {
       final data = doc.data();
-      final name = (data['name'] ?? data['productName'] ?? 'Unknown Product')
-          .toString();
+      final name = (data['name'] ?? data['productName'] ?? 'Unknown Product').toString();
 
       final key = reportProductKey(data, name);
       productSales[key] = _ProductSales(name: name);
@@ -162,31 +154,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
         paymentMethods[sale.paymentMethod] =
             (paymentMethods[sale.paymentMethod] ?? 0) + sale.netSales;
 
-        for (final item in sale.items) {
-          final name =
-              (item['name'] ??
-                      item['productName'] ??
-                      item['title'] ??
-                      'Unknown Product')
-                  .toString();
-
-          final key = reportProductKey(item, name);
-          final quantity = reportNumber(item, ['quantity', 'qty', 'count']);
-          final price = reportNumber(item, ['price', 'unitPrice', 'salePrice']);
-          final itemTotal = reportNumber(item, [
-            'subtotal',
-            'total',
-            'lineTotal',
-          ]);
-
-          final safeQuantity = quantity <= 0 ? 1.0 : quantity;
-          final revenue = itemTotal > 0 ? itemTotal : price * safeQuantity;
-
-          final product = productSales[key] ?? _ProductSales(name: name);
-
-          product.quantity += safeQuantity;
-          product.revenue += revenue;
-          productSales[key] = product;
+        for (final rawItem in sale.items) {
+          final item = ReportSaleItem.fromMap(rawItem);
+          final product = productSales[item.key] ?? _ProductSales(name: item.name);
+          product.quantity += item.quantity;
+          product.revenue += item.subtotal;
+          productSales[item.key] = product;
         }
       }
     }
@@ -207,13 +180,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
         return a.revenue.compareTo(b.revenue);
       });
 
-    final topRevenue = productSales.values.toList()
-      ..sort((a, b) => b.revenue.compareTo(a.revenue));
+    final topRevenue = productSales.values.toList()..sort((a, b) => b.revenue.compareTo(a.revenue));
 
     final paymentReports =
-        paymentMethods.entries
-            .map((entry) => _PaymentReport(entry.key, entry.value))
-            .toList()
+        paymentMethods.entries.map((entry) => _PaymentReport(entry.key, entry.value)).toList()
           ..sort((a, b) => b.amount.compareTo(a.amount));
 
     return _ReportsData(
@@ -257,12 +227,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 onRefresh: _loadReports,
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.page,
-                    16,
-                    AppSpacing.page,
-                    24,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.page, 16, AppSpacing.page, 24),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -409,12 +374,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
             gridData: _gridData(maxY),
             borderData: _chartBorder(),
             titlesData: FlTitlesData(
-              topTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false),
-              ),
-              rightTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false),
-              ),
+              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               leftTitles: _leftTitles(maxY),
               bottomTitles: AxisTitles(
                 sideTitles: SideTitles(
@@ -463,49 +424,40 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _buildSummaryCards(_ReportsData data) {
-    final cards = <Widget>[
-      _TopStatCard(
-        icon: Icons.payments_rounded,
-        color: AppColors.success,
-        title: 'Sales',
-        value: _money(data.grossSales),
-        subtitle: _periodLabel(_selectedPeriod),
-      ),
-      _TopStatCard(
-        icon: Icons.account_balance_wallet_rounded,
-        color: AppColors.primaryDark,
-        title: 'Net Sales',
-        value: _money(data.netSales),
+    // Summary cards differ only in their content; share the construction.
+    Widget stat(String title, String value, IconData icon, Color color, {String? subtitle}) =>
+        _TopStatCard(
+          icon: icon,
+          color: color,
+          title: title,
+          value: value,
+          subtitle: subtitle ?? _periodLabel(_selectedPeriod),
+        );
+    final cards = [
+      stat('Sales', _money(data.grossSales), Icons.payments_rounded, AppColors.success),
+      stat(
+        'Net Sales',
+        _money(data.netSales),
+        Icons.account_balance_wallet_rounded,
+        AppColors.primaryDark,
         subtitle: 'After discounts/refunds',
       ),
-      _TopStatCard(
-        icon: Icons.receipt_long_rounded,
-        color: AppColors.warning,
-        title: 'Orders',
-        value: '${data.ordersCount}',
+      stat(
+        'Orders',
+        '${data.ordersCount}',
+        Icons.receipt_long_rounded,
+        AppColors.warning,
         subtitle: 'Invoices count',
       ),
-      _TopStatCard(
-        icon: Icons.calculate_rounded,
-        color: AppColors.primaryDark,
-        title: 'Avg Order',
-        value: _money(data.averageOrder),
+      stat(
+        'Avg Order',
+        _money(data.averageOrder),
+        Icons.calculate_rounded,
+        AppColors.primaryDark,
         subtitle: 'Sales / orders',
       ),
-      _TopStatCard(
-        icon: Icons.local_offer_rounded,
-        color: AppColors.warning,
-        title: 'Discounts',
-        value: _money(data.discounts),
-        subtitle: _periodLabel(_selectedPeriod),
-      ),
-      _TopStatCard(
-        icon: Icons.undo_rounded,
-        color: AppColors.danger,
-        title: 'Refunds',
-        value: _money(data.refunds),
-        subtitle: _periodLabel(_selectedPeriod),
-      ),
+      stat('Discounts', _money(data.discounts), Icons.local_offer_rounded, AppColors.warning),
+      stat('Refunds', _money(data.refunds), Icons.undo_rounded, AppColors.danger),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -518,82 +470,76 @@ class _ReportsScreenState extends State<ReportsScreen> {
         return Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: [
-            for (final card in cards) SizedBox(width: width, child: card),
-          ],
+          children: [for (final card in cards) SizedBox(width: width, child: card)],
         );
       },
     );
   }
 
   Widget _buildProductCards(_ReportsData data) {
-    final topSeller = data.topSelling.isEmpty ? null : data.topSelling.first;
-    final leastSeller = data.leastSelling.isEmpty
-        ? null
-        : data.leastSelling.first;
-    final topRevenue = data.topRevenue.isEmpty ? null : data.topRevenue.first;
-
     return Column(
       children: [
         Row(
           children: [
             Expanded(
-              child: _InsightCard(
+              child: _productInsight(
+                data.topSelling,
                 icon: Icons.trending_up_rounded,
                 color: AppColors.primaryDark,
                 title: 'Top Sellers',
-                value: topSeller?.name ?? 'No data',
-                subtitle: topSeller == null
-                    ? 'Tap to view top 10'
-                    : '${topSeller.quantity.toStringAsFixed(0)} sold',
-                onTap: () {
-                  _showProductSheet(
-                    title: 'Top 10 Sellers',
-                    products: data.topSelling,
-                    mode: _ProductSheetMode.quantity,
-                  );
-                },
+                sheetTitle: 'Top 10 Sellers',
+                emptySubtitle: 'Tap to view top 10',
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _InsightCard(
+              child: _productInsight(
+                data.leastSelling,
                 icon: Icons.south_rounded,
                 color: AppColors.warning,
                 title: 'Least Selling',
-                value: leastSeller?.name ?? 'No data',
-                subtitle: leastSeller == null
-                    ? 'Tap to view lowest 10'
-                    : '${leastSeller.quantity.toStringAsFixed(0)} sold',
-                onTap: () {
-                  _showProductSheet(
-                    title: 'Least 10 Selling',
-                    products: data.leastSelling,
-                    mode: _ProductSheetMode.quantity,
-                  );
-                },
+                sheetTitle: 'Least 10 Selling',
+                emptySubtitle: 'Tap to view lowest 10',
               ),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        _InsightCard(
+        _productInsight(
+          data.topRevenue,
           icon: Icons.workspace_premium_rounded,
           color: AppColors.primaryDark,
           title: 'Top Revenue Products',
-          value: topRevenue?.name ?? 'No data',
-          subtitle: topRevenue == null
-              ? 'Tap to view top 10'
-              : _money(topRevenue.revenue),
-          onTap: () {
-            _showProductSheet(
-              title: 'Top 10 Revenue Products',
-              products: data.topRevenue,
-              mode: _ProductSheetMode.revenue,
-            );
-          },
+          sheetTitle: 'Top 10 Revenue Products',
+          emptySubtitle: 'Tap to view top 10',
+          mode: _ProductSheetMode.revenue,
         ),
       ],
+    );
+  }
+
+  // All product rankings share the same preview and bottom-sheet behavior.
+  Widget _productInsight(
+    List<_ProductSales> products, {
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String sheetTitle,
+    required String emptySubtitle,
+    _ProductSheetMode mode = _ProductSheetMode.quantity,
+  }) {
+    final first = products.isEmpty ? null : products.first;
+    return _InsightCard(
+      icon: icon,
+      color: color,
+      title: title,
+      value: first?.name ?? 'No data',
+      subtitle: first == null
+          ? emptySubtitle
+          : mode == _ProductSheetMode.revenue
+          ? _money(first.revenue)
+          : '${first.quantity.toStringAsFixed(0)} sold',
+      onTap: () => _showProductSheet(title: sheetTitle, products: products, mode: mode),
     );
   }
 
@@ -701,8 +647,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         : ListView.separated(
                             controller: scrollController,
                             itemCount: list.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: 10),
+                            separatorBuilder: (_, _) => const SizedBox(height: 10),
                             itemBuilder: (context, index) {
                               final product = list[index];
                               final trailing = mode == _ProductSheetMode.revenue
@@ -882,11 +827,7 @@ class _SectionCard extends StatelessWidget {
   final String subtitle;
   final Widget child;
 
-  const _SectionCard({
-    required this.title,
-    required this.subtitle,
-    required this.child,
-  });
+  const _SectionCard({required this.title, required this.subtitle, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -1156,11 +1097,7 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.error_outline_rounded,
-              color: AppColors.danger,
-              size: 42,
-            ),
+            const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 42),
             const SizedBox(height: 12),
             Text(
               message,
@@ -1264,27 +1201,18 @@ _PeriodRange _periodRange(ReportPeriod period) {
 
   switch (period) {
     case ReportPeriod.today:
-      return _PeriodRange(
-        start: today,
-        end: today.add(const Duration(days: 1)),
-      );
+      return _PeriodRange(start: today, end: today.add(const Duration(days: 1)));
     case ReportPeriod.week:
       final daysSinceSunday = now.weekday % 7;
       final weekStart = today.subtract(Duration(days: daysSinceSunday));
-      return _PeriodRange(
-        start: weekStart,
-        end: weekStart.add(const Duration(days: 7)),
-      );
+      return _PeriodRange(start: weekStart, end: weekStart.add(const Duration(days: 7)));
     case ReportPeriod.month:
       return _PeriodRange(
         start: DateTime(now.year, now.month),
         end: DateTime(now.year, now.month + 1),
       );
     case ReportPeriod.year:
-      return _PeriodRange(
-        start: DateTime(now.year),
-        end: DateTime(now.year + 1),
-      );
+      return _PeriodRange(start: DateTime(now.year), end: DateTime(now.year + 1));
   }
 }
 
@@ -1406,10 +1334,7 @@ AxisTitles _leftTitles(double maxY) {
       getTitlesWidget: (value, meta) {
         return Text(
           _compactNumber(value),
-          style: const TextStyle(
-            color: AppColors.muted,
-            fontSize: AppTypography.caption,
-          ),
+          style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
         );
       },
     ),
@@ -1423,9 +1348,7 @@ double _niceMax(List<double> values) {
 
   // Add headroom above the tallest bar and round the axis limit to an easy-to-read value.
   final padded = value * 1.2;
-  final magnitude = math
-      .pow(10, (math.log(padded) / math.ln10).floor())
-      .toDouble();
+  final magnitude = math.pow(10, (math.log(padded) / math.ln10).floor()).toDouble();
 
   final normalized = padded / magnitude;
 
