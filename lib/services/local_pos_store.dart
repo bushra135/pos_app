@@ -6,6 +6,7 @@ import 'package:sembast/sembast.dart';
 import '../models/sale_record.dart';
 import 'local_pos_database.dart';
 
+/// A durable receipt waiting for server acknowledgement, optionally with a conflict.
 class PendingSale {
   const PendingSale({required this.sale, this.conflictMessage});
 

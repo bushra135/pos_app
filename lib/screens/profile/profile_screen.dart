@@ -14,6 +14,7 @@ import '../../utils/cart_manager.dart';
 import '../backup/backup_screen.dart';
 
 /// Shows user details and payment settings shared by store employees.
+/// Shows account details, payment settings, sync status and owner recovery access.
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, this.onSwitchMode, this.cashierMode = false});
 

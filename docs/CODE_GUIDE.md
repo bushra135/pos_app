@@ -51,14 +51,14 @@ Read these files in this order. Do not start by memorizing widget layouts.
 | Local assistant | `screens/ai/ai_assistant_screen.dart` | Keyword routing and shared ReportSale parsing |
 | Recovery copies | `screens/backup/backup_screen.dart` | Backup service; see BACKUP.md |
 
-`ReportSale` reads current and legacy records for the report dashboard and local assistant. Its number, date, item-key and payment helpers are defined once in `models/report_sale.dart`. `SaleRecord` has a different job: it is the immutable checkout snapshot used for receipts and retrying queued sales. History has its own adapter because it must also show incomplete receipts and audit fields.
+`ReportSaleItem` shares line quantities, subtotals and product identity between reports and the assistant. `ReportSale` reads current and legacy records for the report dashboard and local assistant. Its number, date, item-key and payment helpers are defined once in `models/report_sale.dart`. `SaleRecord` has a different job: it is the immutable checkout snapshot used for receipts and retrying queued sales. History has its own adapter because it must also show incomplete receipts and audit fields.
 
 ## Explain one sale
 
 Camera or manual barcode -> store product lookup -> CartManager -> SaleRecord -> local pending queue -> Firestore transaction -> saved receipt.
 
 - The camera can see the same barcode in many frames. The duplicate guard prevents repeated additions while the label stays visible.
-- The cart is temporary memory. Accepted pending cash sales use durable local storage.
+- The unpaid cart is saved locally per account/store; accepted pending cash receipts are stored separately.
 - The receipt ID stays the same on retries. A server acknowledgement lost in transit must not create a second sale.
 - The Firestore gateway reads authoritative product records before writing sale and stock changes atomically.
 - If physical stock sold exceeds recorded stock, an opted-in sale records the shortage correction and ends stock at zero. Old pending receipts retain their original policy.
@@ -101,3 +101,28 @@ Compact INV-/CS- references in Excel are display aliases derived deterministical
 ### Unpaid cart persistence
 
 `CartManager` owns the active cart and held-sale UI state. Every mutation queues a scoped local snapshot through `LocalPosStore.cartState/saveCartState`. `SaleSyncService.bind` restores the account/store draft, and clearing the session detaches the view without deleting drafts. `enqueueChecked` atomically saves the paid receipt and clears the active unpaid draft. `CartScreen` exposes Hold sale, Held sales, save progress and retry. Held carts do not change stock or reports. Tests in `test/checkout/cart_drafts_test.dart` cover disk reopen, account isolation, swaps, failure recovery and acceptance of payment.
+
+
+## Beginner study order
+
+Read one workflow at a time rather than memorizing all source files.
+
+1. `main.dart` and `auth_wrapper.dart`: startup, sign-in, verification and role selection.
+2. `models/cart_item.dart` and `utils/cart_manager.dart`: item data, quantities, totals and draft saves.
+3. `screens/scan/scan_screen.dart`: camera/manual input, duplicate guard and product lookup.
+4. `models/sale_record.dart` and `services/sale_sync_service.dart`: fixed receipts and retry coordination.
+5. `services/local_pos_store.dart` and `services/sale_gateway.dart`: local acceptance and atomic server writes.
+6. `widgets/sale_receipt_view.dart` and `services/receipt_service.dart`: displaying/exporting an accepted sale.
+7. Reports, products, profile and backup screens: supporting management workflows.
+
+For each part, identify its input, output, caller, data destination and error path.
+Explain why the rule exists, then follow one real example through its methods.
+`async/await` waits for an operation, `mounted` protects disposed screens, and `setState`
+requests a UI rebuild. None of these alone grants database access; server rules do that.
+
+Shared helpers keep repeated behavior in one place. `_accountField` and `_passwordToggle`
+share registration rendering; report `stat` and `_productInsight` share card setup.
+`ReportSaleItem` normalizes legacy line aliases once. The assistant's `_SaleInfo` adds
+its date and parsed lines while delegating financial values to `ReportSale`.
+Generated platform registrations, bundled third-party decoder code and build output
+are not handwritten application logic; understand their purpose before studying internals.

@@ -22,6 +22,7 @@ import '../../widgets/product_image.dart';
 import '../../widgets/scanner_error_panel.dart';
 
 /// Manages store products, images, and low stock alert thresholds.
+/// Manages store-scoped products, barcode suggestions, images and low-stock alerts.
 class ProductsScreen extends StatefulWidget {
   const ProductsScreen({super.key, this.firestore, this.currentUserId, this.catalog});
   final FirebaseFirestore? firestore;

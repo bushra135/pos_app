@@ -13,6 +13,7 @@ class SaleConflictException implements Exception {
   String toString() => message;
 }
 
+/// Submission boundary shared by the Firestore implementation and test doubles.
 abstract class SaleGateway {
   Future<void> commit(SaleRecord sale);
 }

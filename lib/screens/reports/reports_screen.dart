@@ -11,6 +11,7 @@ import '../../app/app_typography.dart';
 import '../../models/report_sale.dart';
 import 'sales_history_screen.dart';
 
+/// Dashboard periods use local dates; history filters live on their separate route.
 enum ReportPeriod { today, week, month, year }
 
 class ReportsScreen extends StatefulWidget {

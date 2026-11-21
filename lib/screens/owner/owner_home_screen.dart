@@ -16,6 +16,7 @@ import '../reports/reports_screen.dart';
 import '../reports/sales_history_screen.dart';
 import 'cashiers_management_screen.dart';
 
+/// Hosts management pages; cashier mode changes the workspace, not stored permissions.
 class OwnerHomeScreen extends StatefulWidget {
   const OwnerHomeScreen({super.key, this.firestore, this.currentUserId});
 

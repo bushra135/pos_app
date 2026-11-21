@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Lightweight metadata shown before opening a complete recovery copy.
 class BackupSummary {
   const BackupSummary(this.id, this.createdAt, this.products, this.sales);
   final String id;

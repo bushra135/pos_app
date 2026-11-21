@@ -6,6 +6,7 @@ import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 
+/// Manages store cashier profiles; account access and on-duty availability are separate.
 class CashiersManagementScreen extends StatefulWidget {
   final String storeCode;
 

@@ -8,6 +8,7 @@ import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 import 'create_account_screen.dart';
 
+/// Signs in through Firebase Auth; AuthWrapper decides which workspace is allowed.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 

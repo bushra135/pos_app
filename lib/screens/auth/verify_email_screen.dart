@@ -7,6 +7,7 @@ import '../../app/app_colors.dart';
 import 'auth_wrapper.dart';
 import 'create_account_screen.dart';
 
+/// Sends verification links and reloads the user after the emailed link is opened.
 class VerifyEmailScreen extends StatefulWidget {
   const VerifyEmailScreen({
     super.key,

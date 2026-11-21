@@ -12,6 +12,7 @@ import '../products/products_screen.dart';
 import '../profile/profile_screen.dart';
 import '../scan/scan_screen.dart';
 
+/// Hosts cashier navigation and daily statistics without changing the account role.
 class CashierHomeScreen extends StatefulWidget {
   const CashierHomeScreen({super.key, this.onSwitchToOwner, this.firestore, this.currentUserId});
 

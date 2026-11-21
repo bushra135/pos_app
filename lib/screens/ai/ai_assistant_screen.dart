@@ -123,8 +123,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     }
   }
 
-  // Analyze locally: match ordered keyword rules and calculate answers from store data.
-  // Route a question to deterministic local calculations.
+  // Match ordered keyword rules, then calculate a deterministic answer from store data.
   Future<String> _buildAnswer(String question) async {
     final data = await _loadStoreData();
     final q = question.toLowerCase();
@@ -1149,42 +1148,24 @@ class _ProductInfo {
   });
 }
 
+// Reuse the shared financial view instead of copying its computed fields.
 class _SaleInfo {
   final DateTime? createdAt;
-  final double grossTotal;
-  final double netTotal;
-  final double discount;
-  final double refund;
-  final bool isRefund;
-  final String paymentMethod;
+  final ReportSale _summary;
   final List<ReportSaleItem> items;
 
-  const _SaleInfo({
-    required this.createdAt,
-    required this.grossTotal,
-    required this.netTotal,
-    required this.discount,
-    required this.refund,
-    required this.isRefund,
-    required this.paymentMethod,
-    required this.items,
-  });
+  _SaleInfo._(this.createdAt, this._summary)
+    : items = _summary.items.map(ReportSaleItem.fromMap).toList();
 
-  factory _SaleInfo.fromMap(Map<String, dynamic> data) {
-    final summary = ReportSale.fromMap(data);
-    final items = summary.items.map(ReportSaleItem.fromMap).toList();
+  factory _SaleInfo.fromMap(Map<String, dynamic> data) =>
+      _SaleInfo._(reportDate(data['createdAt']), ReportSale.fromMap(data));
 
-    return _SaleInfo(
-      createdAt: reportDate(data['createdAt']),
-      grossTotal: summary.grossSales,
-      netTotal: summary.netSales,
-      discount: summary.discount,
-      refund: summary.refund,
-      isRefund: summary.isRefund,
-      paymentMethod: summary.paymentMethod,
-      items: items,
-    );
-  }
+  double get grossTotal => _summary.grossSales;
+  double get netTotal => _summary.netSales;
+  double get discount => _summary.discount;
+  double get refund => _summary.refund;
+  bool get isRefund => _summary.isRefund;
+  String get paymentMethod => _summary.paymentMethod;
 }
 
 class _ProductMetric {

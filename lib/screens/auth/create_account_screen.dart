@@ -9,6 +9,7 @@ import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 import 'verify_email_screen.dart';
 
+/// Creates an owner/store or a cashier awaiting approval; passwords belong to Firebase Auth.
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({
     super.key,
