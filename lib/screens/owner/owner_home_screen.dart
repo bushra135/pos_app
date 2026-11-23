@@ -276,20 +276,23 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           const SizedBox(height: 20),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
-            child: GridView.count(
-              crossAxisCount: 2,
+            child: GridView(
+              // A fixed minimum height keeps labels visible on small phones.
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: MediaQuery.sizeOf(context).width >= 900 ? 4 : 2,
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 14,
+                mainAxisExtent: 190 + (MediaQuery.textScalerOf(context).scale(14) - 14) * 5,
+              ),
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 14,
-              mainAxisSpacing: 14,
-              childAspectRatio: 1.05,
               children: [
                 _buildMetricCard(
                   icon: Icons.attach_money,
                   color: AppColors.success,
                   title: "Today's Sales",
                   value: "BD ${todaySales.toStringAsFixed(3)}",
-                  subtitle: 'Sales recorded today',
+                  subtitle: 'Recorded today',
                 ),
                 _buildMetricCard(
                   icon: Icons.warning_amber,
@@ -303,7 +306,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                   color: AppColors.primaryDark,
                   title: "Total Products",
                   value: "$totalProducts",
-                  subtitle: "+0 this week",
+                  subtitle: 'Store catalogue',
                 ),
                 _buildMetricCard(
                   icon: Icons.trending_up,
@@ -327,6 +330,71 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   }
 
   Widget _buildHeader() {
+    final identity = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Welcome back, ${firstName.isEmpty ? "Owner" : firstName}",
+          style: const TextStyle(
+            color: AppColors.onBrand,
+            fontSize: AppTypography.body,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          storeName.isEmpty ? "My Store" : storeName,
+          style: const TextStyle(
+            fontSize: AppTypography.brand,
+            fontWeight: FontWeight.w700,
+            color: AppColors.onBrand,
+          ),
+        ),
+      ],
+    );
+    final actions = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        GestureDetector(
+          onTap: _copyStoreCode,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+            decoration: BoxDecoration(
+              color: AppColors.surface.withValues(alpha: 0.22),
+              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+              border: Border.all(color: AppColors.surface.withValues(alpha: 0.18)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  storeCode.isEmpty ? 'No Code' : storeCode,
+                  style: const TextStyle(
+                    color: AppColors.onBrand,
+                    fontSize: AppTypography.label,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.copy, color: AppColors.onBrand, size: 18),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: isLoading ? null : _switchToCashier,
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.onBrand,
+            backgroundColor: AppColors.surface.withValues(alpha: 0.16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+          icon: const Icon(Icons.point_of_sale, size: 18),
+          label: const Text('Switch to cashier'),
+        ),
+      ],
+    );
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 26, 20, 28),
@@ -337,77 +405,29 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           bottomRight: Radius.circular(30),
         ),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Welcome back, ${firstName.isEmpty ? "Owner" : firstName}",
-                  style: const TextStyle(
-                    color: AppColors.onBrand,
-                    fontSize: AppTypography.body,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  storeName.isEmpty ? "My Store" : storeName,
-                  style: const TextStyle(
-                    fontSize: AppTypography.brand,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.onBrand,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              GestureDetector(
-                onTap: _copyStoreCode,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface.withValues(alpha: 0.22),
-                    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                    border: Border.all(color: AppColors.surface.withValues(alpha: 0.18)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        storeCode.isEmpty ? 'No Code' : storeCode,
-                        style: const TextStyle(
-                          color: AppColors.onBrand,
-                          fontSize: AppTypography.label,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.copy, color: AppColors.onBrand, size: 18),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextButton.icon(
-                onPressed: isLoading ? null : _switchToCashier,
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.onBrand,
-                  backgroundColor: AppColors.surface.withValues(alpha: 0.16),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                ),
-                icon: const Icon(Icons.point_of_sale, size: 18),
-                label: const Text('Switch to cashier'),
-              ),
-            ],
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Stack header content before the store code squeezes the store name.
+          final narrow =
+              constraints.maxWidth < 360 || MediaQuery.textScalerOf(context).scale(14) > 18;
+          return narrow
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    identity,
+                    const SizedBox(height: 14),
+                    Align(alignment: Alignment.centerRight, child: actions),
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: identity),
+                    const SizedBox(width: 16),
+                    actions,
+                  ],
+                );
+        },
       ),
     );
   }

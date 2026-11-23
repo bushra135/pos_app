@@ -478,44 +478,53 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _buildProductCards(_ReportsData data) {
-    return Column(
-      children: [
-        Row(
+    final top = _productInsight(
+      data.topSelling,
+      icon: Icons.trending_up_rounded,
+      color: AppColors.primaryDark,
+      title: 'Top Sellers',
+      sheetTitle: 'Top 10 Sellers',
+      emptySubtitle: 'Tap to view top 10',
+    );
+    final least = _productInsight(
+      data.leastSelling,
+      icon: Icons.south_rounded,
+      color: AppColors.warning,
+      title: 'Least Selling',
+      sheetTitle: 'Least 10 Selling',
+      emptySubtitle: 'Tap to view lowest 10',
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Product names need a full row on phones; keep the paired desktop layout.
+        final stacked = constraints.maxWidth < 600;
+        return Column(
           children: [
-            Expanded(
-              child: _productInsight(
-                data.topSelling,
-                icon: Icons.trending_up_rounded,
-                color: AppColors.primaryDark,
-                title: 'Top Sellers',
-                sheetTitle: 'Top 10 Sellers',
-                emptySubtitle: 'Tap to view top 10',
+            if (stacked) ...[
+              top,
+              const SizedBox(height: 12),
+              least,
+            ] else
+              Row(
+                children: [
+                  Expanded(child: top),
+                  const SizedBox(width: 12),
+                  Expanded(child: least),
+                ],
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _productInsight(
-                data.leastSelling,
-                icon: Icons.south_rounded,
-                color: AppColors.warning,
-                title: 'Least Selling',
-                sheetTitle: 'Least 10 Selling',
-                emptySubtitle: 'Tap to view lowest 10',
-              ),
+            const SizedBox(height: 12),
+            _productInsight(
+              data.topRevenue,
+              icon: Icons.workspace_premium_rounded,
+              color: AppColors.primaryDark,
+              title: 'Top Revenue Products',
+              sheetTitle: 'Top 10 Revenue Products',
+              emptySubtitle: 'Tap to view top 10',
+              mode: _ProductSheetMode.revenue,
             ),
           ],
-        ),
-        const SizedBox(height: 12),
-        _productInsight(
-          data.topRevenue,
-          icon: Icons.workspace_premium_rounded,
-          color: AppColors.primaryDark,
-          title: 'Top Revenue Products',
-          sheetTitle: 'Top 10 Revenue Products',
-          emptySubtitle: 'Tap to view top 10',
-          mode: _ProductSheetMode.revenue,
-        ),
-      ],
+        );
+      },
     );
   }
 

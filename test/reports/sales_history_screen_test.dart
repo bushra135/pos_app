@@ -34,13 +34,7 @@ Future<void> addSale(
     paymentMethod: 'Cash',
     createdAt: date ?? today,
     items: [
-      SaleLine(
-        productId: 'pen',
-        barcode: '123',
-        name: 'Blue Pen',
-        price: total,
-        quantity: 1,
-      ),
+      SaleLine(productId: 'pen', barcode: '123', name: 'Blue Pen', price: total, quantity: 1),
     ],
   );
   await db.collection('sales').doc(id).set({
@@ -63,11 +57,7 @@ Future<void> addSale(
 
 Future<FakeFirebaseFirestore> seed() async {
   final db = FakeFirebaseFirestore();
-  for (final entry in {
-    'owner': 'Owner Person',
-    'a': 'Alice Person',
-    'b': 'Bob Person',
-  }.entries) {
+  for (final entry in {'owner': 'Owner Person', 'a': 'Alice Person', 'b': 'Bob Person'}.entries) {
     await db.collection('users').doc(entry.key).set({
       'storeCode': 'A',
       'role': entry.key == 'owner' ? 'owner' : 'cashier',
@@ -85,11 +75,7 @@ Future<FakeFirebaseFirestore> seed() async {
   return db;
 }
 
-Widget view(
-  FakeFirebaseFirestore db, {
-  String uid = 'owner',
-  bool top = false,
-}) => MaterialApp(
+Widget view(FakeFirebaseFirestore db, {String uid = 'owner', bool top = false}) => MaterialApp(
   theme: AppTheme.light,
   home: SalesHistoryScreen(
     firestore: db,
@@ -100,291 +86,213 @@ Widget view(
 );
 void main() {
   setUpAll(() async {
-    await (FontLoader(
-      'Cairo',
-    )..addFont(rootBundle.load('assets/fonts/Cairo.ttf'))).load();
+    await (FontLoader('Cairo')..addFont(rootBundle.load('assets/fonts/Cairo.ttf'))).load();
   });
-  testWidgets(
-    'combined filters export only matching store receipts and clear resets',
-    (tester) async {
-      final db = await seed();
-      await db.collection('sales').doc('bob').update({
-        'paymentMethod': 'Card',
-        'items': [
-          {
-            'productId': 'pen',
-            'barcode': '123',
-            'name': 'Blue Pen',
-            'quantity': 2,
-            'price': 1.0,
+  testWidgets('combined filters export only matching store receipts and clear resets', (
+    tester,
+  ) async {
+    final db = await seed();
+    await db.collection('sales').doc('bob').update({
+      'paymentMethod': 'Card',
+      'items': [
+        {'productId': 'pen', 'barcode': '123', 'name': 'Blue Pen', 'quantity': 2, 'price': 1.0},
+        {'productId': 'coffee', 'barcode': '456', 'name': 'Coffee', 'quantity': 1, 'price': 23.0},
+      ],
+    });
+    String? exported, filename;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SalesHistoryScreen(
+          firestore: db,
+          currentUserId: () => 'owner',
+          now: () => today,
+          exportReport: (workbookBase64, name) async {
+            exported = workbookBase64;
+            filename = name;
           },
-          {
-            'productId': 'coffee',
-            'barcode': '456',
-            'name': 'Coffee',
-            'quantity': 1,
-            'price': 23.0,
-          },
-        ],
-      });
-      String? exported, filename;
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: SalesHistoryScreen(
-            firestore: db,
-            currentUserId: () => 'owner',
-            now: () => today,
-            exportReport: (workbookBase64, name) async {
-              exported = workbookBase64;
-              filename = name;
-            },
-          ),
         ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Filters'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('All payments'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Card').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('All products'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Blue Pen · 123').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('All statuses'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('completed').last);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(Switch));
-      await tester.tap(find.text('Apply filters'));
-      await tester.pumpAndSettle();
-      expect(find.text('Filters (4)'), findsOneWidget);
-      expect(
-        find.text('1 receipts · Net receipt total: BD 25.000'),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('Selected product: 2 units · BD 2.000'),
-        findsOneWidget,
-      );
-      await tester.tap(find.text('Export Excel'));
-      await tester.pumpAndSettle();
-      expect(filename, 'shoppad-sales-20261029.xlsx');
-      final workbook = ZipDecoder().decodeBytes(base64Decode(exported!));
-      final sheet = utf8.decode(
-        workbook.findFile('xl/worksheets/sheet1.xml')!.content,
-      );
-      expect(sheet, contains(ReportWorkbook.reference('INV', 'bob')));
-      expect(sheet, contains(ReportWorkbook.reference('CS', 'b')));
-      expect(sheet, isNot(contains('>Type<')));
-      expect(sheet, contains('Cashier code'));
-      expect(sheet, isNot(contains('RCPT-bob')));
-      expect(
-        sheet,
-        isNot(contains(ReportWorkbook.reference('INV', 'alice-1'))),
-      );
-      expect(
-        sheet,
-        isNot(contains(ReportWorkbook.reference('INV', 'foreign'))),
-      );
-      expect(RegExp(r'<row r=').allMatches(sheet).length, 2);
-      await tester.tap(find.byTooltip('Clear report filters'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('7 receipts ·'), findsOneWidget);
-      await tester.enterText(
-        find.widgetWithText(TextField, 'Search receipt, cashier or product'),
-        ReportWorkbook.reference('INV', 'bob'),
-      );
-      await tester.pumpAndSettle();
-      expect(find.textContaining('1 receipts ·'), findsOneWidget);
-      expect(find.text('RCPT-bob'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox());
-    },
-  );
-  testWidgets(
-    'custom dates include the entire end day and cancelled picker preserves range',
-    (tester) async {
-      final db = await seed();
-      await addSale(
-        db,
-        'late',
-        'a',
-        'Alice',
-        2,
-        date: DateTime(2026, 9, 1, 23, 59),
-      );
-      var picks = 0;
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: SalesHistoryScreen(
-            firestore: db,
-            currentUserId: () => 'owner',
-            now: () => today,
-            selectDateRange: (context, current) async => picks++ == 0
-                ? DateTimeRange(
-                    start: DateTime(2026, 9, 1),
-                    end: DateTime(2026, 9, 1),
-                  )
-                : null,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('All time'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Custom range').last);
-      await tester.pumpAndSettle();
-      expect(
-        find.text('2 receipts · Net receipt total: BD 42.000'),
-        findsOneWidget,
-      );
-      await tester.tap(find.text('Custom range').first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Custom range').last);
-      await tester.pumpAndSettle();
-      expect(
-        find.text('2 receipts · Net receipt total: BD 42.000'),
-        findsOneWidget,
-      );
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox());
-    },
-  );
-  for (final width in [320.0, 800.0]) {
-    testWidgets(
-      'owner history and cashier ranking are scoped and usable at $width',
-      (tester) async {
-        tester.view.devicePixelRatio = 1;
-        tester.view.physicalSize = Size(width, 800);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        addTearDown(tester.view.resetPhysicalSize);
-        final db = await seed();
-        await tester.pumpWidget(view(db));
-        await tester.pumpAndSettle();
-        expect(
-          find.textContaining('7 receipts · Net receipt total:'),
-          findsOneWidget,
-        );
-        expect(find.textContaining('Foreign secret'), findsNothing);
-        expect(find.text('Top cashiers'), findsNothing);
-        await tester.pumpWidget(const SizedBox());
-        await tester.pumpWidget(view(db, top: true));
-        await tester.pumpAndSettle();
-        expect(find.text('Best cashier · Alice Person'), findsOneWidget);
-        expect(find.text('BD 55.000'), findsOneWidget);
-        expect(find.text('BD 25.000'), findsOneWidget);
-        expect(find.textContaining('Owner Person'), findsNothing);
-        await tester.tap(find.text('All time'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Today').last);
-        await tester.pumpAndSettle();
-        expect(find.text('Best cashier · Bob Person'), findsOneWidget);
-        await addSale(db, 'bob-new', 'b', 'Bob', 30);
-        await tester.pumpAndSettle();
-        expect(find.text('Best cashier · Bob Person'), findsOneWidget);
-        expect(find.text('BD 55.000'), findsOneWidget);
-        await tester.tap(find.text('Best cashier · Bob Person'));
-        await tester.pumpAndSettle();
-        expect(
-          find.textContaining('3 receipts · Net receipt total:'),
-          findsOneWidget,
-        );
-        expect(tester.takeException(), isNull);
-        await tester.pumpWidget(const SizedBox());
-      },
+      ),
     );
-  }
-  testWidgets(
-    'receipt search opens items, stock correction audit, PDF and returns to history',
-    (tester) async {
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Filters'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('All payments'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Card').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('All products'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Blue Pen · 123').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('All statuses'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('completed').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(Switch));
+    await tester.tap(find.text('Apply filters'));
+    await tester.pumpAndSettle();
+    expect(find.text('Filters (4)'), findsOneWidget);
+    expect(find.text('1 receipts · Net receipt total: BD 25.000'), findsOneWidget);
+    expect(find.textContaining('Selected product: 2 units · BD 2.000'), findsOneWidget);
+    await tester.tap(find.text('Export Excel'));
+    await tester.pumpAndSettle();
+    expect(filename, 'shoppad-sales-20261029.xlsx');
+    final workbook = ZipDecoder().decodeBytes(base64Decode(exported!));
+    final sheet = utf8.decode(workbook.findFile('xl/worksheets/sheet1.xml')!.content);
+    expect(sheet, contains(ReportWorkbook.reference('INV', 'bob')));
+    expect(sheet, contains(ReportWorkbook.reference('CS', 'b')));
+    expect(sheet, isNot(contains('>Type<')));
+    expect(sheet, contains('Cashier code'));
+    expect(sheet, isNot(contains('RCPT-bob')));
+    expect(sheet, isNot(contains(ReportWorkbook.reference('INV', 'alice-1'))));
+    expect(sheet, isNot(contains(ReportWorkbook.reference('INV', 'foreign'))));
+    expect(RegExp(r'<row r=').allMatches(sheet).length, 2);
+    await tester.tap(find.byTooltip('Clear report filters'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('7 receipts ·'), findsOneWidget);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Search receipt, cashier or product'),
+      ReportWorkbook.reference('INV', 'bob'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1 receipts ·'), findsOneWidget);
+    expect(find.text('RCPT-bob'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets('custom dates include the entire end day and cancelled picker preserves range', (
+    tester,
+  ) async {
+    final db = await seed();
+    await addSale(db, 'late', 'a', 'Alice', 2, date: DateTime(2026, 9, 1, 23, 59));
+    var picks = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SalesHistoryScreen(
+          firestore: db,
+          currentUserId: () => 'owner',
+          now: () => today,
+          selectDateRange: (context, current) async => picks++ == 0
+              ? DateTimeRange(start: DateTime(2026, 9, 1), end: DateTime(2026, 9, 1))
+              : null,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('All time'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Custom range').last);
+    await tester.pumpAndSettle();
+    expect(find.text('2 receipts · Net receipt total: BD 42.000'), findsOneWidget);
+    await tester.tap(find.text('Custom range').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Custom range').last);
+    await tester.pumpAndSettle();
+    expect(find.text('2 receipts · Net receipt total: BD 42.000'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+  for (final width in [320.0, 800.0]) {
+    testWidgets('owner history and cashier ranking are scoped and usable at $width', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = Size(width, 800);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
       final db = await seed();
       await tester.pumpWidget(view(db));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'RCPT-bob');
-      await tester.pumpAndSettle();
-      expect(
-        find.textContaining('1 receipts · Net receipt total:'),
-        findsOneWidget,
-      );
-      await tester.tap(find.widgetWithText(ListTile, 'RCPT-bob'));
-      await tester.pumpAndSettle();
-      expect(find.text('Cashier: Bob'), findsOneWidget);
-      expect(find.textContaining('Barcode: 123'), findsOneWidget);
-      final sheetScroll = find.descendant(
-        of: find.byType(BottomSheet),
-        matching: find.byType(Scrollable),
-      );
-      await tester.scrollUntilVisible(
-        find.text('Stock corrections'),
-        200,
-        scrollable: sheetScroll,
-      );
-      expect(find.text('Blue Pen: 3 + 2 − 5 = 0'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.text('View receipt / PDF'),
-        150,
-        scrollable: sheetScroll,
-      );
-      await tester.tap(find.text('View receipt / PDF'));
-      await tester.pumpAndSettle();
-      expect(find.byType(SaleReceiptView), findsOneWidget);
-      expect(find.text('Back to history'), findsOneWidget);
-      await tester.tap(find.text('Back to history'));
-      await tester.pumpAndSettle();
-      expect(
-        find.textContaining('1 receipts · Net receipt total:'),
-        findsOneWidget,
-      );
-      expect(tester.takeException(), isNull);
+      expect(find.textContaining('7 receipts · Net receipt total:'), findsOneWidget);
+      expect(find.textContaining('Foreign secret'), findsNothing);
+      expect(find.text('Top cashiers'), findsNothing);
       await tester.pumpWidget(const SizedBox());
-    },
-  );
-  testWidgets(
-    'equal cashier scores share top rank and identical names remain separate',
-    (tester) async {
-      final db = FakeFirebaseFirestore();
-      await db.collection('users').doc('owner').set({
-        'storeCode': 'A',
-        'role': 'owner',
-      });
-      for (final uid in ['sam-a', 'sam-b']) {
-        await db.collection('users').doc(uid).set({
-          'storeCode': 'A',
-          'role': 'cashier',
-          'fullName': 'Sam',
-        });
-        await addSale(db, uid, uid, 'Sam', 10);
-      }
-      await addSale(db, 'missing-cashier-id', '', 'Sam', 10000);
       await tester.pumpWidget(view(db, top: true));
       await tester.pumpAndSettle();
-      expect(find.byType(TextField), findsNothing);
+      expect(find.text('Best cashier · Alice Person'), findsOneWidget);
+      expect(find.text('BD 55.000'), findsOneWidget);
+      expect(find.text('BD 25.000'), findsOneWidget);
+      expect(find.textContaining('Owner Person'), findsNothing);
+      await tester.tap(find.text('All time'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Joint top cashier · Sam'), findsNWidgets(2));
-      expect(find.text('BD 10.000'), findsNWidgets(2));
-      expect(find.text('BD 20.000'), findsNothing);
+      await tester.tap(find.text('Today').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Best cashier · Bob Person'), findsOneWidget);
+      await addSale(db, 'bob-new', 'b', 'Bob', 30);
+      await tester.pumpAndSettle();
+      expect(find.text('Best cashier · Bob Person'), findsOneWidget);
+      expect(find.text('BD 55.000'), findsOneWidget);
+      await tester.tap(find.text('Best cashier · Bob Person'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('3 receipts · Net receipt total:'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
-    },
-  );
-  testWidgets('empty history does not invent a best cashier', (tester) async {
-    final db = FakeFirebaseFirestore();
-    await db.collection('users').doc('owner').set({
-      'storeCode': 'A',
-      'role': 'owner',
     });
+  }
+  testWidgets('receipt search opens items, stock correction audit, PDF and returns to history', (
+    tester,
+  ) async {
+    final db = await seed();
+    await tester.pumpWidget(view(db));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'RCPT-bob');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1 receipts · Net receipt total:'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ListTile, 'RCPT-bob'));
+    await tester.pumpAndSettle();
+    expect(find.text('Cashier: Bob'), findsOneWidget);
+    expect(find.textContaining('Barcode: 123'), findsOneWidget);
+    final sheetScroll = find.descendant(
+      of: find.byType(BottomSheet),
+      matching: find.byType(Scrollable),
+    );
+    await tester.scrollUntilVisible(find.text('Stock corrections'), 200, scrollable: sheetScroll);
+    expect(find.text('Blue Pen: 3 + 2 − 5 = 0'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('View receipt / PDF'), 150, scrollable: sheetScroll);
+    await tester.tap(find.text('View receipt / PDF'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SaleReceiptView), findsOneWidget);
+    expect(find.text('Back to history'), findsOneWidget);
+    await tester.tap(find.text('Back to history'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1 receipts · Net receipt total:'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets('equal cashier scores share top rank and identical names remain separate', (
+    tester,
+  ) async {
+    final db = FakeFirebaseFirestore();
+    await db.collection('users').doc('owner').set({'storeCode': 'A', 'role': 'owner'});
+    for (final uid in ['sam-a', 'sam-b']) {
+      await db.collection('users').doc(uid).set({
+        'storeCode': 'A',
+        'role': 'cashier',
+        'fullName': 'Sam',
+      });
+      await addSale(db, uid, uid, 'Sam', 10);
+    }
+    await addSale(db, 'missing-cashier-id', '', 'Sam', 10000);
     await tester.pumpWidget(view(db, top: true));
     await tester.pumpAndSettle();
     expect(find.byType(TextField), findsNothing);
     await tester.pumpAndSettle();
-    expect(
-      find.text('No completed cashier sales for this period.'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Joint top cashier · Sam'), findsNWidgets(2));
+    expect(find.text('BD 10.000'), findsNWidgets(2));
+    expect(find.text('BD 20.000'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+  testWidgets('empty history does not invent a best cashier', (tester) async {
+    final db = FakeFirebaseFirestore();
+    await db.collection('users').doc('owner').set({'storeCode': 'A', 'role': 'owner'});
+    await tester.pumpWidget(view(db, top: true));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsNothing);
+    await tester.pumpAndSettle();
+    expect(find.text('No completed cashier sales for this period.'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
   testWidgets('cashiers cannot open owner history', (tester) async {
@@ -396,6 +304,33 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     expect(tester.takeException(), isNull);
   });
+  for (final width in [320.0, 800.0]) {
+    testWidgets('product insights stay readable at $width', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = Size(width, 900);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final db = await seed();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: ReportsScreen(firestore: db, currentUserId: () => 'owner'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Top Sellers'));
+      await tester.pumpAndSettle();
+      final top = tester.getTopLeft(find.text('Top Sellers'));
+      final least = tester.getTopLeft(find.text('Least Selling'));
+      expect(width < 600 ? least.dy > top.dy : (least.dy - top.dy).abs() < 1, isTrue);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Top Sellers'));
+      await tester.pumpAndSettle();
+      expect(find.text('Top 10 Sellers'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
   testWidgets('owner reaches history from Reports and returns', (tester) async {
     final db = await seed();
     await tester.pumpWidget(
