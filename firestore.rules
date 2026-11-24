@@ -35,7 +35,9 @@ service cloud.firestore {
           && request.resource.data.isActive == false && request.resource.data.status == 'pending'
           && exists(/databases/$(database)/documents/stores/$(request.resource.data.storeCode))));
       // Invites and account approval belong to the owner, never to the cashier.
+      // Only the fields the invite screen writes; anything extra is rejected.
       allow create: if owner(request.resource.data.storeCode)
+        && request.resource.data.keys().hasOnly(['uid','fullName','email','role','storeCode','isActive','status','createdAt','createdBy'])
         && request.resource.data.role == 'cashier' && request.resource.data.uid == ''
         && request.resource.data.status == 'invited';
       allow update: if (signedIn() && uid == request.auth.uid

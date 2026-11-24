@@ -1,0 +1,231 @@
+# ShopPad custom Semgrep rules for Dart / Flutter.
+#
+# Semgrep's Dart parser is experimental and the public registry has almost no Dart
+# rules, so these rules use generic mode with regular expressions, limited to .dart
+# files. Run with:
+#   semgrep scan --metrics=off --config .semgrep/dart-security.yml lib
+#
+# Severity: ERROR = fix before release, WARNING = review, INFO = good practice.
+
+rules:
+  # ---------------------------------------------------------------- secrets
+  - id: dart-hardcoded-secret
+    languages: [generic]
+    severity: ERROR
+    paths:
+      include: ["*.dart"]
+    message: >-
+      A secret-looking value is written in the source code. Anyone who installs the
+      app can read it. Move it to the server (for example Cloud Functions) or to
+      build-time configuration, and rotate the exposed value.
+    metadata:
+      category: security
+      cwe: "CWE-798: Use of Hard-coded Credentials"
+      owasp: "A07:2021 Identification and Authentication Failures"
+    pattern-regex: >-
+      (?i)\b(password|passwd|secret|client_?secret|private_?key|access_?token|auth_?token|bearer)\b\s*[:=]\s*['"][^'"\s$]{6,}['"]
+
+  - id: dart-google-api-key-in-source
+    languages: [generic]
+    severity: WARNING
+    paths:
+      include: ["*.dart"]
+    message: >-
+      A Google / Firebase API key is in the source. Firebase keys are public by
+      design, so the real protection is Firestore rules. Restrict the key in Google
+      Cloud Console (allowed websites / Android package) and enable Firebase App Check.
+    metadata:
+      category: security
+      cwe: "CWE-200: Exposure of Sensitive Information"
+    pattern-regex: AIza[0-9A-Za-z_\-]{35}
+
+  # ---------------------------------------------------------------- transport
+  - id: dart-insecure-http-url
+    languages: [generic]
+    severity: WARNING
+    paths:
+      include: ["*.dart"]
+    message: >-
+      Plain http:// sends data unencrypted and can be read or changed on public
+      Wi-Fi. Use https://.
+    metadata:
+      category: security
+      cwe: "CWE-319: Cleartext Transmission of Sensitive Information"
+      owasp: "A02:2021 Cryptographic Failures"
+    patterns:
+      - pattern-regex: >-
+          ['"]http://(?!localhost|127\.0\.0\.1|10\.0\.2\.2|0\.0\.0\.0|[^'"]*\.example)[^'"]+['"]
+      # XML namespace / relationship-type identifiers (Excel export) are names, never
+      # downloaded. Excluded only when written as an xmlns or Type attribute value of the
+      # Office Open XML / W3C schema hosts; the same URL anywhere else is still reported.
+      - pattern-not-regex: >-
+          \b(xmlns(:\w+)?|Type)="http://(schemas\.openxmlformats\.org|schemas\.microsoft\.com/office|www\.w3\.org/(XML/1998|2000|2001|1999))/[^"\s]*"
+
+  - id: dart-uri-http-constructor
+    languages: [generic]
+    severity: WARNING
+    paths:
+      include: ["*.dart"]
+    message: "Uri.http(...) builds an unencrypted URL. Use Uri.https(...)."
+    metadata:
+      category: security
+      cwe: "CWE-319: Cleartext Transmission of Sensitive Information"
+    pattern-regex: \bUri\.http\(
+
+  - id: dart-tls-certificate-check-disabled
+    languages: [generic]
+    severity: ERROR
+    paths:
+      include: ["*.dart"]
+    message: >-
+      badCertificateCallback that returns true accepts any TLS certificate, which
+      allows man-in-the-middle attacks. Remove it or pin the expected certificate.
+    metadata:
+      category: security
+      cwe: "CWE-295: Improper Certificate Validation"
+    pattern-regex: badCertificateCallback\s*=\s*\([^)]*\)\s*(=>\s*true|\{\s*return\s+true)
+
+  # ---------------------------------------------------------------- randomness / crypto
+  - id: dart-insecure-random
+    languages: [generic]
+    severity: WARNING
+    paths:
+      include: ["*.dart"]
+    message: >-
+      Random() is predictable. For IDs, codes, tokens or passwords use Random.secure().
+    metadata:
+      category: security
+      cwe: "CWE-338: Use of Cryptographically Weak PRNG"
+    pattern-regex: \bRandom\(\s*\d*\s*\)
+
+  - id: dart-weak-hash
+    languages: [generic]
+    severity: INFO
+    paths:
+      include: ["*.dart"]
+    message: >-
+      MD5 and SHA-1 are broken for security use (passwords, signatures). They are
+      fine only for non-security identifiers; otherwise use sha256 or a password hash.
+    metadata:
+      category: security
+      cwe: "CWE-328: Use of Weak Hash"
+    pattern-regex: \b(md5|sha1)\.convert\(
+
+  # ---------------------------------------------------------------- data leaks
+  - id: dart-log-sensitive-data
+    languages: [generic]
+    severity: WARNING
+    paths:
+      include: ["*.dart"]
+    message: >-
+      A log line may print sensitive data (password, token, email, user ID). Logs
+      can be read on rooted devices and in browser consoles. Remove the value.
+    metadata:
+      category: security
+      cwe: "CWE-532: Insertion of Sensitive Information into Log File"
+    pattern-regex: >-
+      \b(print|debugPrint|log)\([^;\n]*(password|passwd|token|secret|apiKey|email|\buid\b|credential)[^;\n]*\)
+
+  - id: dart-raw-error-shown-to-user
+    languages: [generic]
+    severity: INFO
+    paths:
+      include: ["*.dart"]
+    message: >-
+      A raw exception ($e / $error) is shown on screen. It can reveal internal
+      details (paths, rule names, server messages). Show a friendly message and log
+      the details instead.
+    metadata:
+      category: security
+      cwe: "CWE-209: Generation of Error Message Containing Sensitive Information"
+    pattern-regex: Text\(\s*['"][^'"\n]*\$\{?(e|error|err|exception)\b[^'"\n]*['"]
+
+  - id: dart-sensitive-in-shared-preferences
+    languages: [generic]
+    severity: WARNING
+    paths:
+      include: ["*.dart"]
+    message: >-
+      SharedPreferences / localStorage are not encrypted. Do not store passwords,
+      tokens or personal data there; use flutter_secure_storage or the server.
+    metadata:
+      category: security
+      cwe: "CWE-312: Cleartext Storage of Sensitive Information"
+    pattern-regex: >-
+      (?i)(\.set(String|StringList)\(|localStorage\[)\s*['"][^'"]*(password|token|secret|pin|email|card)[^'"]*['"]
+
+  # ---------------------------------------------------------------- commands / web content
+  - id: dart-process-run-in-shell
+    languages: [generic]
+    severity: ERROR
+    paths:
+      include: ["*.dart"]
+    message: >-
+      Running a process through the shell can allow command injection. Pass the
+      program and arguments separately and set runInShell to false.
+    metadata:
+      category: security
+      cwe: "CWE-78: OS Command Injection"
+    pattern-regex: runInShell\s*:\s*true
+
+  - id: dart-webview-unrestricted-javascript
+    languages: [generic]
+    severity: WARNING
+    paths:
+      include: ["*.dart"]
+    message: >-
+      A WebView with unrestricted JavaScript can run untrusted scripts. Load only
+      trusted pages or disable JavaScript.
+    metadata:
+      category: security
+      cwe: "CWE-79: Cross-site Scripting"
+    pattern-regex: JavaScriptMode\.unrestricted
+
+  - id: dart-html-inner-html
+    languages: [generic]
+    severity: ERROR
+    paths:
+      include: ["*.dart"]
+    message: >-
+      Setting innerHTML / setInnerHtml with data can inject scripts (XSS). Use text
+      content or a sanitizer.
+    metadata:
+      category: security
+      cwe: "CWE-79: Cross-site Scripting"
+    pattern-regex: (\.innerHtml\s*=|\.setInnerHtml\(|\.innerHTML\s*=)
+
+  - id: dart-eval-js
+    languages: [generic]
+    severity: ERROR
+    paths:
+      include: ["*.dart"]
+    message: "Evaluating JavaScript from Dart can run injected code. Avoid eval-style calls."
+    metadata:
+      category: security
+      cwe: "CWE-95: Eval Injection"
+    pattern-regex: \b(js\.context\.callMethod\(\s*['"]eval['"]|globalContext\.callMethod\(\s*['"]eval['"]|\.evalJs\(|runJavaScript\()
+
+  # ---------------------------------------------------------------- Firebase usage
+  - id: dart-firestore-store-query-without-store-filter
+    languages: [generic]
+    severity: INFO
+    paths:
+      include: ["*.dart"]
+    message: >-
+      A store collection (products / sales / users) is read without a storeCode
+      filter on the same statement. Firestore rules still block other stores, but
+      unfiltered reads fail or cost more. Check the query filters by store.
+    metadata:
+      category: security
+      cwe: "CWE-639: Authorization Bypass Through User-Controlled Key"
+    patterns:
+      - pattern-regex: collection\(\s*['"](products|sales|users)['"]\s*\)\s*\.(get|snapshots)\(
+      # A sub-collection of one document (for example backups/{id}/products) is already
+      # scoped by that document's path. Excluded only when the receiver is a .doc(...)
+      # call, or a variable assigned from .doc(...) earlier in the same file. The excluded
+      # span may not contain any other .collection( call, so a real top-level read placed
+      # between the assignment and the sub-collection reads is still reported.
+      - pattern-not-regex: >-
+          \.doc\([^()]*\)\s*\.collection\(\s*['"](products|sales|users)['"]\s*\)\s*\.(get|snapshots)\(
+      - pattern-not-regex: >-
+          \bfinal\s+(\w+)\s*=\s*[^;]*\.doc\([^;]*\);(?:(?!\.collection\()[\s\S])*?\b\1\.collection\(\s*['"](products|sales|users)['"]\s*\)\s*\.(get|snapshots)\([^;]*;(?:(?:(?!\.collection\()[\s\S])*?\b\1\.collection\(\s*['"](products|sales|users)['"]\s*\)\s*\.(get|snapshots)\([^;]*;)*

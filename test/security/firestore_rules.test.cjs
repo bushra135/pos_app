@@ -103,6 +103,18 @@ test('new cashier is blocked until approved by the correct store owner',async()=
   allowed(await patch('users/pending',{isActive:true,status:'active'},'ownerA'));
   allowed(await request('/products/productA','pending'));
 });
+test('cashier invites accept only the fields the invite screen writes',async()=>{
+  // Same payload as CashiersManagementScreen: still allowed for the store owner.
+  const invite={uid:'',fullName:'New Cashier',email:'new@test.invalid',role:'cashier',storeCode:'A',isActive:true,status:'invited',createdAt:'now',createdBy:'ownerA'};
+  allowed(await put('users/invite-ok',invite,'ownerA'));
+  // Extra fields are rejected, whatever they are called.
+  denied(await put('users/invite-extra',{...invite,permissions:'admin'},'ownerA'));
+  denied(await put('users/invite-store',{...invite,storeName:'Other'},'ownerA'));
+  // The existing checks still apply: other stores, other roles, cashiers.
+  denied(await put('users/invite-foreign',{...invite,storeCode:'B'},'ownerA'));
+  denied(await put('users/invite-owner',{...invite,role:'owner'},'ownerA'));
+  denied(await put('users/invite-by-cashier',invite,'cashierA'));
+});
 test('backups belong only to their owner and completed snapshots are immutable',async()=>{
   allowed(await put('stores/A/backups/copy',{storeCode:'A',ownerUid:'ownerA',complete:false},'ownerA'));
   denied(await request('/stores/A/backups/copy','cashierA'));
