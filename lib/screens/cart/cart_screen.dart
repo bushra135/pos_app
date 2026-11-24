@@ -8,6 +8,7 @@ import '../../models/cart_item.dart';
 import '../../utils/cart_manager.dart';
 import '../../widgets/product_image.dart';
 import '../checkout/checkout_receipt_screen.dart';
+import '../../app/app_language.dart';
 
 /// Shows the shared cart and returns to the home screen after a confirmed sale.
 class CartScreen extends StatefulWidget {
@@ -51,17 +52,17 @@ class _CartScreenState extends State<CartScreen> {
     final label = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Hold sale'),
+        title: Text('Hold sale'.tr),
         content: TextField(
           onChanged: (value) => note = value,
           maxLength: 60,
-          decoration: const InputDecoration(labelText: 'Customer or note (optional)'),
+          decoration: InputDecoration(labelText: 'Customer or note (optional)'.tr),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text('Cancel'.tr)),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, note),
-            child: const Text('Hold sale'),
+            child: Text('Hold sale'.tr),
           ),
         ],
       ),
@@ -70,10 +71,10 @@ class _CartScreenState extends State<CartScreen> {
     setState(() => _draftBusy = true);
     try {
       await CartManager.hold(label);
-      _message('Sale held on this device. You can start the next customer.');
+      _message('Sale held on this device. You can start the next customer.'.tr);
     } catch (_) {
       _message(
-        'Could not hold the sale. Your current cart is kept. Check device storage and retry.',
+        'Could not hold the sale. Your current cart is kept. Check device storage and retry.'.tr,
       );
     } finally {
       if (mounted) setState(() => _draftBusy = false);
@@ -96,9 +97,9 @@ class _CartScreenState extends State<CartScreen> {
               children: [
                 Row(
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Held sales',
+                        'Held sales'.tr,
                         style: TextStyle(
                           fontSize: AppTypography.section,
                           fontWeight: FontWeight.w700,
@@ -106,19 +107,20 @@ class _CartScreenState extends State<CartScreen> {
                       ),
                     ),
                     IconButton(
-                      tooltip: 'Close',
+                      tooltip: 'Close'.tr,
                       onPressed: () => Navigator.pop(sheetContext),
                       icon: const Icon(Icons.close),
                     ),
                   ],
                 ),
-                const Text(
-                  'Unpaid sales saved on this device. Your current cart is held automatically when you resume another sale. Stock is checked at checkout.',
+                Text(
+                  'Unpaid sales saved on this device. Your current cart is held automatically when you resume another sale. Stock is checked at checkout.'
+                      .tr,
                 ),
                 const SizedBox(height: 16),
                 Expanded(
                   child: CartManager.heldSales.isEmpty
-                      ? const Center(child: Text('No held sales'))
+                      ? Center(child: Text('No held sales'.tr))
                       : ListView.separated(
                           itemCount: CartManager.heldSales.length,
                           separatorBuilder: (_, index) => const SizedBox(height: 12),
@@ -151,9 +153,9 @@ class _CartScreenState extends State<CartScreen> {
     setState(() => _draftBusy = true);
     try {
       await CartManager.resume(selected);
-      _message('Sale resumed. Review the items and prices before checkout.');
+      _message('Sale resumed. Review the items and prices before checkout.'.tr);
     } catch (_) {
-      _message('Could not resume the sale. Your carts are kept. Please retry.');
+      _message('Could not resume the sale. Your carts are kept. Please retry.'.tr);
     } finally {
       if (mounted) setState(() => _draftBusy = false);
     }
@@ -189,7 +191,7 @@ class _CartScreenState extends State<CartScreen> {
                     : _holdSale,
                 style: _draftButtonStyle,
                 icon: const Icon(Icons.pause_circle_outline_rounded, size: 20),
-                label: const Text('Hold sale', overflow: TextOverflow.ellipsis),
+                label: Text('Hold sale'.tr, overflow: TextOverflow.ellipsis),
               ),
             ),
             const SizedBox(width: 10),
@@ -199,7 +201,7 @@ class _CartScreenState extends State<CartScreen> {
                 style: _draftButtonStyle,
                 icon: const Icon(Icons.history_rounded, size: 20),
                 label: Text(
-                  'Held sales (${CartManager.heldSales.length})',
+                  'Held sales ({n})'.trArgs({'n': CartManager.heldSales.length}),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -226,7 +228,7 @@ class _CartScreenState extends State<CartScreen> {
                 Expanded(
                   child: Text(
                     CartManager.saveError ??
-                        (CartManager.saving ? 'Saving cart...' : 'Cart saved on this device'),
+                        (CartManager.saving ? 'Saving cart...'.tr : 'Cart saved on this device'.tr),
                     style: TextStyle(
                       fontSize: AppTypography.caption,
                       color: CartManager.saveError != null ? AppColors.danger : AppColors.muted,
@@ -239,10 +241,10 @@ class _CartScreenState extends State<CartScreen> {
                       try {
                         await CartManager.flush();
                       } catch (_) {
-                        _message('Cart is not saved yet. Check device storage and retry.');
+                        _message('Cart is not saved yet. Check device storage and retry.'.tr);
                       }
                     },
-                    child: const Text('Retry'),
+                    child: Text('Retry'.tr),
                   ),
               ],
             ),
@@ -253,7 +255,7 @@ class _CartScreenState extends State<CartScreen> {
 
   void _checkout() {
     if (CartManager.items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cart is empty')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Cart is empty'.tr)));
       return;
     }
 
@@ -291,7 +293,7 @@ class _CartScreenState extends State<CartScreen> {
                 child: Row(
                   children: [
                     IconButton.outlined(
-                      tooltip: 'Back',
+                      tooltip: 'Back'.tr,
                       onPressed: () {
                         if (widget.onBackToHome != null) {
                           widget.onBackToHome!();
@@ -307,9 +309,9 @@ class _CartScreenState extends State<CartScreen> {
                       icon: const Icon(Icons.arrow_back_rounded, size: 20, color: AppColors.text),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Cart',
+                        'Cart'.tr,
                         style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
                       ),
                     ),
@@ -321,7 +323,9 @@ class _CartScreenState extends State<CartScreen> {
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          '${cartItems.length} ${cartItems.length == 1 ? 'item' : 'items'}',
+                          (cartItems.length == 1 ? '1 item' : '{n} items').trArgs({
+                            'n': cartItems.length,
+                          }),
                           style: const TextStyle(
                             color: AppColors.onBrand,
                             fontSize: AppTypography.caption,
@@ -335,11 +339,12 @@ class _CartScreenState extends State<CartScreen> {
               _draftControls(),
               Expanded(
                 child: cartItems.isEmpty
-                    ? const AppEmptyState(
+                    ? AppEmptyState(
                         icon: Icons.shopping_bag_outlined,
-                        title: 'No items in cart',
+                        title: 'No items in cart'.tr,
                         message:
-                            'Open Scan to add products using the camera or enter a barcode manually.',
+                            'Open Scan to add products using the camera or enter a barcode manually.'
+                                .tr,
                       )
                     : ListView(
                         padding: const EdgeInsets.fromLTRB(AppSpacing.page, 8, AppSpacing.page, 16),
@@ -375,8 +380,8 @@ class _CartScreenState extends State<CartScreen> {
                         crossAxisAlignment: CrossAxisAlignment.baseline,
                         textBaseline: TextBaseline.alphabetic,
                         children: [
-                          const Text(
-                            'Total',
+                          Text(
+                            'Total'.tr,
                             style: TextStyle(
                               fontSize: AppTypography.button,
                               fontWeight: FontWeight.w800,
@@ -404,7 +409,7 @@ class _CartScreenState extends State<CartScreen> {
                             fontSize: 16,
                           ),
                         ),
-                        child: const Text('Complete sale'),
+                        child: Text('Complete sale'.tr),
                       ),
                     ],
                   ),
@@ -447,7 +452,7 @@ class _CartScreenState extends State<CartScreen> {
                   style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppTypography.body),
                 ),
                 Text(
-                  'BD ${item.price.toStringAsFixed(3)} each',
+                  'BD {price} each'.trArgs({'price': item.price.toStringAsFixed(3)}),
                   style: const TextStyle(fontSize: AppTypography.caption, color: AppColors.muted),
                 ),
               ],
@@ -465,7 +470,7 @@ class _CartScreenState extends State<CartScreen> {
               children: [
                 _stepButton(
                   icon: Icons.remove_rounded,
-                  tooltip: 'Remove one ${item.name}',
+                  tooltip: 'Remove one {name}'.trArgs({'name': item.name}),
                   filled: false,
                   onPressed: () => setState(() => CartManager.decreaseQuantity(index)),
                 ),
@@ -482,7 +487,7 @@ class _CartScreenState extends State<CartScreen> {
                 ),
                 _stepButton(
                   icon: Icons.add_rounded,
-                  tooltip: 'Add one ${item.name}',
+                  tooltip: 'Add one {name}'.trArgs({'name': item.name}),
                   filled: true,
                   onPressed: () => setState(() => CartManager.increaseQuantity(index)),
                 ),
@@ -490,7 +495,7 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ),
           IconButton(
-            tooltip: 'Remove ${item.name}',
+            tooltip: 'Remove {name}'.trArgs({'name': item.name}),
             onPressed: () => setState(() => CartManager.removeItem(index)),
             icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
           ),

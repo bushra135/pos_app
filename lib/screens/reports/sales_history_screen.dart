@@ -12,6 +12,7 @@ import '../../services/refund_service.dart';
 import '../../services/report_download.dart';
 import '../../utils/report_workbook.dart';
 import '../../widgets/sale_receipt_view.dart';
+import '../../app/app_language.dart';
 
 /// Owner-only, store-scoped history and a transparent cashier leaderboard.
 class SalesHistoryScreen extends StatefulWidget {
@@ -306,17 +307,17 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  'Report filters',
+                Text(
+                  'Report filters'.tr,
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   initialValue: payment ?? '',
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Payment method'),
+                  decoration: InputDecoration(labelText: 'Payment method'.tr),
                   items: [
-                    const DropdownMenuItem(value: '', child: Text('All payments')),
+                    DropdownMenuItem(value: '', child: Text('All payments'.tr)),
                     ...methods.map(
                       (method) => DropdownMenuItem(value: method, child: Text(method)),
                     ),
@@ -327,9 +328,9 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                 DropdownButtonFormField<String>(
                   initialValue: product ?? '',
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Product'),
+                  decoration: InputDecoration(labelText: 'Product'.tr),
                   items: [
-                    const DropdownMenuItem(value: '', child: Text('All products')),
+                    DropdownMenuItem(value: '', child: Text('All products'.tr)),
                     ...products.entries.map(
                       (entry) => DropdownMenuItem(
                         value: entry.key,
@@ -343,28 +344,25 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                 DropdownButtonFormField<String>(
                   initialValue: status ?? '',
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Receipt status'),
+                  decoration: InputDecoration(labelText: 'Receipt status'.tr),
                   items: [
-                    const DropdownMenuItem(value: '', child: Text('All statuses')),
+                    DropdownMenuItem(value: '', child: Text('All statuses'.tr)),
                     ...statuses.map((state) => DropdownMenuItem(value: state, child: Text(state))),
                   ],
                   onChanged: (value) => setSheet(() => status = value == '' ? null : value),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Stock corrections only'),
+                  title: Text('Stock corrections only'.tr),
                   value: corrections,
                   onChanged: (value) => setSheet(() => corrections = value),
                 ),
                 const SizedBox(height: 12),
                 FilledButton(
                   onPressed: () => Navigator.pop(sheet, true),
-                  child: const Text('Apply filters'),
+                  child: Text('Apply filters'.tr),
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pop(sheet, false),
-                  child: const Text('Cancel'),
-                ),
+                TextButton(onPressed: () => Navigator.pop(sheet, false), child: Text('Cancel'.tr)),
               ],
             ),
           ),
@@ -435,15 +433,15 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Filtered report prepared for download. Open the Excel workbook.'),
+          SnackBar(
+            content: Text('Filtered report prepared for download. Open the Excel workbook.'.tr),
           ),
         );
       }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not prepare the report. Retry the download.')),
+          SnackBar(content: Text('Could not prepare the report. Retry the download.'.tr)),
         );
       }
     }
@@ -487,7 +485,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       title: Text(widget.showTopCashiers ? 'Top cashiers' : 'Sales history'),
       actions: [
         IconButton(
-          tooltip: 'Refresh history',
+          tooltip: 'Refresh history'.tr,
           onPressed: _loading ? null : _load,
           icon: const Icon(Icons.refresh),
         ),
@@ -503,7 +501,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(_error!, textAlign: TextAlign.center),
-                  TextButton(onPressed: _load, child: const Text('Retry')),
+                  TextButton(onPressed: _load, child: Text('Retry'.tr)),
                 ],
               ),
             ),
@@ -515,7 +513,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                 child: DropdownButtonFormField<String>(
                   key: ValueKey('period-$_periodRevision'),
                   initialValue: _period,
-                  decoration: const InputDecoration(labelText: 'Period'),
+                  decoration: InputDecoration(labelText: 'Period'.tr),
                   isExpanded: true,
                   items: [
                     'All time',
@@ -546,8 +544,8 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: TextField(
             controller: _search,
-            decoration: const InputDecoration(
-              labelText: 'Search receipt, cashier or product',
+            decoration: InputDecoration(
+              labelText: 'Search receipt, cashier or product'.tr,
               prefixIcon: Icon(Icons.search),
             ),
             onChanged: (value) => setState(() => _query = value),
@@ -559,9 +557,9 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
             key: ValueKey(_cashier),
             initialValue: _cashier ?? '',
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Cashier'),
+            decoration: InputDecoration(labelText: 'Cashier'.tr),
             items: [
-              const DropdownMenuItem(value: '', child: Text('All cashiers')),
+              DropdownMenuItem(value: '', child: Text('All cashiers'.tr)),
               ...cashiers.entries.map(
                 (entry) => DropdownMenuItem(
                   value: entry.key,
@@ -587,10 +585,10 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                 OutlinedButton.icon(
                   onPressed: rows.isEmpty ? null : _export,
                   icon: const Icon(Icons.download_outlined),
-                  label: const Text('Export to Excel'),
+                  label: Text('Export to Excel'.tr),
                 ),
               IconButton(
-                tooltip: 'Clear report filters',
+                tooltip: 'Clear report filters'.tr,
                 onPressed: _clearFilters,
                 icon: const Icon(Icons.filter_alt_off_outlined),
               ),
@@ -615,7 +613,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
 
         Expanded(
           child: rows.isEmpty
-              ? const Center(child: Text('No receipts match these filters.'))
+              ? Center(child: Text('No receipts match these filters.'.tr))
               : ListView.builder(
                   itemCount: rows.length,
                   itemBuilder: (context, index) {
@@ -647,10 +645,10 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                   },
                 ),
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.all(8),
           child: Text(
-            'Device-only receipts appear here after synchronization.',
+            'Device-only receipts appear here after synchronization.'.tr,
             style: TextStyle(fontSize: 11, color: AppColors.muted),
           ),
         ),
@@ -661,10 +659,13 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   Widget _leaderboard() {
     final rows = _rankings();
     if (rows.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
           padding: EdgeInsets.all(24),
-          child: Text('No completed cashier sales for this period.', textAlign: TextAlign.center),
+          child: Text(
+            'No completed cashier sales for this period.'.tr,
+            textAlign: TextAlign.center,
+          ),
         ),
       );
     }
@@ -674,8 +675,9 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
-          'Ranked by net sales value (BD), then completed receipt count. Owner sales, refund transactions and receipts without a cashier ID are excluded.',
+        Text(
+          'Ranked by net sales value (BD), then completed receipt count. Owner sales, refund transactions and receipts without a cashier ID are excluded.'
+              .tr,
           style: TextStyle(color: AppColors.muted),
         ),
         const SizedBox(height: 12),
@@ -733,9 +735,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       );
     }
     if (lines.isEmpty) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('This receipt has no returnable items.')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('This receipt has no returnable items.'.tr)));
       return;
     }
     Map<String, int> already;
@@ -747,7 +747,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       );
     } catch (e) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('Could not check earlier returns. Try again.')),
+        SnackBar(content: Text('Could not check earlier returns. Try again.'.tr)),
       );
       return;
     }
@@ -762,7 +762,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     }..removeWhere((_, line) => line.left <= 0);
     if (available.isEmpty) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('Everything on this receipt was already returned.')),
+        SnackBar(content: Text('Everything on this receipt was already returned.'.tr)),
       );
       return;
     }
@@ -807,7 +807,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
               ListTile(
                 title: Text(sale.receipt),
                 trailing: IconButton(
-                  tooltip: 'Close receipt',
+                  tooltip: 'Close receipt'.tr,
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(sheetContext),
                 ),
@@ -849,10 +849,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                     ),
                     if (sale.data['stockCorrections'] is List) ...[
                       const Divider(),
-                      const Text(
-                        'Stock corrections',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                      Text('Stock corrections'.tr, style: TextStyle(fontWeight: FontWeight.bold)),
                       ...(sale.data['stockCorrections'] as List).whereType<Map>().map(
                         (row) => Text(
                           '${row['name'] ?? row['productId']}: ${row['stockBefore']} + ${row['addedQuantity']} − ${row['quantitySold']} = ${row['stockAfter']}',
@@ -864,7 +861,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                         padding: const EdgeInsets.only(top: 16),
                         child: OutlinedButton.icon(
                           icon: const Icon(Icons.assignment_return_outlined),
-                          label: const Text('Refund items'),
+                          label: Text('Refund items'.tr),
                           style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger),
                           onPressed: () {
                             Navigator.pop(sheetContext);
@@ -877,13 +874,13 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                         padding: const EdgeInsets.only(top: 16),
                         child: FilledButton.icon(
                           icon: const Icon(Icons.receipt_long),
-                          label: const Text('View receipt / PDF'),
+                          label: Text('View receipt / PDF'.tr),
                           onPressed: () {
                             Navigator.pop(sheetContext);
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (context) => Scaffold(
-                                  appBar: AppBar(title: const Text('Receipt')),
+                                  appBar: AppBar(title: Text('Receipt'.tr)),
                                   body: SaleReceiptView(
                                     sale: sale.exportableReceipt!,
                                     status: 'Synchronized',
@@ -1091,11 +1088,11 @@ class _RefundDialogState extends State<_RefundDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
         FilledButton(
           onPressed: amount > 0 ? () => Navigator.pop(context, _qty) : null,
           style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-          child: const Text('Confirm refund'),
+          child: Text('Confirm refund'.tr),
         ),
       ],
     );

@@ -4,6 +4,7 @@ import 'package:printing/printing.dart';
 import '../models/sale_record.dart';
 import '../app/app_colors.dart';
 import '../services/receipt_service.dart';
+import '../app/app_language.dart';
 
 /// Export failures stay on this screen and cannot submit the sale again.
 class SaleReceiptView extends StatefulWidget {
@@ -46,8 +47,8 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not export receipt. Your sale is already saved. Try again.'),
+          SnackBar(
+            content: Text('Could not export receipt. Your sale is already saved. Try again.'.tr),
           ),
         );
       }
@@ -84,8 +85,8 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Sale saved',
+                  Text(
+                    'Sale saved'.tr,
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
                   ),
@@ -143,8 +144,8 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                             ],
                           ),
                           const Divider(height: 32),
-                          const Text(
-                            'Items',
+                          Text(
+                            'Items'.tr,
                             style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                           ),
                           const SizedBox(height: 8),
@@ -237,12 +238,12 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                       OutlinedButton.icon(
                         onPressed: exporting ? null : () => _export(print: false),
                         icon: const Icon(Icons.ios_share_rounded),
-                        label: const Text('Share PDF'),
+                        label: Text('Share PDF'.tr),
                       ),
                       OutlinedButton.icon(
                         onPressed: exporting ? null : () => _export(print: true),
                         icon: const Icon(Icons.print_outlined),
-                        label: const Text('Print'),
+                        label: Text('Print'.tr),
                       ),
                     ],
                   ),

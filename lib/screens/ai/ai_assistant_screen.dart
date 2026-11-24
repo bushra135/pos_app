@@ -10,6 +10,7 @@ import '../../app/app_colors.dart';
 import '../../models/report_sale.dart';
 import '../../utils/bundle_offer_planner.dart';
 import '../reports/reports_screen.dart';
+import '../../app/app_language.dart';
 
 /// Calculates store insights locally using keyword rules and store records.
 class AiAssistantScreen extends StatefulWidget {
@@ -33,10 +34,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   bool _isThinking = false;
 
   final List<_ChatMessage> messages = [
-    const _ChatMessage(
+    _ChatMessage(
       isUser: false,
       text:
-          "Hello! I can analyze your POS data, sales, inventory, payment methods, and product performance. What would you like to know?",
+          "Hello! I can analyze your POS data, sales, inventory, payment methods, and product performance. What would you like to know?"
+              .tr,
     ),
   ];
 
@@ -115,7 +117,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         messages.add(
           _ChatMessage(
             isUser: false,
-            text: 'Local analysis could not load store data. Check your connection and try again.',
+            text:
+                'Local analysis could not load store data. Check your connection and try again.'.tr,
           ),
         );
         _isThinking = false;
@@ -169,7 +172,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     if (_containsAny(q, ['week sales', 'this week'])) {
       return _periodSalesSummary(
         data: data,
-        title: 'This week sales summary',
+        title: 'This week sales summary'.tr,
         range: _currentWeekRange(),
       );
     }
@@ -177,7 +180,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     if (_containsAny(q, ['month sales', 'this month'])) {
       return _periodSalesSummary(
         data: data,
-        title: 'This month sales summary',
+        title: 'This month sales summary'.tr,
         range: _currentMonthRange(),
       );
     }
@@ -725,8 +728,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
                     children: [
                       if (isNewConversation) ...[
-                        _buildWelcomeCard(),
-                        const SizedBox(height: 24),
+                        _buildWelcome(),
                         _buildSuggestions(),
                       ] else ...[
                         for (final message in messages.skip(1))
@@ -758,113 +760,132 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   }
 
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 12, 8),
-      color: AppColors.background,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 18, 8, 4),
       child: Row(
         children: [
+          // The one AI mark on this screen.
           Container(
-            width: 44,
-            height: 44,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              color: AppColors.primary,
+              color: AppColors.primaryDark,
               borderRadius: BorderRadius.circular(15),
             ),
-            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 22),
+            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'ShopPad Assistant',
-                  style: TextStyle(
+                  'ShopPad Assistant'.tr,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
                     color: AppColors.text,
                   ),
                 ),
-                Text(
-                  'Sales insights, made simple',
-                  style: TextStyle(fontSize: 12, color: AppColors.muted),
+                Row(
+                  children: [
+                    const Icon(Icons.lock_outline_rounded, size: 13, color: AppColors.muted),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'Local analysis'.tr,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           IconButton(
+            tooltip: 'About this analysis mode'.tr,
+            icon: const Icon(Icons.info_outline_rounded, color: AppColors.muted),
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Text('Local analysis'.tr),
+                content: Text(
+                  'Answers are calculated on your device using English keyword rules and your store records. No paid AI service or API key is used. Loading store records may require a connection.'
+                      .tr,
+                ),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context), child: Text('Got it'.tr)),
+                ],
+              ),
+            ),
+          ),
+          IconButton(
             onPressed: _isThinking || messages.length == 1 ? null : _startNewConversation,
-            tooltip: 'New conversation',
-            icon: const Icon(Icons.edit_square, size: 21),
+            tooltip: 'New conversation'.tr,
+            icon: const Icon(Icons.add_comment_outlined, color: AppColors.text),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildWelcomeCard() {
+  /// Opening card: what the assistant does, with no second AI icon.
+  Widget _buildWelcome() {
+    Widget pill(IconData icon, String label) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(30)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppColors.onHero),
+          const SizedBox(width: 6),
+          Text(
+            label.tr,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.onHero,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
     return Container(
+      margin: const EdgeInsets.only(bottom: 18),
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(24)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.primaryDark,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 26),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Your store.\nA clearer picture.',
-            style: TextStyle(
-              fontSize: 28,
+          Text(
+            'Your store.\nA clearer picture.'.tr,
+            style: const TextStyle(
+              fontSize: 26,
               height: 1.25,
               fontWeight: FontWeight.w800,
               color: AppColors.onHero,
             ),
           ),
-          const SizedBox(height: 12),
-          const Text(
-            'Choose a question below to explore your sales and stock. Local analysis supports the suggested topics and similar English questions.',
-            style: TextStyle(fontSize: 14, height: 1.6, color: AppColors.onHeroMuted),
+          const SizedBox(height: 10),
+          Text(
+            'Tap a question, or ask about sales, stock and offers.'.tr,
+            style: const TextStyle(fontSize: 14, height: 1.5, color: AppColors.onHeroMuted),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              _buildInfoPill(Icons.lock_outline, 'Your store data'),
-              _buildInfoPill(Icons.visibility_outlined, 'Read-only insights'),
+              pill(Icons.lock_outline, 'Your store data'),
+              pill(Icons.visibility_outlined, 'Read-only insights'),
             ],
           ),
         ],
       ),
     );
   }
-
-  Widget _buildInfoPill(IconData icon, String label) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(30)),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: AppColors.onHero),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            color: AppColors.onHero,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    ),
-  );
 
   Widget _buildSuggestions() {
     const prompts = [
@@ -904,10 +925,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.only(left: 4, bottom: 12),
           child: Text(
-            'A good place to start',
+            'A good place to start'.tr,
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
           ),
         ),
@@ -950,7 +971,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      prompt.$2,
+                                      prompt.$2.tr,
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w700,
                                         fontSize: 14,
@@ -958,7 +979,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                                     ),
                                     const SizedBox(height: 3),
                                     Text(
-                                      prompt.$4,
+                                      prompt.$4.tr,
                                       style: const TextStyle(color: AppColors.muted, fontSize: 12),
                                     ),
                                   ],
@@ -986,108 +1007,61 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   Widget _buildInputBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      color: AppColors.surface,
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 828),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.analytics_outlined, size: 14, color: AppColors.primaryDark),
-                  const SizedBox(width: 5),
-                  Text(
-                    'Local analysis',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primaryDark,
+              Expanded(
+                child: TextField(
+                  controller: _messageController,
+                  enabled: !_isThinking,
+                  minLines: 1,
+                  maxLines: 4,
+                  maxLength: 600,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _sendMessage(),
+                  decoration: InputDecoration(
+                    hintText: 'Ask about your store…'.tr,
+                    counterText: '',
+                    fillColor: AppColors.background,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(26),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(26),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(26),
+                      borderSide: const BorderSide(color: AppColors.primaryDark, width: 1.4),
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'English prompts',
-                      style: const TextStyle(fontSize: 11, color: AppColors.muted),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'About this analysis mode',
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.info_outline, size: 17),
-                    onPressed: () => showDialog<void>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: Text('Local analysis'),
-                        content: Text(
-                          'Answers are calculated on your device using English keyword rules and your store records. No paid AI service or API key is used. Loading store records may require a connection.',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Got it'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-              Container(
-                padding: const EdgeInsets.fromLTRB(4, 4, 6, 4),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(23),
-                  border: Border.all(color: AppColors.border),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                onPressed: _isThinking ? null : () => _sendMessage(),
+                tooltip: 'Send message'.tr,
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.primaryDark,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(50, 50),
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _messageController,
-                        enabled: !_isThinking,
-                        minLines: 1,
-                        maxLines: 4,
-                        maxLength: 600,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _sendMessage(),
-                        decoration: const InputDecoration(
-                          hintText: 'Ask about your store…',
-                          counterText: '',
-                          filled: false,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 3),
-                      child: IconButton.filled(
-                        onPressed: _isThinking ? null : () => _sendMessage(),
-                        tooltip: 'Send message',
-                        style: IconButton.styleFrom(
-                          backgroundColor: AppColors.primaryDark,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size(44, 44),
-                        ),
-                        icon: _isThinking
-                            ? const SizedBox(
-                                width: 17,
-                                height: 17,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.arrow_upward_rounded, size: 22),
-                      ),
-                    ),
-                  ],
-                ),
+                icon: _isThinking
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.arrow_upward_rounded, size: 22),
               ),
             ],
           ),
@@ -1141,7 +1115,7 @@ class _MessageBubble extends StatelessWidget {
                   ),
                   if (!isUser)
                     IconButton(
-                      tooltip: 'Copy answer',
+                      tooltip: 'Copy answer'.tr,
                       visualDensity: VisualDensity.compact,
                       icon: const Icon(Icons.copy_rounded, size: 16),
                       onPressed: () async {
@@ -1149,7 +1123,7 @@ class _MessageBubble extends StatelessWidget {
                         if (context.mounted) {
                           ScaffoldMessenger.of(
                             context,
-                          ).showSnackBar(const SnackBar(content: Text('Answer copied')));
+                          ).showSnackBar(SnackBar(content: Text('Answer copied'.tr)));
                         }
                       },
                     ),
@@ -1172,7 +1146,7 @@ class _MessageBubble extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 12),
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.bar_chart_rounded, size: 18),
-                    label: const Text('Open dashboard'),
+                    label: Text('Open dashboard'.tr),
                     onPressed: onOpenReports,
                   ),
                 ),
@@ -1187,7 +1161,7 @@ class _MessageBubble extends StatelessWidget {
 class _TypingBubble extends StatelessWidget {
   const _TypingBubble();
   @override
-  Widget build(BuildContext context) => const Padding(
+  Widget build(BuildContext context) => Padding(
     padding: EdgeInsets.all(16),
     child: Row(
       children: [
@@ -1195,7 +1169,7 @@ class _TypingBubble extends StatelessWidget {
         SizedBox(width: 12),
         Expanded(
           child: Text(
-            'Looking at your store data…',
+            'Looking at your store data…'.tr,
             style: TextStyle(color: AppColors.muted, fontSize: 13),
           ),
         ),

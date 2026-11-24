@@ -9,6 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Arabic (right-to-left) Material widgets and date/number text.
+  flutter_localizations:
+    sdk: flutter
 
   # Authentication and store data, including compact product images.
   firebase_core: ^2.25.4
@@ -36,6 +39,8 @@ dependencies:
   image: 4.5.4
   # Opens a web search when no catalogue knows a barcode.
   url_launcher: ^6.3.1
+  # Remembers the chosen app language on this device.
+  shared_preferences: ^2.3.2
 
 dev_dependencies:
   flutter_test:

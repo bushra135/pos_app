@@ -7,6 +7,7 @@ import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 import 'create_account_screen.dart';
+import '../../app/app_language.dart';
 
 /// Signs in through Firebase Auth; AuthWrapper decides which workspace is allowed.
 class LoginScreen extends StatefulWidget {
@@ -101,6 +102,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        Align(
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: TextButton.icon(
+                            onPressed: AppLanguage.toggle,
+                            style: TextButton.styleFrom(foregroundColor: AppColors.text),
+                            icon: const Icon(Icons.translate_rounded, size: 18),
+                            // Each language is written in itself so it can be found.
+                            label: Text(AppLanguage.isArabic ? 'English' : 'العربية'),
+                          ),
+                        ),
                         _brand(),
                         const SizedBox(height: 32),
                         _form(),
@@ -130,11 +141,11 @@ class _LoginScreenState extends State<LoginScreen> {
         // Sign-in swaps the app's roles: indigo brand, ink for secondary actions.
         color: AppColors.primaryDark,
         colorBlendMode: BlendMode.srcIn,
-        semanticLabel: 'ShopPad logo',
+        semanticLabel: 'ShopPad logo'.tr,
       ),
       const SizedBox(height: 16),
-      const Text(
-        'Welcome back',
+      Text(
+        'Welcome back'.tr,
         textAlign: TextAlign.center,
         style: TextStyle(
           color: AppColors.text,
@@ -144,8 +155,8 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
       const SizedBox(height: 4),
-      const Text(
-        'Sign in to your ShopPad workspace.',
+      Text(
+        'Sign in to your ShopPad workspace.'.tr,
         textAlign: TextAlign.center,
         style: TextStyle(color: AppColors.muted, fontSize: AppTypography.button),
       ),
@@ -173,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
             autofillHints: const [AutofillHints.username, AutofillHints.email],
-            decoration: const InputDecoration(hintText: 'you@example.com'),
+            decoration: InputDecoration(hintText: 'you@example.com'.tr),
           ),
           const SizedBox(height: 16),
           _label('Password'),
@@ -184,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
             autofillHints: const [AutofillHints.password],
             onSubmitted: (_) => _loading ? null : _signIn(),
             decoration: InputDecoration(
-              hintText: 'Enter your password',
+              hintText: 'Enter your password'.tr,
               suffixIcon: IconButton(
                 tooltip: _showPassword ? 'Hide password' : 'Show password',
                 onPressed: () => setState(() => _showPassword = !_showPassword),
@@ -200,7 +211,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: TextButton(
               onPressed: _resetPassword,
               style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-              child: const Text('Forgot password?'),
+              child: Text('Forgot password?'.tr),
             ),
           ),
           const SizedBox(height: 4),
@@ -225,7 +236,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     height: 22,
                     child: CircularProgressIndicator(color: AppColors.onBrand, strokeWidth: 2.4),
                   )
-                : const Text('Sign in'),
+                : Text('Sign in'.tr),
           ),
         ],
       ),
@@ -235,8 +246,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _createAccount() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      const Text(
-        'New to ShopPad?',
+      Text(
+        'New to ShopPad?'.tr,
         textAlign: TextAlign.center,
         style: TextStyle(color: AppColors.muted, fontSize: AppTypography.body),
       ),
@@ -251,7 +262,7 @@ class _LoginScreenState extends State<LoginScreen> {
           minimumSize: const Size.fromHeight(52),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
-        child: const Text('Create an account'),
+        child: Text('Create an account'.tr),
       ),
     ],
   );

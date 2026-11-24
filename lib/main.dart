@@ -3,7 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'app/app_language.dart';
 import 'app/theme.dart';
 import 'firebase_options.dart';
 import 'screens/auth/auth_wrapper.dart';
@@ -35,6 +37,7 @@ Future<void> main() async {
     if (user == null) sync.clearSession();
   });
 
+  await AppLanguage.load();
   runApp(const ShopPadApp());
 }
 
@@ -44,10 +47,22 @@ class ShopPadApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      home: const AuthWrapper(),
+    return ValueListenableBuilder<Locale>(
+      valueListenable: AppLanguage.locale,
+      // A new key rebuilds every screen so all texts switch language at once.
+      builder: (context, locale, _) => MaterialApp(
+        key: ValueKey(locale.languageCode),
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        locale: locale,
+        supportedLocales: AppLanguage.supported,
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: const AuthWrapper(),
+      ),
     );
   }
 }

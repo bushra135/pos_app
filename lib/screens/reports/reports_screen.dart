@@ -13,6 +13,7 @@ import '../../models/report_sale.dart';
 import '../../models/sale_record.dart';
 import '../closing/end_of_day_screen.dart';
 import 'sales_history_screen.dart';
+import '../../app/app_language.dart';
 
 /// Dashboard periods use local dates; history filters live on their separate route.
 enum ReportPeriod { today, week, month, year }
@@ -292,11 +293,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
       appBar: widget.returnToAssistant
           ? AppBar(
               leading: IconButton(
-                tooltip: 'Back to assistant',
+                tooltip: 'Back to assistant'.tr,
                 icon: const Icon(Icons.arrow_back_rounded),
                 onPressed: () => Navigator.of(context).pop(),
               ),
-              title: const Text('Back to assistant'),
+              title: Text('Back to assistant'.tr),
             )
           : null,
       body: SafeArea(
@@ -313,37 +314,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildHeader(),
-                      if (_canOpenSalesHistory)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: OutlinedButton.icon(
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => SalesHistoryScreen(
-                                  firestore: _firestore,
-                                  currentUserId: widget.currentUserId,
-                                ),
-                              ),
-                            ),
-                            icon: const Icon(Icons.history),
-                            label: const Text('Sales history'),
-                          ),
-                        ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: OutlinedButton.icon(
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => EndOfDayScreen(
-                                firestore: _firestore,
-                                currentUserId: widget.currentUserId,
-                              ),
-                            ),
-                          ),
-                          icon: const Icon(Icons.point_of_sale_outlined),
-                          label: const Text('End of day (Z-report)'),
-                        ),
-                      ),
                       const SizedBox(height: 16),
                       _buildPeriodSelector(),
                       const SizedBox(height: 16),
@@ -378,17 +348,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget _buildHeader() {
     return Row(
       children: [
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Dashboard',
+                'Dashboard'.tr,
                 style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: AppColors.text),
               ),
               SizedBox(height: 4),
               Text(
-                'Sales, payments, and product performance',
+                'Sales, payments, and product performance'.tr,
                 style: TextStyle(
                   fontSize: AppTypography.caption,
                   color: AppColors.muted,
@@ -398,18 +368,47 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ],
           ),
         ),
-        IconButton.outlined(
-          tooltip: 'Refresh',
-          onPressed: _loadReports,
-          style: IconButton.styleFrom(
-            backgroundColor: AppColors.surface,
-            side: const BorderSide(color: AppColors.border),
+        // Compact actions: the long buttons used to push the report down.
+        if (_canOpenSalesHistory) ...[
+          IconButton.outlined(
+            tooltip: 'Sales history'.tr,
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    SalesHistoryScreen(firestore: _firestore, currentUserId: widget.currentUserId),
+              ),
+            ),
+            style: _headerAction,
+            icon: const Icon(Icons.receipt_long_outlined, color: AppColors.text),
           ),
+          const SizedBox(width: 6),
+        ],
+        IconButton.outlined(
+          tooltip: 'End of day (Z-report)'.tr,
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  EndOfDayScreen(firestore: _firestore, currentUserId: widget.currentUserId),
+            ),
+          ),
+          style: _headerAction,
+          icon: const Icon(Icons.point_of_sale_outlined, color: AppColors.text),
+        ),
+        const SizedBox(width: 6),
+        IconButton.outlined(
+          tooltip: 'Refresh'.tr,
+          onPressed: _loadReports,
+          style: _headerAction,
           icon: const Icon(Icons.refresh_rounded, color: AppColors.text),
         ),
       ],
     );
   }
+
+  static final ButtonStyle _headerAction = IconButton.styleFrom(
+    backgroundColor: AppColors.surface,
+    side: const BorderSide(color: AppColors.border),
+  );
 
   Widget _buildPeriodSelector() {
     return Container(
@@ -453,7 +452,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ),
           alignment: Alignment.center,
           child: Text(
-            label,
+            label.tr,
             style: TextStyle(
               color: isSelected ? AppColors.text : AppColors.muted,
               fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
@@ -469,7 +468,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final maxY = _niceMax(data.chartValues);
 
     return _SectionCard(
-      title: 'Sales trend',
+      title: 'Sales trend'.tr,
       subtitle: _periodSubtitle(_selectedPeriod),
       child: SizedBox(
         height: 250,
@@ -496,12 +495,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
                     return Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        data.chartLabels[index],
-                        style: const TextStyle(
-                          color: AppColors.muted,
-                          fontSize: AppTypography.caption,
-                          fontWeight: FontWeight.w600,
+                      // Arabic day and month names are longer; shrink instead of overlapping.
+                      child: SizedBox(
+                        width: 34,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            data.chartLabels[index].tr,
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: AppTypography.caption,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
                     );
@@ -566,7 +572,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             children: [
               Expanded(
                 child: Text(
-                  'Net sales · ${_periodLabel(_selectedPeriod)}',
+                  'Net sales · {period}'.trArgs({'period': _periodLabel(_selectedPeriod)}),
                   style: const TextStyle(
                     color: AppColors.onHeroMuted,
                     fontSize: AppTypography.caption + 1,
@@ -582,7 +588,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    '${data.netChange! >= 0 ? '+' : ''}${data.netChange!.toStringAsFixed(0)}% vs ${_previousLabel(_selectedPeriod)}',
+                    '{change}% vs {previous}'.trArgs({
+                      'change':
+                          '${data.netChange! >= 0 ? '+' : ''}${data.netChange!.toStringAsFixed(0)}',
+                      'previous': _previousLabel(_selectedPeriod),
+                    }),
                     style: TextStyle(
                       color: data.netChange! >= 0 ? AppColors.success : AppColors.danger,
                       fontSize: AppTypography.caption,
@@ -608,11 +618,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
           const SizedBox(height: 14),
           Row(
             children: [
-              figure('Orders', '${data.ordersCount}'),
+              figure('Orders'.tr, '${data.ordersCount}'),
               const SizedBox(width: 8),
-              figure('Average', _money(data.averageOrder)),
+              figure('Average'.tr, _money(data.averageOrder)),
               const SizedBox(width: 8),
-              figure('Gross', _money(data.grossSales)),
+              figure('Gross'.tr, _money(data.grossSales)),
             ],
           ),
         ],
@@ -657,17 +667,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
       data.topSelling,
       icon: Icons.trending_up_rounded,
       color: AppColors.primaryDark,
-      title: 'Top sellers',
-      sheetTitle: 'Top 10 sellers',
-      emptySubtitle: 'Tap to view top 10',
+      title: 'Top sellers'.tr,
+      sheetTitle: 'Top 10 sellers'.tr,
+      emptySubtitle: 'Tap to view top 10'.tr,
     );
     final least = _productInsight(
       data.leastSelling,
       icon: Icons.south_rounded,
       color: AppColors.warning,
-      title: 'Least selling',
-      sheetTitle: 'Least 10 selling',
-      emptySubtitle: 'Tap to view lowest 10',
+      title: 'Least selling'.tr,
+      sheetTitle: 'Least 10 selling'.tr,
+      emptySubtitle: 'Tap to view lowest 10'.tr,
     );
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -692,9 +702,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
               data.topRevenue,
               icon: Icons.workspace_premium_rounded,
               color: AppColors.primaryDark,
-              title: 'Top revenue products',
-              sheetTitle: 'Top 10 Revenue Products',
-              emptySubtitle: 'Tap to view top 10',
+              title: 'Top revenue products'.tr,
+              sheetTitle: 'Top 10 Revenue Products'.tr,
+              emptySubtitle: 'Tap to view top 10'.tr,
               mode: _ProductSheetMode.revenue,
             ),
           ],
@@ -723,37 +733,37 @@ class _ReportsScreenState extends State<ReportsScreen> {
           ? emptySubtitle
           : mode == _ProductSheetMode.revenue
           ? _money(first.revenue)
-          : '${first.quantity.toStringAsFixed(0)} sold',
+          : '{n} sold'.trArgs({'n': first.quantity.toStringAsFixed(0)}),
       onTap: () => _showProductSheet(title: sheetTitle, products: products, mode: mode),
     );
   }
 
   String _previousLabel(ReportPeriod period) => switch (period) {
-    ReportPeriod.today => 'yesterday',
-    ReportPeriod.week => 'last week',
-    ReportPeriod.month => 'last month',
-    ReportPeriod.year => 'last year',
+    ReportPeriod.today => 'yesterday'.tr,
+    ReportPeriod.week => 'last week'.tr,
+    ReportPeriod.month => 'last month'.tr,
+    ReportPeriod.year => 'last year'.tr,
   };
 
   /// Gross profit from items with a cost price, plus what the shelves are worth.
   Widget _buildProfitSection(_ReportsData data) {
     final hasCosts = data.costedRevenue > 0;
     return _SectionCard(
-      title: 'Profit',
-      subtitle: 'Sales minus the cost of the items sold',
+      title: 'Profit'.tr,
+      subtitle: 'Sales minus the cost of the items sold'.tr,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (!hasCosts)
-            const _EmptyState(
-              text: 'Add a cost price to your products (Products › Edit) to see profit here.',
+            _EmptyState(
+              text: 'Add a cost price to your products (Products › Edit) to see profit here.'.tr,
             )
           else ...[
             Row(
               children: [
                 Expanded(
                   child: _ProfitFigure(
-                    label: 'Gross profit',
+                    label: 'Gross profit'.tr,
                     value: _money(data.grossProfit),
                     color: data.grossProfit >= 0 ? AppColors.success : AppColors.danger,
                   ),
@@ -761,7 +771,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: _ProfitFigure(
-                    label: 'Margin',
+                    label: 'Margin'.tr,
                     value: '${data.margin.toStringAsFixed(1)}%',
                     color: AppColors.primaryDark,
                   ),
@@ -802,10 +812,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget _buildCategorySection(_ReportsData data) {
     final total = data.categories.fold<double>(0, (running, c) => running + c.amount);
     return _SectionCard(
-      title: 'Sales by category',
-      subtitle: 'Which kinds of products bring in the money',
+      title: 'Sales by category'.tr,
+      subtitle: 'Which kinds of products bring in the money'.tr,
       child: data.categories.isEmpty
-          ? const _EmptyState(text: 'No sales in this period yet')
+          ? _EmptyState(text: 'No sales in this period yet'.tr)
           : Column(
               children: [
                 for (final category in data.categories.take(6))
@@ -830,10 +840,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final hourMax = data.hourly.reduce(math.max);
     final dayMax = data.weekday.reduce(math.max);
     if (hourMax <= 0) {
-      return const _SectionCard(
-        title: 'Peak times',
-        subtitle: 'When customers buy the most',
-        child: _EmptyState(text: 'No sales in this period yet'),
+      return _SectionCard(
+        title: 'Peak times'.tr,
+        subtitle: 'When customers buy the most'.tr,
+        child: _EmptyState(text: 'No sales in this period yet'.tr),
       );
     }
     final bestHour = data.hourly.indexOf(hourMax);
@@ -891,18 +901,21 @@ class _ReportsScreenState extends State<ReportsScreen> {
         );
 
     return _SectionCard(
-      title: 'Peak times',
-      subtitle: 'Busiest: ${hourLabel(bestHour)} · ${days[bestDay]}',
+      title: 'Peak times'.tr,
+      subtitle: 'Busiest: {hour} · {day}'.trArgs({
+        'hour': hourLabel(bestHour),
+        'day': days[bestDay].tr,
+      }),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('By hour', style: TextStyle(fontWeight: FontWeight.w700)),
+          Text('By hour'.tr, style: TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
           bars(data.hourly, hourMax, bestHour, (h) => '$h', 3),
           const SizedBox(height: 14),
-          const Text('By day', style: TextStyle(fontWeight: FontWeight.w700)),
+          Text('By day'.tr, style: TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
-          bars(data.weekday, dayMax, bestDay, (d) => days[d], 1),
+          bars(data.weekday, dayMax, bestDay, (d) => days[d].tr, 1),
         ],
       ),
     );
@@ -928,8 +941,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Widget _buildNetSalesSection(_ReportsData data) {
     return _SectionCard(
-      title: 'Net sales',
-      subtitle: 'Gross sales minus discounts and refunds',
+      title: 'Net sales'.tr,
+      subtitle: 'Gross sales minus discounts and refunds'.tr,
       child: Column(
         children: [
           _AmountRow('Gross sales', _money(data.grossSales)),
@@ -949,10 +962,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
 
     return _SectionCard(
-      title: 'Payment methods',
-      subtitle: 'Cash, BenefitPay, card, and other payment totals',
+      title: 'Payment methods'.tr,
+      subtitle: 'Cash, BenefitPay, card, and other payment totals'.tr,
       child: data.paymentMethods.isEmpty
-          ? const _EmptyState(text: 'No payment data yet')
+          ? _EmptyState(text: 'No payment data yet'.tr)
           : Column(
               children: data.paymentMethods.map((method) {
                 final progress = total == 0 ? 0.0 : method.amount / total;
@@ -1026,7 +1039,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   const SizedBox(height: 10),
                   Expanded(
                     child: list.isEmpty
-                        ? const _EmptyState(text: 'No products yet')
+                        ? _EmptyState(text: 'No products yet'.tr)
                         : ListView.separated(
                             controller: scrollController,
                             itemCount: list.length,
@@ -1035,7 +1048,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               final product = list[index];
                               final trailing = mode == _ProductSheetMode.revenue
                                   ? _money(product.revenue)
-                                  : '${product.quantity.toStringAsFixed(0)} sold';
+                                  : '{n} sold'.trArgs({'n': product.quantity.toStringAsFixed(0)});
 
                               return _RankedProductTile(
                                 rank: index + 1,
@@ -1088,7 +1101,7 @@ class _TopStatCard extends StatelessWidget {
           _IconBadge(icon: icon, color: color),
           const SizedBox(height: 12),
           Text(
-            title,
+            title.tr,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -1112,7 +1125,7 @@ class _TopStatCard extends StatelessWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            subtitle,
+            subtitle.tr,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -1164,7 +1177,7 @@ class _InsightCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
+                      title.tr,
                       style: const TextStyle(
                         fontSize: AppTypography.label,
                         color: AppColors.muted,
@@ -1184,7 +1197,7 @@ class _InsightCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      subtitle,
+                      subtitle.tr,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -1231,7 +1244,7 @@ class _SectionCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            subtitle,
+            subtitle.tr,
             style: const TextStyle(
               fontSize: AppTypography.caption,
               fontWeight: FontWeight.w600,
@@ -1281,7 +1294,7 @@ class _AmountRow extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              label,
+              label.tr,
               style: TextStyle(
                 color: highlighted ? AppColors.text : AppColors.muted,
                 fontSize: AppTypography.label,
@@ -1416,7 +1429,7 @@ class _RankedProductTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  subtitle,
+                  subtitle.tr,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1491,7 +1504,7 @@ class _ErrorState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            ElevatedButton(onPressed: onRetry, child: const Text('Try again')),
+            ElevatedButton(onPressed: onRetry, child: Text('Try again'.tr)),
           ],
         ),
       ),
@@ -1683,19 +1696,19 @@ int _bucketIndex(DateTime date, ReportPeriod period) {
 
 String _periodLabel(ReportPeriod period) {
   return switch (period) {
-    ReportPeriod.today => 'Today',
-    ReportPeriod.week => 'This week',
-    ReportPeriod.month => 'This month',
-    ReportPeriod.year => 'This year',
+    ReportPeriod.today => 'Today'.tr,
+    ReportPeriod.week => 'This week'.tr,
+    ReportPeriod.month => 'This month'.tr,
+    ReportPeriod.year => 'This year'.tr,
   };
 }
 
 String _periodSubtitle(ReportPeriod period) {
   return switch (period) {
-    ReportPeriod.today => 'Sales grouped by hour',
-    ReportPeriod.week => 'Sales grouped by day',
-    ReportPeriod.month => 'Sales grouped by day of month',
-    ReportPeriod.year => 'Sales grouped by month',
+    ReportPeriod.today => 'Sales grouped by hour'.tr,
+    ReportPeriod.week => 'Sales grouped by day'.tr,
+    ReportPeriod.month => 'Sales grouped by day of month'.tr,
+    ReportPeriod.year => 'Sales grouped by month'.tr,
   };
 }
 

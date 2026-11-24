@@ -14,6 +14,7 @@ import '../closing/end_of_day_screen.dart';
 import '../products/products_screen.dart';
 import '../profile/profile_screen.dart';
 import '../scan/scan_screen.dart';
+import '../../app/app_language.dart';
 
 /// Hosts cashier navigation and daily statistics without changing the account role.
 class CashierHomeScreen extends StatefulWidget {
@@ -222,26 +223,26 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
               if (uid != null) await _loadTodayStats(uid);
             }
           },
-          destinations: const [
+          destinations: [
             NavigationDestination(
               icon: Icon(Icons.home_outlined),
               selectedIcon: Icon(Icons.home_rounded),
-              label: 'Home',
+              label: 'Home'.tr,
             ),
             NavigationDestination(
               icon: Icon(Icons.qr_code_scanner_rounded),
               selectedIcon: Icon(Icons.qr_code_scanner_rounded),
-              label: 'Scan',
+              label: 'Scan'.tr,
             ),
             NavigationDestination(
               icon: Icon(Icons.shopping_cart_outlined),
               selectedIcon: Icon(Icons.shopping_cart_rounded),
-              label: 'Cart',
+              label: 'Cart'.tr,
             ),
             NavigationDestination(
               icon: Icon(Icons.person_outline_rounded),
               selectedIcon: Icon(Icons.person_rounded),
-              label: 'Profile',
+              label: 'Profile'.tr,
             ),
           ],
         ),
@@ -271,10 +272,12 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
               Expanded(
                 child: _buildActionTile(
                   icon: Icons.shopping_cart_outlined,
-                  label: 'Cart',
+                  label: 'Cart'.tr,
                   caption: cartCount == 0
-                      ? 'Empty'
-                      : '$cartCount ${cartCount == 1 ? 'item' : 'items'} waiting',
+                      ? 'Empty'.tr
+                      : (cartCount == 1 ? '1 item waiting' : '{n} items waiting').trArgs({
+                          'n': cartCount,
+                        }),
                   onTap: () => setState(() => selectedIndex = 2),
                 ),
               ),
@@ -282,8 +285,8 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
               Expanded(
                 child: _buildActionTile(
                   icon: Icons.inventory_2_outlined,
-                  label: 'Products',
-                  caption: 'Prices and stock',
+                  label: 'Products'.tr,
+                  caption: 'Prices and stock'.tr,
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const ProductsScreen()),
@@ -304,7 +307,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
             ),
             icon: const Icon(Icons.point_of_sale_outlined, color: AppColors.primaryDark),
-            label: const Text('End of day · close the drawer'),
+            label: Text('End of day · close the drawer'.tr),
           ),
         ],
       ),
@@ -320,7 +323,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Hi, ${cashierName.isEmpty ? 'Cashier' : cashierName}',
+                'Hi, {name}'.trArgs({'name': cashierName.isEmpty ? 'Cashier'.tr : cashierName}),
                 style: const TextStyle(
                   color: AppColors.muted,
                   fontSize: AppTypography.body,
@@ -328,7 +331,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                 ),
               ),
               Text(
-                storeName.isEmpty ? 'My Store' : storeName,
+                storeName.isEmpty ? 'My Store'.tr : storeName,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -347,7 +350,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Tooltip(
-                message: 'Switch to owner',
+                message: 'Switch to owner'.tr,
                 child: FilledButton.icon(
                   onPressed: widget.onSwitchToOwner,
                   style: FilledButton.styleFrom(
@@ -356,7 +359,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                     shape: const StadiumBorder(),
                   ),
                   icon: const Icon(Icons.swap_horiz_rounded, size: 20),
-                  label: const Text('Owner'),
+                  label: Text('Owner'.tr),
                 ),
               ),
               const SizedBox(height: 8),
@@ -374,7 +377,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Tooltip(
-          message: isActive ? 'Tap to go off duty' : 'Tap to go on duty',
+          message: isActive ? 'Tap to go off duty'.tr : 'Tap to go on duty'.tr,
           child: Material(
             color: isActive ? AppColors.successSoft : AppColors.soft,
             shape: StadiumBorder(
@@ -395,7 +398,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      isActive ? 'On duty' : 'Off duty',
+                      isActive ? 'On duty'.tr : 'Off duty'.tr,
                       style: TextStyle(
                         color: statusColor,
                         fontSize: AppTypography.caption,
@@ -447,13 +450,13 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       child: IntrinsicHeight(
         child: Row(
           children: [
-            Expanded(child: stat('My sales today', 'BD ${todaySales.toStringAsFixed(3)}')),
+            Expanded(child: stat('My sales today'.tr, 'BD ${todaySales.toStringAsFixed(3)}')),
             Container(
               width: 1,
               margin: const EdgeInsets.symmetric(horizontal: 16),
               color: AppColors.heroLine,
             ),
-            stat('Transactions', '$todayTransactions'),
+            stat('Transactions'.tr, '$todayTransactions'),
           ],
         ),
       ),
@@ -483,12 +486,12 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                 child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 28),
               ),
               const SizedBox(width: 16),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Start sale',
+                      'Start sale'.tr,
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 20,
@@ -496,7 +499,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                       ),
                     ),
                     Text(
-                      'Scan a barcode to add items',
+                      'Scan a barcode to add items'.tr,
                       style: TextStyle(
                         color: Color(0xFFDCDAFB),
                         fontSize: AppTypography.caption + 1,

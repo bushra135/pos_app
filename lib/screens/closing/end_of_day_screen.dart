@@ -11,6 +11,7 @@ import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 import '../../models/report_sale.dart';
 import '../../services/sales_query.dart';
+import '../../app/app_language.dart';
 
 /// Totals for one business day: what was sold, how it was paid, and the VAT inside it.
 class DaySummary {
@@ -191,7 +192,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
                 'End of day report (Z-report) · $_dateLabel',
                 style: const pw.TextStyle(fontSize: 13),
               ),
-              pw.Text(_storeWide ? 'Whole store' : 'Cashier: $_personName'),
+              pw.Text(_storeWide ? 'Whole store'.tr : 'Cashier: $_personName'),
               pw.Divider(),
               row('Receipts', '${summary.receipts}'),
               row('Gross sales', _money(summary.gross)),
@@ -209,7 +210,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
                 row('Difference', _money(counted - expected), bold: true),
               ],
               pw.SizedBox(height: 24),
-              pw.Text('Signature: ____________________'),
+              pw.Text('Signature: ____________________'.tr),
             ],
           ),
         ),
@@ -226,7 +227,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Could not create the PDF. Try again.')));
+        ).showSnackBar(SnackBar(content: Text('Could not create the PDF. Try again.'.tr)));
       }
     }
   }
@@ -235,7 +236,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('End of day')),
+      appBar: AppBar(title: Text('End of day'.tr)),
       body: SafeArea(
         child: _loading
             ? const Center(child: CircularProgressIndicator())
@@ -248,7 +249,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
                     children: [
                       Text(_error!, textAlign: TextAlign.center),
                       const SizedBox(height: 12),
-                      FilledButton(onPressed: _load, child: const Text('Try again')),
+                      FilledButton(onPressed: _load, child: Text('Try again'.tr)),
                     ],
                   ),
                 ),
@@ -271,7 +272,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
       child: Row(
         children: [
           Expanded(
-            child: Text(label, style: const TextStyle(color: AppColors.muted)),
+            child: Text(label.tr, style: const TextStyle(color: AppColors.muted)),
           ),
           Text(
             value,
@@ -297,7 +298,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            title,
+            title.tr,
             style: const TextStyle(fontSize: AppTypography.section, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
@@ -316,7 +317,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${_storeWide ? 'Whole store' : 'My drawer'} · $_dateLabel',
+                '${_storeWide ? 'Whole store'.tr : 'My drawer'.tr} · $_dateLabel',
                 style: const TextStyle(color: AppColors.onHeroMuted, fontWeight: FontWeight.w700),
               ),
               FittedBox(
@@ -332,7 +333,9 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
                 ),
               ),
               Text(
-                '${summary.receipts} ${summary.receipts == 1 ? 'receipt' : 'receipts'} today',
+                (summary.receipts == 1 ? '1 receipt today' : '{n} receipts today').trArgs({
+                  'n': summary.receipts,
+                }),
                 style: const TextStyle(color: AppColors.onHeroMuted),
               ),
             ],
@@ -350,13 +353,13 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
         const SizedBox(height: 14),
         card('By payment method', [
           if (summary.byPayment.isEmpty)
-            const Text('No payments yet today.', style: TextStyle(color: AppColors.muted)),
+            Text('No payments yet today.'.tr, style: TextStyle(color: AppColors.muted)),
           for (final entry in summary.byPayment.entries) row(entry.key, _money(entry.value)),
         ]),
         const SizedBox(height: 14),
         card('Cash drawer', [
-          const Text(
-            'Count the cash in the drawer and enter it below.',
+          Text(
+            'Count the cash in the drawer and enter it below.'.tr,
             style: TextStyle(color: AppColors.muted, fontSize: AppTypography.caption + 1),
           ),
           const SizedBox(height: 12),
@@ -364,8 +367,8 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
             controller: _floatController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(
-              labelText: 'Opening float (cash at start of day)',
+            decoration: InputDecoration(
+              labelText: 'Opening float (cash at start of day)'.tr,
               suffixText: 'BD',
             ),
           ),
@@ -374,7 +377,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
             controller: _countedController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(labelText: 'Counted cash', suffixText: 'BD'),
+            decoration: InputDecoration(labelText: 'Counted cash'.tr, suffixText: 'BD'),
           ),
           const SizedBox(height: 10),
           row('Expected in drawer', _money(expected), bold: true),
@@ -404,10 +407,10 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
                   Expanded(
                     child: Text(
                       balanced
-                          ? 'Drawer balanced'
+                          ? 'Drawer balanced'.tr
                           : difference > 0
-                          ? 'Over by ${_money(difference)}'
-                          : 'Short by ${_money(-difference)}',
+                          ? 'Over by {amount}'.trArgs({'amount': _money(difference)})
+                          : 'Short by {amount}'.trArgs({'amount': _money(-difference)}),
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ),
@@ -420,7 +423,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
           onPressed: _sharePdf,
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
           icon: const Icon(Icons.picture_as_pdf_outlined),
-          label: const Text('Share Z-report PDF'),
+          label: Text('Share Z-report PDF'.tr),
         ),
       ],
     );

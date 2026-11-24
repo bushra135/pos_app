@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../services/backup_service.dart';
 import '../../services/sale_sync_service.dart';
 import '../../utils/cart_manager.dart';
+import '../../app/app_language.dart';
 
 /// Owner-only workflow: load copies, preview recovery, then call BackupService.
 class BackupScreen extends StatefulWidget {
@@ -63,15 +64,16 @@ class _BackupScreenState extends State<BackupScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Create cloud backup?'),
-        content: const Text(
-          'Pause sales on all store devices and synchronize them first. This copies server products, sales and store/payment settings. Unsynchronized sales on other devices are not included. Internet is required.',
+        title: Text('Create cloud backup?'.tr),
+        content: Text(
+          'Pause sales on all store devices and synchronize them first. This copies server products, sales and store/payment settings. Unsynchronized sales on other devices are not included. Internet is required.'
+              .tr,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Create backup'),
+            child: Text('Create backup'.tr),
           ),
         ],
       ),
@@ -83,7 +85,7 @@ class _BackupScreenState extends State<BackupScreen> {
       setState(() => _backups = [summary, ..._backups]);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Cloud backup completed')));
+      ).showSnackBar(SnackBar(content: Text('Cloud backup completed'.tr)));
     });
   }
 
@@ -93,7 +95,7 @@ class _BackupScreenState extends State<BackupScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, update) => AlertDialog(
-          title: const Text('Preview recovery'),
+          title: Text('Preview recovery'.tr),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -106,8 +108,8 @@ class _BackupScreenState extends State<BackupScreen> {
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
                   value: settings,
-                  title: const Text(
-                    'Also replace store name and BenefitPay settings from this backup',
+                  title: Text(
+                    'Also replace store name and BenefitPay settings from this backup'.tr,
                   ),
                   onChanged: (value) => update(() => settings = value ?? false),
                 ),
@@ -115,10 +117,10 @@ class _BackupScreenState extends State<BackupScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
             FilledButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Restore missing records'),
+              child: Text('Restore missing records'.tr),
             ),
           ],
         ),
@@ -135,11 +137,11 @@ class _BackupScreenState extends State<BackupScreen> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Recovery complete'),
+          title: Text('Recovery complete'.tr),
           content: Text(
             '${result.products} products and ${result.sales} sales recovered.\nCount recovered product stock before selling. Reopen Profile to refresh restored settings.',
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Done'))],
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('Done'.tr))],
         ),
       );
     });
@@ -149,13 +151,14 @@ class _BackupScreenState extends State<BackupScreen> {
   Widget build(BuildContext context) => PopScope(
     canPop: !_isBusy,
     child: Scaffold(
-      appBar: AppBar(title: const Text('Backup & recovery')),
+      appBar: AppBar(title: Text('Backup & recovery'.tr)),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text('Cloud backups', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const Text(
-            'Linked to this store account on Firebase. These are manual recovery copies, not iCloud backups or a full database rollback.',
+          Text('Cloud backups'.tr, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          Text(
+            'Linked to this store account on Firebase. These are manual recovery copies, not iCloud backups or a full database rollback.'
+                .tr,
           ),
           const SizedBox(height: 16),
           Text(
@@ -167,9 +170,9 @@ class _BackupScreenState extends State<BackupScreen> {
           FilledButton.icon(
             onPressed: _isBusy ? null : _createBackup,
             icon: const Icon(Icons.backup_outlined),
-            label: const Text('Create backup'),
+            label: Text('Create backup'.tr),
           ),
-          TextButton(onPressed: _isBusy ? null : _loadBackups, child: const Text('Refresh')),
+          TextButton(onPressed: _isBusy ? null : _loadBackups, child: Text('Refresh'.tr)),
           if (_isBusy) const LinearProgressIndicator(),
           if (_errorMessage != null)
             SelectableText(_errorMessage!, style: const TextStyle(color: Colors.red)),
@@ -179,7 +182,7 @@ class _BackupScreenState extends State<BackupScreen> {
                 title: Text(backup.createdAt.toLocal().toString().split('.').first),
                 subtitle: Text('${backup.products} products Ã‚| ${backup.sales} sales'),
                 trailing: IconButton(
-                  tooltip: 'Preview recovery',
+                  tooltip: 'Preview recovery'.tr,
                   onPressed: _isBusy ? null : () => _restoreBackup(backup),
                   icon: const Icon(Icons.restore),
                 ),

@@ -340,7 +340,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Sales history'));
+    await tester.tap(find.byTooltip('Sales history'));
     await tester.pumpAndSettle();
     expect(find.byType(SalesHistoryScreen), findsOneWidget);
     expect(find.text('Top cashiers'), findsNothing);

@@ -14,6 +14,7 @@ import '../../models/sale_record.dart';
 import '../../services/sale_sync_service.dart';
 import '../../utils/cart_manager.dart';
 import '../../widgets/sale_receipt_view.dart';
+import '../../app/app_language.dart';
 
 /// Reviews the receipt, confirms payment, saves the sale, and updates stock.
 class CheckoutReceiptScreen extends StatefulWidget {
@@ -108,9 +109,9 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     }
     final rows = sync.pendingSales.where((row) => row.sale.id == sale.id);
     final next = rows.isEmpty && sync.online
-        ? 'Synchronized'
+        ? 'Synchronized'.tr
         : rows.isNotEmpty && rows.first.isConflict
-        ? 'Saved on device — stock needs review'
+        ? 'Saved on device — stock needs review'.tr
         : null;
     if (next != null && next != completedStatus) {
       setState(() => completedStatus = next);
@@ -177,14 +178,14 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   Future<void> _confirmPayment() async {
     if (isSavingSale || completedSale != null) return;
     if (CartManager.items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cart is empty')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Cart is empty'.tr)));
       return;
     }
 
     if (storeCode.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Store code not found')));
+      ).showSnackBar(SnackBar(content: Text('Store code not found'.tr)));
       return;
     }
 
@@ -239,10 +240,10 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         isSavingSale = false;
         completedSale = sale;
         completedStatus = result.status == SaleSubmissionStatus.synced
-            ? 'Synchronized'
+            ? 'Synchronized'.tr
             : result.status == SaleSubmissionStatus.conflict
-            ? 'Saved on device — stock needs review'
-            : 'Saved on device — synchronization pending';
+            ? 'Saved on device — stock needs review'.tr
+            : 'Saved on device — synchronization pending'.tr;
       });
       _refreshReceiptSync();
       unawaited(_playPaymentSuccessSound());
@@ -250,7 +251,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       if (result.status == SaleSubmissionStatus.synced) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Sale confirmed and stock updated')));
+        ).showSnackBar(SnackBar(content: Text('Sale confirmed and stock updated'.tr)));
       } else {
         await showDialog<void>(
           context: context,
@@ -258,8 +259,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
           builder: (context) => AlertDialog(
             title: Text(
               result.status == SaleSubmissionStatus.conflict
-                  ? 'Receipt needs review'
-                  : 'Receipt saved — sync pending',
+                  ? 'Receipt needs review'.tr
+                  : 'Receipt saved — sync pending'.tr,
             ),
             content: Text(
               '$receiptNumber\n\n${result.message ?? 'Stock and reports will update when this receipt is confirmed online.'}\n\n'
@@ -270,16 +271,33 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         );
       }
     } catch (e) {
+      // Details go to the debug log only; the cashier sees a friendly message.
+      debugPrint('Sale save failed: $e');
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to save sale: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_saleErrorMessage(e))));
 
       setState(() {
         isSavingSale = false;
       });
     }
+  }
+
+  /// Checkout's own instructions (sign in, rescan, out of stock) are shown as written;
+  /// any other error gets a generic message so internal details never reach the screen.
+  static const _checkoutInstructions = {
+    'Sign in before checkout.',
+    'Remove this cart item and scan it again for your store.',
+  };
+
+  static String _saleErrorMessage(Object error) {
+    if (error is OutOfStockException) {
+      return 'No available stock for {name}.'.trArgs({'name': error.productName});
+    }
+    if (error is StateError && _checkoutInstructions.contains(error.message)) {
+      return error.message.tr;
+    }
+    return 'Could not save the sale. Check your connection and try again.'.tr;
   }
 
   // Payment and receipt presentation.
@@ -419,12 +437,12 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                             ),
                           ),
                           const SizedBox(width: 14),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Payment & Receipt',
+                                  'Payment & Receipt'.tr,
                                   style: TextStyle(
                                     color: AppColors.text,
                                     fontSize: 22,
@@ -433,7 +451,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  'Review payment and invoice details',
+                                  'Review payment and invoice details'.tr,
                                   style: TextStyle(
                                     color: AppColors.muted,
                                     fontSize: AppTypography.body,
@@ -458,8 +476,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'Payment method',
+                                Text(
+                                  'Payment method'.tr,
                                   style: TextStyle(
                                     fontSize: AppTypography.section,
                                     fontWeight: FontWeight.w700,
@@ -502,8 +520,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text(
-                                        'Total amount',
+                                      Text(
+                                        'Total amount'.tr,
                                         style: TextStyle(
                                           color: AppColors.muted,
                                           fontSize: AppTypography.body,
@@ -520,7 +538,9 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                       ),
                                       if (_discountAmount > 0)
                                         Text(
-                                          'Includes discount of BD ${_discountAmount.toStringAsFixed(3)}',
+                                          'Includes discount of BD {amount}'.trArgs({
+                                            'amount': _discountAmount.toStringAsFixed(3),
+                                          }),
                                           style: const TextStyle(
                                             color: AppColors.success,
                                             fontSize: AppTypography.caption,
@@ -542,9 +562,15 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                   label: Text(
                                     _discountAmount > 0
                                         ? (_discountIsPercent
-                                              ? 'Discount ${_discountValue.toStringAsFixed(_discountValue % 1 == 0 ? 0 : 1)}% · Edit'
-                                              : 'Discount BD ${_discountAmount.toStringAsFixed(3)} · Edit')
-                                        : 'Add discount',
+                                              ? 'Discount {value}% · Edit'.trArgs({
+                                                  'value': _discountValue.toStringAsFixed(
+                                                    _discountValue % 1 == 0 ? 0 : 1,
+                                                  ),
+                                                })
+                                              : 'Discount BD {amount} · Edit'.trArgs({
+                                                  'amount': _discountAmount.toStringAsFixed(3),
+                                                }))
+                                        : 'Add discount'.tr,
                                   ),
                                 ),
                                 if (selectedPaymentMethod == 'BenefitPay') ...[
@@ -560,8 +586,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          const Text(
-                                            'BenefitPay Number',
+                                          Text(
+                                            'BenefitPay Number'.tr,
                                             style: TextStyle(
                                               color: AppColors.muted,
                                               fontSize: AppTypography.body,
@@ -589,8 +615,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                       ),
                                       child: Column(
                                         children: [
-                                          const Text(
-                                            'Scan to pay',
+                                          Text(
+                                            'Scan to pay'.tr,
                                             style: TextStyle(fontWeight: FontWeight.w600),
                                           ),
                                           const SizedBox(height: 12),
@@ -613,8 +639,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'Receipt',
+                                Text(
+                                  'Receipt'.tr,
                                   style: TextStyle(
                                     fontSize: AppTypography.section,
                                     fontWeight: FontWeight.w700,
@@ -624,7 +650,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text('Store', style: TextStyle(color: AppColors.muted)),
+                                    Text('Store'.tr, style: TextStyle(color: AppColors.muted)),
                                     Text(
                                       storeName.isEmpty ? 'My Store' : storeName,
                                       style: const TextStyle(fontWeight: FontWeight.w600),
@@ -635,7 +661,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text('Cashier', style: TextStyle(color: AppColors.muted)),
+                                    Text('Cashier'.tr, style: TextStyle(color: AppColors.muted)),
                                     Text(
                                       cashierName.isEmpty ? 'Cashier' : cashierName,
                                       style: const TextStyle(fontWeight: FontWeight.w600),
@@ -646,8 +672,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text(
-                                      'Receipt No.',
+                                    Text(
+                                      'Receipt No.'.tr,
                                       style: TextStyle(color: AppColors.muted),
                                     ),
                                     Text(
@@ -671,8 +697,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text(
-                                      'Subtotal',
+                                    Text(
+                                      'Subtotal'.tr,
                                       style: TextStyle(
                                         color: AppColors.muted,
                                         fontWeight: FontWeight.w600,
@@ -688,8 +714,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text(
-                                      'Discount',
+                                    Text(
+                                      'Discount'.tr,
                                       style: TextStyle(
                                         color: AppColors.muted,
                                         fontWeight: FontWeight.w600,
@@ -713,7 +739,9 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      'VAT ${SaleRecord.bahrainVatRate.toStringAsFixed(0)}% (included)',
+                                      'VAT {rate}% (included)'.trArgs({
+                                        'rate': SaleRecord.bahrainVatRate.toStringAsFixed(0),
+                                      }),
                                       style: const TextStyle(
                                         color: AppColors.muted,
                                         fontWeight: FontWeight.w600,
@@ -729,8 +757,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text(
-                                      'Total',
+                                    Text(
+                                      'Total'.tr,
                                       style: TextStyle(
                                         fontSize: AppTypography.section,
                                         fontWeight: FontWeight.w700,
@@ -828,10 +856,12 @@ class _DiscountDialogState extends State<_DiscountDialog> {
   String? get _error {
     if (_controller.text.trim().isEmpty) return null;
     final value = _value;
-    if (value <= 0) return 'Enter a value above 0.';
-    if (_percent && value > 100) return 'A percent discount cannot exceed 100%.';
+    if (value <= 0) return 'Enter a value above 0.'.tr;
+    if (_percent && value > 100) return 'A percent discount cannot exceed 100%.'.tr;
     if (!_percent && value > widget.subtotal) {
-      return 'Cannot exceed the subtotal of BD ${widget.subtotal.toStringAsFixed(3)}.';
+      return 'Cannot exceed the subtotal of BD {amount}.'.trArgs({
+        'amount': widget.subtotal.toStringAsFixed(3),
+      });
     }
     return null;
   }
@@ -842,7 +872,7 @@ class _DiscountDialogState extends State<_DiscountDialog> {
     final valid = value > 0 && _error == null;
     final amount = valid ? (_percent ? widget.subtotal * value / 100 : value) : 0.0;
     return AlertDialog(
-      title: const Text('Discount'),
+      title: Text('Discount'.tr),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -864,7 +894,7 @@ class _DiscountDialogState extends State<_DiscountDialog> {
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
-                labelText: _percent ? 'Discount percent' : 'Discount amount (BD)',
+                labelText: _percent ? 'Discount percent'.tr : 'Discount amount (BD)'.tr,
                 suffixText: _percent ? '%' : 'BD',
                 errorText: _error,
               ),
@@ -872,7 +902,9 @@ class _DiscountDialogState extends State<_DiscountDialog> {
             if (valid) ...[
               const SizedBox(height: 10),
               Text(
-                'Customer pays BD ${(widget.subtotal - amount).toStringAsFixed(3)}',
+                'Customer pays BD {amount}'.trArgs({
+                  'amount': (widget.subtotal - amount).toStringAsFixed(3),
+                }),
                 style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primaryDark),
               ),
             ],
@@ -883,12 +915,12 @@ class _DiscountDialogState extends State<_DiscountDialog> {
         if (widget.initialValue > 0)
           TextButton(
             onPressed: () => Navigator.pop(context, (value: 0.0, percent: _percent)),
-            child: const Text('Remove', style: TextStyle(color: AppColors.danger)),
+            child: Text('Remove'.tr, style: TextStyle(color: AppColors.danger)),
           ),
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
         FilledButton(
           onPressed: valid ? () => Navigator.pop(context, (value: value, percent: _percent)) : null,
-          child: const Text('Apply'),
+          child: Text('Apply'.tr),
         ),
       ],
     );

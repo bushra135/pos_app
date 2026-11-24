@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../app/app_colors.dart';
 import '../services/barcode_catalog_service.dart';
+import '../app/app_language.dart';
 
 /// Owns the lookup lifecycle independently of product form rebuilds.
 class BarcodeLookupPanel extends StatefulWidget {
@@ -129,11 +130,12 @@ class BarcodeLookupPanelState extends State<BarcodeLookupPanel> {
         TextButton.icon(
           onPressed: _stop,
           icon: const Icon(Icons.close_rounded, size: 18),
-          label: const Text('Stop lookup'),
+          label: Text('Stop lookup'.tr),
         ),
       const SizedBox(height: 8),
-      const Text(
-        'Product information · fills empty fields only. Stock is yours to set; a price from another store is only a suggestion.',
+      Text(
+        'Product information · fills empty fields only. Stock is yours to set; a price from another store is only a suggestion.'
+            .tr,
         style: TextStyle(fontSize: 12, color: AppColors.muted),
       ),
       if (_message != null)
@@ -155,7 +157,7 @@ class BarcodeLookupPanelState extends State<BarcodeLookupPanel> {
                   child: OutlinedButton.icon(
                     onPressed: () => _searchWeb(_missingCode!),
                     icon: const Icon(Icons.search_rounded, size: 18),
-                    label: const Text('Search Google'),
+                    label: Text('Search Google'.tr),
                   ),
                 ),
             ],
@@ -173,7 +175,7 @@ class BarcodeLookupPanelState extends State<BarcodeLookupPanel> {
     if (!opened && mounted) {
       ScaffoldMessenger.maybeOf(
         context,
-      )?.showSnackBar(const SnackBar(content: Text('Could not open the browser.')));
+      )?.showSnackBar(SnackBar(content: Text('Could not open the browser.'.tr)));
     }
   }
 }

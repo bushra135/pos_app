@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../app/app_language.dart';
 
 /// Keeps camera failures recoverable and shows the browser's actual reason.
 class ScannerErrorPanel extends StatelessWidget {
@@ -42,11 +43,11 @@ class ScannerErrorPanel extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry camera'),
+                label: Text('Retry camera'.tr),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'You can also close this view and enter the barcode manually.',
+              Text(
+                'You can also close this view and enter the barcode manually.'.tr,
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white70, fontSize: 12),
               ),

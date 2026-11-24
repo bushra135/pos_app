@@ -17,6 +17,7 @@ import '../../widgets/app_empty_state.dart';
 import '../../services/sale_sync_service.dart';
 import '../../utils/barcode_scan_guard.dart';
 import '../../utils/cart_manager.dart';
+import '../../app/app_language.dart';
 
 typedef BrowserCheckoutLauncher =
     Future<bool> Function({
@@ -207,7 +208,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         context: context,
         builder: (dialogContext) => AlertDialog(
           icon: const Icon(Icons.inventory_2_outlined, color: AppColors.warning, size: 32),
-          title: const Text('Out of stock in the system'),
+          title: Text('Out of stock in the system'.tr),
           content: Text(
             'The records show 0 $productName left. If the customer has the item in hand, '
             'the stock count was wrong.\n\nSell it as a miscounted product: the stock is '
@@ -216,12 +217,12 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
+              child: Text('Cancel'.tr),
             ),
             FilledButton.icon(
               onPressed: () => Navigator.pop(dialogContext, true),
               icon: const Icon(Icons.fact_check_outlined, size: 18),
-              label: const Text('Sell as miscounted'),
+              label: Text('Sell as miscounted'.tr),
             ),
           ],
         ),
@@ -244,7 +245,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => AlertDialog(
-          title: const Text('New barcode'),
+          title: Text('New barcode'.tr),
           content: SizedBox(
             width: 360,
             child: SingleChildScrollView(
@@ -258,14 +259,14 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                     future: lookup,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState != ConnectionState.done) {
-                        return const Padding(
+                        return Padding(
                           padding: EdgeInsets.all(16),
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               CircularProgressIndicator(),
                               SizedBox(height: 12),
-                              Text('Looking up this product…'),
+                              Text('Looking up this product…'.tr),
                             ],
                           ),
                         );
@@ -309,8 +310,9 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                     },
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Not in your store yet. Ask the owner to add it in Products: scan this barcode, review the details, and set the selling price and stock before selling.',
+                  Text(
+                    'Not in your store yet. Ask the owner to add it in Products: scan this barcode, review the details, and set the selling price and stock before selling.'
+                        .tr,
                   ),
                 ],
               ),
@@ -321,9 +323,9 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: code));
               },
-              child: const Text('Copy barcode'),
+              child: Text('Copy barcode'.tr),
             ),
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close')),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text('Close'.tr)),
           ],
         ),
       );
@@ -376,20 +378,20 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         children: [
           IconButton.outlined(
             onPressed: _isAddingProduct ? null : widget.onBackToHome,
-            tooltip: 'Home',
+            tooltip: 'Home'.tr,
             style: style,
             icon: const Icon(Icons.arrow_back_rounded, size: 20, color: AppColors.text),
           ),
-          const Expanded(
+          Expanded(
             child: Text(
-              'Scan & sell',
+              'Scan & sell'.tr,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
           ),
           IconButton.outlined(
             onPressed: _usesBrowserScanner ? null : _toggleTorch,
-            tooltip: 'Toggle flash',
+            tooltip: 'Toggle flash'.tr,
             style: style,
             icon: Icon(
               _isTorchEnabled ? Icons.flash_on_rounded : Icons.flash_off_rounded,
@@ -481,9 +483,9 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                   ? FilledButton.icon(
                       onPressed: _openBrowserCheckout,
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Retry camera'),
+                      label: Text('Retry camera'.tr),
                     )
-                  : const Text('Starting camera...', style: TextStyle(color: Colors.white)),
+                  : Text('Starting camera...'.tr, style: TextStyle(color: Colors.white)),
             ),
           ),
         ),
@@ -536,10 +538,10 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                         color: Colors.black.withValues(alpha: 0.55),
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: const Padding(
+                      child: Padding(
                         padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                         child: Text(
-                          'Move each barcode into view. Use + for identical items.',
+                          'Move each barcode into view. Use + for identical items.'.tr,
                           textAlign: TextAlign.center,
                           style: TextStyle(color: Colors.white, fontSize: 12),
                         ),
@@ -566,9 +568,9 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
             child: TextField(
               controller: _barcodeInputController,
               textInputAction: TextInputAction.done,
-              decoration: const InputDecoration(
-                labelText: 'Barcode',
-                hintText: 'Type the product barcode',
+              decoration: InputDecoration(
+                labelText: 'Barcode'.tr,
+                hintText: 'Type the product barcode'.tr,
                 prefixIcon: Icon(Icons.barcode_reader),
               ),
               onSubmitted: _isAddingProduct ? null : _addProductByBarcode,
@@ -579,7 +581,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
             onPressed: _isAddingProduct
                 ? null
                 : () => _addProductByBarcode(_barcodeInputController.text),
-            child: const Text('Add'),
+            child: Text('Add'.tr),
           ),
         ],
       ),
@@ -590,8 +592,11 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
     child: Row(
       children: [
-        const Expanded(
-          child: Text('Current sale', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        Expanded(
+          child: Text(
+            'Current sale'.tr,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          ),
         ),
         TextButton.icon(
           onPressed: _isAddingProduct
@@ -622,7 +627,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
           if (!_hasScanError && _lastAddedProductId != null)
             TextButton(
               onPressed: _isAddingProduct ? null : _undoLastAddition,
-              child: const Text('Undo'),
+              child: Text('Undo'.tr),
             ),
         ],
       ),
@@ -633,10 +638,10 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     return Expanded(
       flex: 4,
       child: CartManager.items.isEmpty
-          ? const AppEmptyState(
+          ? AppEmptyState(
               icon: Icons.qr_code_scanner_rounded,
-              title: 'Ready for your first item',
-              message: 'Scan a barcode or use Enter barcode to add a product.',
+              title: 'Ready for your first item'.tr,
+              message: 'Scan a barcode or use Enter barcode to add a product.'.tr,
             )
           : ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
@@ -679,7 +684,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                         ),
                       ),
                       IconButton(
-                        tooltip: 'Remove one',
+                        tooltip: 'Remove one'.tr,
                         onPressed: _isAddingProduct
                             ? null
                             : () => setState(() {
@@ -690,7 +695,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                       ),
                       Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.w800)),
                       IconButton(
-                        tooltip: 'Add one',
+                        tooltip: 'Add one'.tr,
                         onPressed: _isAddingProduct
                             ? null
                             : () => _addProductByBarcode(item.barcode),
@@ -729,7 +734,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
           children: [
             const Icon(Icons.shopping_cart_checkout_rounded, size: 20),
             const SizedBox(width: 10),
-            const Text('Review sale'),
+            Text('Review sale'.tr),
             const SizedBox(width: 8),
             Text(
               '· $unitCount ${unitCount == 1 ? 'item' : 'items'}',

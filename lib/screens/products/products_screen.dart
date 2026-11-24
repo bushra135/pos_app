@@ -19,6 +19,7 @@ import '../../widgets/app_empty_state.dart';
 import '../../widgets/barcode_lookup_panel.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/scanner_error_panel.dart';
+import '../../app/app_language.dart';
 
 /// Manages store products, images, and low stock alert thresholds.
 /// Manages store-scoped products, barcode suggestions, images and low-stock alerts.
@@ -226,18 +227,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     child: CircleAvatar(
                       backgroundColor: AppColors.soft,
                       child: IconButton(
-                        tooltip: 'Close',
+                        tooltip: 'Close'.tr,
                         icon: const Icon(Icons.close, color: AppColors.text),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ),
                   ),
-                  const Positioned(
+                  Positioned(
                     bottom: 20,
                     left: 0,
                     right: 0,
                     child: Text(
-                      'Scan product barcode',
+                      'Scan product barcode'.tr,
                       textAlign: TextAlign.center,
                       style: TextStyle(color: AppColors.surface, fontWeight: FontWeight.w700),
                     ),
@@ -543,7 +544,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             // Delete lives here so the product list stays uncluttered.
                             if (isEdit)
                               IconButton(
-                                tooltip: 'Delete product',
+                                tooltip: 'Delete product'.tr,
                                 onPressed: isBusy
                                     ? null
                                     : () {
@@ -693,10 +694,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           }),
                         ),
                         if (automaticCategory != null)
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.only(bottom: 12),
                             child: Text(
-                              'Suggested from product name · you can change it',
+                              'Suggested from product name · you can change it'.tr,
                               style: TextStyle(color: AppColors.muted, fontSize: 12),
                             ),
                           ),
@@ -776,7 +777,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                           });
                                         },
                                   icon: const Icon(Icons.close_rounded),
-                                  label: const Text('Remove'),
+                                  label: Text('Remove'.tr),
                                   style: OutlinedButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(vertical: 14),
                                     side: BorderSide(color: AppColors.border),
@@ -820,8 +821,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                     borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                                   ),
                                 ),
-                                child: const Text(
-                                  'Cancel',
+                                child: Text(
+                                  'Cancel'.tr,
                                   style: TextStyle(
                                     color: AppColors.muted,
                                     fontWeight: FontWeight.w600,
@@ -897,13 +898,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 child: Icon(Icons.broken_image_rounded, color: AppColors.muted, size: 42),
               ),
             )
-          : const Column(
+          : Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.image_outlined, color: AppColors.muted, size: 42),
                 SizedBox(height: 8),
                 Text(
-                  'Add image by URL or upload from device',
+                  'Add image by URL or upload from device'.tr,
                   style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
                 ),
               ],
@@ -926,7 +927,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         keyboardType: keyboardType,
         onChanged: onChanged,
         decoration: InputDecoration(
-          hintText: hint,
+          hintText: hint.tr,
           filled: true,
           fillColor: AppColors.background,
           border: OutlineInputBorder(
@@ -949,14 +950,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
         builder: (dialogContext, updateDialog) => PopScope(
           canPop: !deleting,
           child: AlertDialog(
-            title: const Text('Delete product'),
+            title: Text('Delete product'.tr),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Are you sure you want to delete "$productName"?'),
                 const SizedBox(height: 8),
-                const Text('Existing receipts will stay in sales history.'),
+                Text('Existing receipts will stay in sales history.'.tr),
                 if (errorMessage != null) ...[
                   const SizedBox(height: 12),
                   Text(errorMessage!, style: const TextStyle(color: AppColors.danger)),
@@ -966,7 +967,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             actions: [
               TextButton(
                 onPressed: deleting ? null : () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
+                child: Text('Cancel'.tr),
               ),
               TextButton(
                 onPressed: deleting
@@ -1037,9 +1038,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Low stock alerts',
+                          'Low stock alerts'.tr,
                           style: TextStyle(
                             fontSize: AppTypography.section,
                             fontWeight: FontWeight.w700,
@@ -1068,9 +1069,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   const SizedBox(height: 14),
                   Expanded(
                     child: lowStockDocs.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Text(
-                              'No low stock products right now',
+                              'No low stock products right now'.tr,
                               style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w700),
                             ),
                           )
@@ -1173,7 +1174,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             clipBehavior: Clip.none,
             children: [
               IconButton(
-                tooltip: 'Low stock alerts',
+                tooltip: 'Low stock alerts'.tr,
                 onPressed: () => _showLowStockSheet(lowDocs),
                 icon: Icon(
                   count > 0 ? Icons.notifications_active_rounded : Icons.notifications_none_rounded,
@@ -1250,9 +1251,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     } catch (e) {
       debugPrint('Restock failed: $e');
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Could not update stock. Check your connection and try again.'),
-        ),
+        SnackBar(content: Text('Could not update stock. Check your connection and try again.'.tr)),
       );
     }
   }
@@ -1270,7 +1269,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     ].join(' · ');
 
     return Tooltip(
-      message: 'Edit product',
+      message: 'Edit product'.tr,
       child: InkWell(
         onTap: () => _showProductDialog(docId: doc.id, product: item),
         child: Padding(
@@ -1338,7 +1337,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               const SizedBox(width: 8),
               // Quick restock: add received units without opening the full editor.
               IconButton.filledTonal(
-                tooltip: 'Restock',
+                tooltip: 'Restock'.tr,
                 onPressed: () => _showRestockDialog(doc),
                 style: IconButton.styleFrom(
                   backgroundColor: AppColors.accentSoft,
@@ -1356,7 +1355,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   Widget _buildSortButton() {
     return PopupMenuButton<_ProductSort>(
-      tooltip: 'Sort products',
+      tooltip: 'Sort products'.tr,
       initialValue: _sort,
       onSelected: (value) => setState(() => _sort = value),
       position: PopupMenuPosition.under,
@@ -1413,14 +1412,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
         automaticallyImplyLeading: false,
         leading: canPop
             ? IconButton(
-                tooltip: 'Back',
+                tooltip: 'Back'.tr,
                 icon: const Icon(Icons.arrow_back_rounded, color: AppColors.text),
                 onPressed: () => Navigator.pop(context),
               )
             : null,
         titleSpacing: canPop ? 0 : AppSpacing.page,
-        title: const Text(
-          'Products',
+        title: Text(
+          'Products'.tr,
           style: TextStyle(color: AppColors.text, fontSize: 26, fontWeight: FontWeight.w800),
         ),
         actions: [_buildNotificationButton()],
@@ -1432,8 +1431,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
         elevation: 2,
         shape: const StadiumBorder(),
         icon: const Icon(Icons.add_rounded),
-        label: const Text(
-          'Add',
+        label: Text(
+          'Add'.tr,
           style: TextStyle(fontFamily: AppTypography.family, fontWeight: FontWeight.w800),
         ),
       ),
@@ -1441,7 +1440,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         child: isLoadingStore
             ? const Center(child: CircularProgressIndicator())
             : storeCode.isEmpty
-            ? const Center(child: Text('Store code not found'))
+            ? Center(child: Text('Store code not found'.tr))
             : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                 stream: _productsStream(),
                 builder: (context, snapshot) {
@@ -1486,8 +1485,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 controller: searchController,
                                 onChanged: (value) =>
                                     setState(() => searchText = value.trim().toLowerCase()),
-                                decoration: const InputDecoration(
-                                  hintText: 'Search name, category or barcode',
+                                decoration: InputDecoration(
+                                  hintText: 'Search name, category or barcode'.tr,
                                   prefixIcon: Icon(Icons.search_rounded, color: AppColors.muted),
                                   contentPadding: EdgeInsets.symmetric(vertical: 14),
                                 ),
@@ -1502,16 +1501,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         child: waiting
                             ? const Center(child: CircularProgressIndicator())
                             : snapshot.hasError
-                            ? const Center(child: Text('Something went wrong'))
+                            ? Center(child: Text('Something went wrong'.tr))
                             : filteredDocs.isEmpty
                             ? AppEmptyState(
                                 icon: Icons.inventory_2_outlined,
                                 title: docs.isEmpty
-                                    ? 'Your inventory starts here'
-                                    : 'No products found',
+                                    ? 'Your inventory starts here'.tr
+                                    : 'No products found'.tr,
                                 message: docs.isEmpty
                                     ? 'Tap Add to create your first product with its barcode, price, and stock.'
-                                    : 'Try another name, category or barcode.',
+                                          .tr
+                                    : 'Try another name, category or barcode.'.tr,
                               )
                             : ListView(
                                 padding: const EdgeInsets.fromLTRB(
@@ -1615,7 +1615,7 @@ class _RestockDialogState extends State<_RestockDialog> {
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(labelText: 'Units received', hintText: 'e.g. 12'),
+              decoration: InputDecoration(labelText: 'Units received'.tr, hintText: 'e.g. 12'.tr),
             ),
             if (valid) ...[
               const SizedBox(height: 10),
@@ -1628,10 +1628,10 @@ class _RestockDialogState extends State<_RestockDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
         FilledButton(
           onPressed: valid ? () => Navigator.pop(context, value) : null,
-          child: const Text('Add to stock'),
+          child: Text('Add to stock'.tr),
         ),
       ],
     );

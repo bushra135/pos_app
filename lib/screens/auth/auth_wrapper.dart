@@ -7,6 +7,7 @@ import '../cashier/cashier_home_screen.dart';
 import '../owner/owner_home_screen.dart';
 import 'login_screen.dart';
 import 'verify_email_screen.dart';
+import '../../app/app_language.dart';
 
 /// Selects the screen from the Firebase session, verification, and Firestore role.
 class AuthWrapper extends StatelessWidget {
@@ -59,14 +60,15 @@ class AuthWrapper extends StatelessWidget {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          'Unable to check account access. Check your connection and sign in again.',
+                        Text(
+                          'Unable to check account access. Check your connection and sign in again.'
+                              .tr,
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),
                         TextButton(
                           onPressed: () => FirebaseAuth.instance.signOut(),
-                          child: const Text('Sign out'),
+                          child: Text('Sign out'.tr),
                         ),
                       ],
                     ),
@@ -88,20 +90,21 @@ class AuthWrapper extends StatelessWidget {
                 (role == 'cashier' && userData['isActive'] != true);
             if (blocked) {
               return Scaffold(
-                appBar: AppBar(title: const Text('Account access')),
+                appBar: AppBar(title: Text('Account access'.tr)),
                 body: Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text(
-                          'This account needs store owner approval or has been disabled. Contact your store owner.',
+                        Text(
+                          'This account needs store owner approval or has been disabled. Contact your store owner.'
+                              .tr,
                         ),
                         const SizedBox(height: 16),
                         TextButton(
                           onPressed: () => FirebaseAuth.instance.signOut(),
-                          child: const Text('Sign out'),
+                          child: Text('Sign out'.tr),
                         ),
                       ],
                     ),

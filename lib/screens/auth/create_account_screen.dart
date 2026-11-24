@@ -8,6 +8,7 @@ import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 import 'verify_email_screen.dart';
+import '../../app/app_language.dart';
 
 /// Creates an owner/store or a cashier awaiting approval; passwords belong to Firebase Auth.
 class CreateAccountScreen extends StatefulWidget {
@@ -284,8 +285,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Use a strong password',
+          Text(
+            'Use a strong password'.tr,
             style: TextStyle(fontSize: AppTypography.caption, fontWeight: FontWeight.w600),
           ),
           _passwordRequirement('At least 12 characters', _hasMinimumLength(password)),
@@ -400,7 +401,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     Align(
                       alignment: AlignmentDirectional.centerStart,
                       child: IconButton(
-                        tooltip: 'Back to sign in',
+                        tooltip: 'Back to sign in'.tr,
                         onPressed: () => Navigator.pop(context),
                         icon: const Icon(Icons.arrow_back_rounded, color: AppColors.text),
                       ),
@@ -413,13 +414,13 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         fit: BoxFit.contain,
                         color: AppColors.primaryDark,
                         colorBlendMode: BlendMode.srcIn,
-                        semanticLabel: 'ShopPad logo',
+                        semanticLabel: 'ShopPad logo'.tr,
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Center(
+                    Center(
                       child: Text(
-                        'Create your account',
+                        'Create your account'.tr,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: AppColors.text,
@@ -430,16 +431,16 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Center(
+                    Center(
                       child: Text(
-                        'Set up your store or join one as a cashier.',
+                        'Set up your store or join one as a cashier.'.tr,
                         textAlign: TextAlign.center,
                         style: TextStyle(color: AppColors.muted, fontSize: AppTypography.button),
                       ),
                     ),
                     const SizedBox(height: 26),
-                    const Text(
-                      'I am a...',
+                    Text(
+                      'I am a...'.tr,
                       style: TextStyle(
                         fontSize: AppTypography.caption + 1,
                         fontWeight: FontWeight.w700,
@@ -465,21 +466,21 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     const SizedBox(height: 30),
 
                     _accountField(
-                      label: 'Full name',
+                      label: 'Full name'.tr,
                       controller: _fullNameController,
                       hint: 'Enter your full name',
                       icon: Icons.person_outline,
                     ),
                     const SizedBox(height: 20),
                     _accountField(
-                      label: 'Email',
+                      label: 'Email'.tr,
                       controller: _emailController,
                       hint: 'Enter your email',
                       icon: Icons.email_outlined,
                     ),
                     const SizedBox(height: 20),
                     _accountField(
-                      label: 'Password',
+                      label: 'Password'.tr,
                       controller: _passwordController,
                       hint: 'Create a password',
                       icon: Icons.lock_outline,
@@ -496,7 +497,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     if (_hasStartedPassword) _passwordRequirements(_passwordController.text),
                     const SizedBox(height: 20),
                     _accountField(
-                      label: 'Confirm password',
+                      label: 'Confirm password'.tr,
                       controller: _confirmPasswordController,
                       hint: 'Confirm your password',
                       icon: Icons.lock_outline,
@@ -558,7 +559,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                                 strokeWidth: 2.4,
                               ),
                             )
-                          : const Text('Create account'),
+                          : Text('Create account'.tr),
                     ),
 
                     const SizedBox(height: 20),
@@ -568,12 +569,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         onTap: () {
                           Navigator.pop(context);
                         },
-                        child: const Text.rich(
+                        child: Text.rich(
                           TextSpan(
-                            text: "Already have an account? ",
+                            text: "Already have an account? ".tr,
                             children: [
                               TextSpan(
-                                text: "Sign in",
+                                text: "Sign in".tr,
                                 style: TextStyle(
                                   color: AppColors.primary,
                                   fontSize: AppTypography.button,

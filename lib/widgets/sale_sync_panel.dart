@@ -4,6 +4,7 @@ import '../app/app_colors.dart';
 import '../services/local_pos_store.dart';
 import '../services/sale_sync_service.dart';
 import '../utils/cart_manager.dart';
+import '../app/app_language.dart';
 
 /// Cash receipts stay visible until the server confirms their stock deduction.
 class SaleSyncPanel extends StatelessWidget {
@@ -43,7 +44,7 @@ class SaleSyncPanel extends StatelessWidget {
           return Card(
             child: ListTile(
               leading: Icon(Icons.cloud_sync_outlined, color: color),
-              title: const Text('Sales sync'),
+              title: Text('Sales sync'.tr),
               subtitle: Text(status),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => _showPendingSales(context, sync),
@@ -114,9 +115,9 @@ class SaleSyncPanel extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Saved cash sales',
+                          'Saved cash sales'.tr,
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -125,7 +126,7 @@ class SaleSyncPanel extends StatelessWidget {
                         ),
                       ),
                       IconButton(
-                        tooltip: 'Close',
+                        tooltip: 'Close'.tr,
                         onPressed: () => Navigator.pop(context),
                         icon: const Icon(Icons.close),
                       ),
@@ -157,7 +158,7 @@ class SaleSyncPanel extends StatelessWidget {
                   const SizedBox(height: 12),
                   Expanded(
                     child: sync.pendingSales.isEmpty
-                        ? const Center(child: Text('No pending cash sales'))
+                        ? Center(child: Text('No pending cash sales'.tr))
                         : ListView.separated(
                             itemCount: sync.pendingSales.length,
                             separatorBuilder: (_, index) => const SizedBox(height: 10),
@@ -222,7 +223,7 @@ class _PendingSaleCard extends StatelessWidget {
             TextButton.icon(
               onPressed: sync.syncing ? null : () => sync.retry(sale.id),
               icon: const Icon(Icons.refresh),
-              label: const Text('Retry after resolving'),
+              label: Text('Retry after resolving'.tr),
             ),
           ],
         ],

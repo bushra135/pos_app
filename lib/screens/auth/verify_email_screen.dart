@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_colors.dart';
 import 'auth_wrapper.dart';
 import 'create_account_screen.dart';
+import '../../app/app_language.dart';
 
 /// Sends verification links and reloads the user after the emailed link is opened.
 class VerifyEmailScreen extends StatefulWidget {
@@ -173,8 +174,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      const Text(
-                        'ShopPad',
+                      Text(
+                        'ShopPad'.tr,
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -182,8 +183,8 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Verify your email',
+                      Text(
+                        'Verify your email'.tr,
                         style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 12),
@@ -219,7 +220,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Icon(Icons.verified_user_outlined),
-                          label: const Text('I have verified my email'),
+                          label: Text('I have verified my email'.tr),
                         ),
                       ),
                       TextButton(
@@ -230,7 +231,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                       ),
                       TextButton(
                         onPressed: _busy ? null : _differentAccount,
-                        child: const Text('Use a different account'),
+                        child: Text('Use a different account'.tr),
                       ),
                     ],
                   ),

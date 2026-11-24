@@ -16,6 +16,7 @@ import '../profile/profile_screen.dart';
 import '../reports/reports_screen.dart';
 import '../reports/sales_history_screen.dart';
 import 'cashiers_management_screen.dart';
+import '../../app/app_language.dart';
 
 /// Hosts management pages; cashier mode changes the workspace, not stored permissions.
 class OwnerHomeScreen extends StatefulWidget {
@@ -228,7 +229,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
     Clipboard.setData(ClipboardData(text: storeCode));
 
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Store code copied')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Store code copied'.tr)));
   }
 
   // Keep performance navigation alongside cashier management on the home card.
@@ -293,31 +294,31 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         child: NavigationBar(
           selectedIndex: _selectedIndex,
           onDestinationSelected: (index) => setState(() => _selectedIndex = index),
-          destinations: const [
+          destinations: [
             NavigationDestination(
               icon: Icon(Icons.home_outlined),
               selectedIcon: Icon(Icons.home_rounded),
-              label: 'Home',
+              label: 'Home'.tr,
             ),
             NavigationDestination(
               icon: Icon(Icons.inventory_2_outlined),
               selectedIcon: Icon(Icons.inventory_2_rounded),
-              label: 'Products',
+              label: 'Products'.tr,
             ),
             NavigationDestination(
               icon: Icon(Icons.space_dashboard_outlined),
               selectedIcon: Icon(Icons.space_dashboard_rounded),
-              label: 'Dashboard',
+              label: 'Dashboard'.tr,
             ),
             NavigationDestination(
               icon: Icon(Icons.auto_awesome_outlined),
               selectedIcon: Icon(Icons.auto_awesome),
-              label: 'AI',
+              label: 'AI'.tr,
             ),
             NavigationDestination(
               icon: Icon(Icons.person_outline_rounded),
               selectedIcon: Icon(Icons.person_rounded),
-              label: 'Profile',
+              label: 'Profile'.tr,
             ),
           ],
         ),
@@ -343,8 +344,8 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             _buildCorrectionsAlert(),
           ],
           const SizedBox(height: 26),
-          const Text(
-            'Overview',
+          Text(
+            'Overview'.tr,
             style: TextStyle(
               fontSize: AppTypography.section,
               fontWeight: FontWeight.w800,
@@ -364,36 +365,38 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
               _OverviewTile(
                 icon: Icons.warning_amber_rounded,
                 color: AppColors.warning,
-                label: 'Low stock',
+                label: 'Low stock'.tr,
                 value: '$lowStockCount',
-                caption: lowStockCount == 1 ? 'item needs restocking' : 'items need restocking',
+                caption: lowStockCount == 1
+                    ? 'item needs restocking'.tr
+                    : 'items need restocking'.tr,
                 onTap: () => setState(() => _selectedIndex = 1),
               ),
               _OverviewTile(
                 icon: Icons.inventory_2_outlined,
                 color: AppColors.primaryDark,
-                label: 'Products',
+                label: 'Products'.tr,
                 value: '$totalProducts',
-                caption: 'in your catalogue',
+                caption: 'in your catalogue'.tr,
                 onTap: () => setState(() => _selectedIndex = 1),
               ),
               _OverviewTile(
                 icon: Icons.local_fire_department_outlined,
                 color: AppColors.danger,
-                label: 'Best seller',
-                value: bestSellerName.isEmpty ? 'No sales yet' : bestSellerName,
+                label: 'Best seller'.tr,
+                value: bestSellerName.isEmpty ? 'No sales yet'.tr : bestSellerName,
                 caption: bestSellerName.isEmpty
-                    ? 'record a sale to see it'
-                    : '$bestSellerSold sold',
+                    ? 'record a sale to see it'.tr
+                    : '{n} sold'.trArgs({'n': bestSellerSold}),
                 smallValue: true,
                 onTap: _openTopCashiers,
               ),
               _OverviewTile(
                 icon: Icons.people_alt_outlined,
                 color: AppColors.success,
-                label: 'Cashiers',
+                label: 'Cashiers'.tr,
                 value: '$activeCashierCount/$cashierCount',
-                caption: 'active right now',
+                caption: 'active right now'.tr,
                 onTap: _openCashiersManagement,
               ),
             ],
@@ -404,7 +407,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             child: TextButton.icon(
               onPressed: _openTopCashiers,
               icon: const Icon(Icons.emoji_events_outlined, size: 18),
-              label: const Text('Top cashiers'),
+              label: Text('Top cashiers'.tr),
             ),
           ),
         ],
@@ -414,9 +417,9 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
   String get _greeting {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return 'Good morning'.tr;
+    if (hour < 18) return 'Good afternoon'.tr;
+    return 'Good evening'.tr;
   }
 
   Widget _buildHeader() {
@@ -427,7 +430,10 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '$_greeting, ${firstName.isEmpty ? 'Owner' : firstName}',
+                '{greeting}, {name}'.trArgs({
+                  'greeting': _greeting,
+                  'name': firstName.isEmpty ? 'Owner'.tr : firstName,
+                }),
                 style: const TextStyle(
                   color: AppColors.muted,
                   fontSize: AppTypography.body,
@@ -435,7 +441,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                 ),
               ),
               Text(
-                storeName.isEmpty ? 'My Store' : storeName,
+                storeName.isEmpty ? 'My Store'.tr : storeName,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -450,7 +456,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         ),
         const SizedBox(width: 12),
         Tooltip(
-          message: 'Switch to cashier',
+          message: 'Switch to cashier'.tr,
           child: FilledButton.icon(
             onPressed: isLoading ? null : _switchToCashier,
             style: FilledButton.styleFrom(
@@ -459,7 +465,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
               shape: const StadiumBorder(),
             ),
             icon: const Icon(Icons.swap_horiz_rounded, size: 20),
-            label: const Text('Cashier'),
+            label: Text('Cashier'.tr),
           ),
         ),
       ],
@@ -482,7 +488,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       debugPrint('Could not mark corrections reviewed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not update. Check your connection and try again.')),
+          SnackBar(content: Text('Could not update. Check your connection and try again.'.tr)),
         );
       }
     } finally {
@@ -511,8 +517,8 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
               Expanded(
                 child: Text(
                   stockCorrections.length == 1
-                      ? '1 stock count was corrected'
-                      : '${stockCorrections.length} stock counts were corrected',
+                      ? '1 stock count was corrected'.tr
+                      : '{n} stock counts were corrected'.trArgs({'n': stockCorrections.length}),
                   style: const TextStyle(
                     color: Color(0xFF8A4E06),
                     fontWeight: FontWeight.w800,
@@ -527,13 +533,17 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 2),
               child: Text(
-                '${item.name}: records showed ${item.recorded}, cashier sold ${item.sold}',
+                '{name}: records showed {recorded}, cashier sold {sold}'.trArgs({
+                  'name': item.name,
+                  'recorded': item.recorded,
+                  'sold': item.sold,
+                }),
                 style: const TextStyle(color: AppColors.text, fontSize: AppTypography.caption + 1),
               ),
             ),
           if (more > 0)
             Text(
-              '+$more more',
+              '+{n} more'.trArgs({'n': more}),
               style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
             ),
           Align(
@@ -541,7 +551,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             child: TextButton(
               onPressed: _reviewingCorrections ? null : _markCorrectionsReviewed,
               style: TextButton.styleFrom(foregroundColor: const Color(0xFF8A4E06)),
-              child: const Text('Mark as reviewed'),
+              child: Text('Mark as reviewed'.tr),
             ),
           ),
         ],
@@ -555,7 +565,9 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     final Color changeColor;
     if (yesterdaySales > 0) {
       final percent = (todaySales - yesterdaySales) / yesterdaySales * 100;
-      change = '${percent >= 0 ? '+' : ''}${percent.toStringAsFixed(0)}% vs yesterday';
+      change = '{change}% vs yesterday'.trArgs({
+        'change': '${percent >= 0 ? '+' : ''}${percent.toStringAsFixed(0)}',
+      });
       changeColor = percent >= 0 ? AppColors.success : AppColors.danger;
     } else {
       change = null;
@@ -570,9 +582,9 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  "Today's sales",
+                  "Today's sales".tr,
                   style: TextStyle(
                     color: AppColors.onHeroMuted,
                     fontSize: AppTypography.body,
@@ -618,8 +630,9 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
               Expanded(
                 child: Text(
                   todayOrders == 0
-                      ? 'No orders yet today'
-                      : '$todayOrders ${todayOrders == 1 ? 'order' : 'orders'} · avg BD ${average.toStringAsFixed(3)}',
+                      ? 'No orders yet today'.tr
+                      : (todayOrders == 1 ? '1 order · avg BD {avg}' : '{n} orders · avg BD {avg}')
+                            .trArgs({'n': todayOrders, 'avg': average.toStringAsFixed(3)}),
                   style: const TextStyle(
                     color: AppColors.onHeroMuted,
                     fontSize: AppTypography.caption + 1,
@@ -628,7 +641,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
               ),
               const SizedBox(width: 8),
               Tooltip(
-                message: 'Copy store code for new cashiers',
+                message: 'Copy store code for new cashiers'.tr,
                 child: OutlinedButton.icon(
                   onPressed: storeCode.isEmpty ? null : _copyStoreCode,
                   style: OutlinedButton.styleFrom(
@@ -644,7 +657,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                     ),
                   ),
                   icon: const Icon(Icons.copy_rounded, size: 14),
-                  label: Text(storeCode.isEmpty ? 'No code' : storeCode),
+                  label: Text(storeCode.isEmpty ? 'No code'.tr : storeCode),
                 ),
               ),
             ],

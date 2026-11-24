@@ -12,6 +12,7 @@ import '../../app/app_typography.dart';
 import '../../widgets/sale_sync_panel.dart';
 import '../../utils/cart_manager.dart';
 import '../backup/backup_screen.dart';
+import '../../app/app_language.dart';
 
 /// Shows user details and payment settings shared by store employees.
 /// Shows account details, payment settings, sync status and owner recovery access.
@@ -147,8 +148,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('QR uploaded successfully')));
+      ).showSnackBar(SnackBar(content: Text('QR uploaded successfully'.tr)));
     } catch (e) {
+      // Details go to the debug log only; the owner sees a friendly message.
+      debugPrint('QR upload failed: $e');
       setState(() {
         isSaving = false;
       });
@@ -157,7 +160,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to upload QR: $e')));
+      ).showSnackBar(SnackBar(content: Text('Could not upload the QR image. Try again.'.tr)));
     }
   }
 
@@ -183,8 +186,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Payment settings saved')));
+      ).showSnackBar(SnackBar(content: Text('Payment settings saved'.tr)));
     } catch (e) {
+      debugPrint('Payment settings save failed: $e');
       setState(() {
         isSaving = false;
       });
@@ -193,7 +197,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Failed to save payment settings: $e')));
+      ).showSnackBar(SnackBar(content: Text('Could not save payment settings. Try again.'.tr)));
     }
   }
 
@@ -206,9 +210,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'Your cart could not be saved. Check device storage and try signing out again.',
+              'Your cart could not be saved. Check device storage and try signing out again.'.tr,
             ),
           ),
         );
@@ -270,12 +274,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: const EdgeInsets.fromLTRB(AppSpacing.page, 0, AppSpacing.page, 24),
           child: Column(
             children: [
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(0, 24, 0, 16),
                 child: Align(
                   alignment: AlignmentDirectional.centerStart,
                   child: Text(
-                    'Profile',
+                    'Profile'.tr,
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
@@ -350,7 +354,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         icon: Icons.storefront_outlined,
                         iconBg: AppColors.soft,
                         iconColor: AppColors.primaryDark,
-                        title: 'Store name',
+                        title: 'Store name'.tr,
                         value: storeName.isEmpty ? 'No store' : storeName,
                       ),
                       const SizedBox(height: 16),
@@ -358,7 +362,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         icon: Icons.tag_outlined,
                         iconBg: AppColors.warningSoft,
                         iconColor: AppColors.warning,
-                        title: 'Store code',
+                        title: 'Store code'.tr,
                         value: storeCode.isEmpty ? '-' : storeCode,
                       ),
                       const SizedBox(height: 16),
@@ -366,7 +370,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         icon: Icons.email_outlined,
                         iconBg: AppColors.accentSoft,
                         iconColor: AppColors.primaryDark,
-                        title: 'Email',
+                        title: 'Email'.tr,
                         value: email.isEmpty ? '-' : email,
                       ),
                     ],
@@ -432,12 +436,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           const SizedBox(width: 14),
-                          const Expanded(
+                          Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Payment settings',
+                                  'Payment settings'.tr,
                                   style: TextStyle(
                                     fontSize: AppTypography.section,
                                     fontWeight: FontWeight.w700,
@@ -446,7 +450,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  'Manage Benefit payment information',
+                                  'Manage Benefit payment information'.tr,
                                   style: TextStyle(
                                     fontSize: AppTypography.caption,
                                     color: AppColors.muted,
@@ -469,8 +473,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         enabled: isOwner,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Benefit number',
-                          hintText: 'Enter your Benefit number',
+                          labelText: 'Benefit number'.tr,
+                          hintText: 'Enter your Benefit number'.tr,
                           filled: true,
                           fillColor: AppColors.background,
                           border: OutlineInputBorder(
@@ -489,8 +493,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         child: Column(
                           children: [
-                            const Text(
-                              'Benefit QR',
+                            Text(
+                              'Benefit QR'.tr,
                               style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.text),
                             ),
                             const SizedBox(height: 12),
@@ -500,7 +504,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               OutlinedButton.icon(
                                 onPressed: isSaving ? null : _pickQrImage,
                                 icon: const Icon(Icons.upload_outlined),
-                                label: const Text('Upload QR'),
+                                label: Text('Upload QR'.tr),
                                 style: OutlinedButton.styleFrom(
                                   side: const BorderSide(color: AppColors.primaryDark),
                                   shape: RoundedRectangleBorder(
@@ -533,8 +537,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       strokeWidth: 2.5,
                                     ),
                                   )
-                                : const Text(
-                                    'Save payment settings',
+                                : Text(
+                                    'Save payment settings'.tr,
                                     style: TextStyle(
                                       color: AppColors.onBrand,
                                       fontSize: AppTypography.button,
@@ -553,8 +557,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Card(
                   child: ListTile(
                     leading: const Icon(Icons.backup_outlined),
-                    title: const Text('Backup & recovery'),
-                    subtitle: const Text('Create a cloud copy or recover missing records'),
+                    title: Text('Backup & recovery'.tr),
+                    subtitle: Text('Create a cloud copy or recover missing records'.tr),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => Navigator.push(
                       context,
@@ -578,21 +582,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                 ),
-                child: const Column(
+                child: Column(
                   children: [
                     Text(
-                      'AI Assisted Pocket Register',
+                      'AI Assisted Pocket Register'.tr,
                       style: TextStyle(fontSize: AppTypography.caption, color: AppColors.muted),
                     ),
                     SizedBox(height: 6),
                     Text(
-                      'Version 1.0.0',
+                      'Version 1.0.0'.tr,
                       style: TextStyle(fontSize: AppTypography.caption, color: AppColors.muted),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
+              // Language: the whole app switches text and direction at once.
+              OutlinedButton.icon(
+                onPressed: AppLanguage.toggle,
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: AppColors.surface,
+                  foregroundColor: AppColors.text,
+                  side: const BorderSide(color: AppColors.border),
+                  minimumSize: const Size.fromHeight(54),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                  ),
+                ),
+                icon: const Icon(Icons.translate_rounded, color: AppColors.primaryDark),
+                label: Text(
+                  '${'Language'.tr}: ${AppLanguage.isArabic ? 'العربية' : 'English'}  ·  ${AppLanguage.isArabic ? 'English' : 'العربية'}',
+                ),
+              ),
+              const SizedBox(height: 12),
               GestureDetector(
                 onTap: _loggingOut ? null : _logout,
                 child: Container(
@@ -609,7 +631,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const Icon(Icons.logout, color: AppColors.danger),
                       const SizedBox(width: 10),
                       Text(
-                        _loggingOut ? 'Signing out...' : 'Logout',
+                        _loggingOut ? 'Signing out...'.tr : 'Logout'.tr,
                         style: const TextStyle(
                           color: AppColors.danger,
                           fontWeight: FontWeight.w700,
