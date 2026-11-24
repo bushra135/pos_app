@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../app/app_colors.dart';
+import '../../app/app_typography.dart';
 import '../../services/barcode_catalog_service.dart';
 import '../../services/browser_scanner.dart';
 import '../../widgets/product_image.dart';
@@ -133,11 +134,26 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     try {
       final sync = SaleSyncService.maybeInstance;
       if (sync == null) throw StateError('The sales service is not ready.');
-      final data = await sync.findProduct(
-        code.trim(),
-        preferCache: true,
-        allowStockCorrection: true,
-      );
+      Map<String, dynamic> data;
+      var miscounted = false;
+      try {
+        data = await sync.findProduct(code.trim(), preferCache: true);
+      } on OutOfStockException catch (error) {
+        // Records say zero, but the item is in the customer's hand: the cashier decides.
+        if (!mounted) return;
+        if (_browserScannerOpen) closeBrowserScanner();
+        final sell = await _confirmMiscounted(error.productName);
+        if (!mounted) return;
+        if (!sell) {
+          setState(() {
+            _statusMessage = '${error.productName} not added: recorded stock is 0.';
+            _hasScanError = true;
+          });
+          return;
+        }
+        data = await sync.findProduct(code.trim(), preferCache: true, allowStockCorrection: true);
+        miscounted = true;
+      }
       if (!mounted) return;
       final name = (data['name'] ?? '').toString();
       final productId = data['id'] as String;
@@ -149,9 +165,12 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         image: (data['image'] ?? '').toString(),
         productId: productId,
         storeCode: storeCode,
+        cost: data['cost'] is num ? (data['cost'] as num).toDouble() : 0,
       );
       setState(() {
-        _statusMessage = '$name · BD ${(data['price'] as num).toStringAsFixed(3)} added';
+        _statusMessage = miscounted
+            ? '$name added as miscounted · stock will be corrected and the owner alerted'
+            : '$name · BD ${(data['price'] as num).toStringAsFixed(3)} added';
         _hasScanError = false;
         _lastAddedProductId = productId;
         _lastAddedStoreCode = storeCode;
@@ -176,6 +195,40 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
           unawaited(_addProductByBarcode(_pendingBarcodes.removeAt(0)));
         }
       }
+    }
+  }
+
+  /// Lets the cashier sell an item the records show as sold out. Checkout raises the
+  /// stock to match, logs a stock correction and flags it for the owner.
+  Future<bool> _confirmMiscounted(String productName) async {
+    _isProductInfoOpen = true;
+    try {
+      final result = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          icon: const Icon(Icons.inventory_2_outlined, color: AppColors.warning, size: 32),
+          title: const Text('Out of stock in the system'),
+          content: Text(
+            'The records show 0 $productName left. If the customer has the item in hand, '
+            'the stock count was wrong.\n\nSell it as a miscounted product: the stock is '
+            'corrected at checkout and the owner gets an alert to review.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              icon: const Icon(Icons.fact_check_outlined, size: 18),
+              label: const Text('Sell as miscounted'),
+            ),
+          ],
+        ),
+      );
+      return result == true;
+    } finally {
+      _isProductInfoOpen = false;
     }
   }
 
@@ -222,7 +275,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                         return Text(
                           snapshot.data?.error != null
                               ? snapshot.data!.error!
-                              : 'No match in the free product catalogues. This product can still be added manually.',
+                              : 'No match in ShopPad or the free product catalogues. This product can still be added manually.',
                         );
                       }
                       return Column(
@@ -248,7 +301,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                           if (product.category.isNotEmpty) Text(product.category),
                           const SizedBox(height: 10),
                           SelectableText(
-                            '${product.provider} · data ODbL · images CC BY-SA\n${product.sourceUrl}',
+                            product.creditLine,
                             style: const TextStyle(fontSize: 11, color: AppColors.muted),
                           ),
                         ],
@@ -312,22 +365,37 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildScanHeader() {
+    final style = IconButton.styleFrom(
+      backgroundColor: AppColors.surface,
+      side: const BorderSide(color: AppColors.border),
+      fixedSize: const Size(44, 44),
+    );
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Row(
         children: [
-          IconButton(
+          IconButton.outlined(
             onPressed: _isAddingProduct ? null : widget.onBackToHome,
             tooltip: 'Home',
-            icon: const Icon(Icons.arrow_back),
+            style: style,
+            icon: const Icon(Icons.arrow_back_rounded, size: 20, color: AppColors.text),
           ),
           const Expanded(
-            child: Text('Scan & sell', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            child: Text(
+              'Scan & sell',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
           ),
-          IconButton(
+          IconButton.outlined(
             onPressed: _usesBrowserScanner ? null : _toggleTorch,
             tooltip: 'Toggle flash',
-            icon: Icon(_isTorchEnabled ? Icons.flash_on : Icons.flash_off),
+            style: style,
+            icon: Icon(
+              _isTorchEnabled ? Icons.flash_on_rounded : Icons.flash_off_rounded,
+              size: 20,
+              color: AppColors.text,
+            ),
           ),
         ],
       ),
@@ -407,7 +475,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         child: SizedBox.expand(
           key: _cameraPreviewKey,
           child: ColoredBox(
-            color: Colors.black87,
+            color: AppColors.primary,
             child: Center(
               child: _browserPreviewFailed
                   ? FilledButton.icon(
@@ -423,58 +491,68 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     }
     return Expanded(
       flex: 4,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          MobileScanner(
-            controller: _scannerController,
-            onDetect: _handleBarcodeDetection,
-            errorBuilder: (context, error, child) => ScannerErrorPanel(
-              error: error,
-              onRetry: () async {
-                await _scannerController.stop();
-                if (!mounted) return;
-                try {
-                  await _scannerController.start();
-                } on MobileScannerException {
-                  // The scanner rebuilds its error panel with the current error.
-                }
-              },
-            ),
-          ),
-          IgnorePointer(
-            child: Center(
-              child: FractionallySizedBox(
-                widthFactor: .8,
-                heightFactor: .6,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.primary, width: 3),
-                    borderRadius: BorderRadius.circular(20),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: ColoredBox(
+            color: AppColors.primary,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                MobileScanner(
+                  controller: _scannerController,
+                  onDetect: _handleBarcodeDetection,
+                  errorBuilder: (context, error, child) => ScannerErrorPanel(
+                    error: error,
+                    onRetry: () async {
+                      await _scannerController.stop();
+                      if (!mounted) return;
+                      try {
+                        await _scannerController.start();
+                      } on MobileScannerException {
+                        // The scanner rebuilds its error panel with the current error.
+                      }
+                    },
                   ),
                 ),
-              ),
-            ),
-          ),
-          const Positioned(
-            left: 8,
-            right: 8,
-            bottom: 8,
-            child: ColoredBox(
-              color: Colors.black54,
-              child: Padding(
-                padding: EdgeInsets.all(8),
-                child: Text(
-                  'Move each barcode into view. Use + for identical items.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white, fontSize: 12),
+                const IgnorePointer(
+                  child: Center(
+                    child: FractionallySizedBox(
+                      widthFactor: .72,
+                      heightFactor: .5,
+                      // Corner brackets stay visible over any camera image.
+                      child: CustomPaint(painter: _ScanFramePainter()),
+                    ),
+                  ),
                 ),
-              ),
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: 12,
+                  child: Center(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        child: Text(
+                          'Move each barcode into view. Use + for identical items.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (_isAddingProduct && !_isProductInfoOpen)
+                  const Center(child: CircularProgressIndicator(color: Colors.white)),
+              ],
             ),
           ),
-          if (_isAddingProduct && !_isProductInfoOpen)
-            const Center(child: CircularProgressIndicator()),
-        ],
+        ),
       ),
     );
   }
@@ -509,11 +587,11 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildEntryOptions() => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
     child: Row(
       children: [
         const Expanded(
-          child: Text('Current sale', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          child: Text('Current sale', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
         ),
         TextButton.icon(
           onPressed: _isAddingProduct
@@ -560,19 +638,46 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
               title: 'Ready for your first item',
               message: 'Scan a barcode or use Enter barcode to add a product.',
             )
-          : ListView.builder(
+          : ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
               itemCount: CartManager.items.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final item = CartManager.items[index];
-                return ListTile(
-                  dense: true,
-                  title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  subtitle: Text(
-                    'BD ${item.price.toStringAsFixed(3)} each | BD ${item.totalPrice.toStringAsFixed(3)}',
+                final justAdded = item.productId == _lastAddedProductId && !_hasScanError;
+                return Container(
+                  padding: const EdgeInsets.fromLTRB(14, 6, 4, 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: justAdded ? AppColors.primaryDark : AppColors.border,
+                      width: justAdded ? 2 : 1,
+                    ),
                   ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Row(
                     children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            Text(
+                              'BD ${item.price.toStringAsFixed(3)} each | BD ${item.totalPrice.toStringAsFixed(3)}',
+                              style: TextStyle(
+                                fontSize: AppTypography.caption,
+                                color: justAdded ? AppColors.primaryDark : AppColors.muted,
+                                fontWeight: justAdded ? FontWeight.w700 : FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       IconButton(
                         tooltip: 'Remove one',
                         onPressed: _isAddingProduct
@@ -581,15 +686,15 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                                 CartManager.decreaseQuantity(index);
                                 _lastAddedProductId = null;
                               }),
-                        icon: const Icon(Icons.remove_circle_outline),
+                        icon: const Icon(Icons.remove_circle_outline, color: AppColors.muted),
                       ),
-                      Text('${item.quantity}'),
+                      Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.w800)),
                       IconButton(
                         tooltip: 'Add one',
                         onPressed: _isAddingProduct
                             ? null
                             : () => _addProductByBarcode(item.barcode),
-                        icon: const Icon(Icons.add_circle_outline),
+                        icon: const Icon(Icons.add_circle, color: AppColors.primary),
                       ),
                     ],
                   ),
@@ -601,42 +706,39 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
 
   Widget _buildReviewSaleButton(int unitCount) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
       decoration: const BoxDecoration(
         color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text('$unitCount items', style: const TextStyle(color: AppColors.muted)),
-              ),
-              Flexible(
-                child: Text(
-                  'BD ${CartManager.total.toStringAsFixed(3)}',
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.primaryDark,
-                  ),
-                ),
-              ),
-            ],
+      child: ElevatedButton(
+        onPressed: _isAddingProduct || unitCount == 0 ? null : widget.onGoToCart,
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size.fromHeight(56),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          disabledBackgroundColor: AppColors.soft,
+          disabledForegroundColor: AppColors.muted,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          textStyle: const TextStyle(
+            fontFamily: AppTypography.family,
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _isAddingProduct || unitCount == 0 ? null : widget.onGoToCart,
-              icon: const Icon(Icons.shopping_cart_checkout),
-              label: const Text('Review sale'),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.shopping_cart_checkout_rounded, size: 20),
+            const SizedBox(width: 10),
+            const Text('Review sale'),
+            const SizedBox(width: 8),
+            Text(
+              '· $unitCount ${unitCount == 1 ? 'item' : 'items'}',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.body),
             ),
-          ),
-        ],
+            const Spacer(),
+            Text('BD ${CartManager.total.toStringAsFixed(3)}'),
+          ],
+        ),
       ),
     );
   }
@@ -667,4 +769,57 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       ),
     );
   }
+}
+
+/// Four rounded corner brackets marking where the barcode should sit.
+class _ScanFramePainter extends CustomPainter {
+  const _ScanFramePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const arm = 30.0;
+    const radius = 14.0;
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
+    final w = size.width;
+    final h = size.height;
+    final corners = [
+      Path()
+        ..moveTo(0, arm)
+        ..lineTo(0, radius)
+        ..arcToPoint(const Offset(radius, 0), radius: const Radius.circular(radius))
+        ..lineTo(arm, 0),
+      Path()
+        ..moveTo(w - arm, 0)
+        ..lineTo(w - radius, 0)
+        ..arcToPoint(Offset(w, radius), radius: const Radius.circular(radius))
+        ..lineTo(w, arm),
+      Path()
+        ..moveTo(w, h - arm)
+        ..lineTo(w, h - radius)
+        ..arcToPoint(Offset(w - radius, h), radius: const Radius.circular(radius))
+        ..lineTo(w - arm, h),
+      Path()
+        ..moveTo(arm, h)
+        ..lineTo(radius, h)
+        ..arcToPoint(Offset(0, h - radius), radius: const Radius.circular(radius))
+        ..lineTo(0, h - arm),
+    ];
+    for (final corner in corners) {
+      canvas.drawPath(corner, paint);
+    }
+    canvas.drawLine(
+      Offset(w * 0.08, h / 2),
+      Offset(w * 0.92, h / 2),
+      Paint()
+        ..color = AppColors.accent
+        ..strokeWidth = 2,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScanFramePainter oldDelegate) => false;
 }

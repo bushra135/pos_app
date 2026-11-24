@@ -93,6 +93,7 @@ abstract final class CartManager {
           image: (row['image'] ?? '').toString(),
           productId: row['productId'],
           storeCode: code,
+          cost: row['cost'] is num ? (row['cost'] as num).toDouble() : 0,
         );
       }).toList();
 
@@ -117,6 +118,7 @@ abstract final class CartManager {
           productId: item.productId,
           storeCode: item.storeCode,
           quantity: item.quantity,
+          cost: item.cost,
         ),
       );
     }
@@ -165,6 +167,7 @@ abstract final class CartManager {
     required String image,
     String productId = '',
     String storeCode = '',
+    double cost = 0,
   }) {
     if (switching) throw StateError('Wait for the cart to finish switching.');
     final index = items.indexWhere(
@@ -183,6 +186,7 @@ abstract final class CartManager {
           image: image,
           productId: productId,
           storeCode: storeCode,
+          cost: cost,
         ),
       );
     }

@@ -40,7 +40,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
-    final name = find.widgetWithText(TextField, 'Product Name');
+    final name = find.widgetWithText(TextField, 'Product name');
     final category = find.widgetWithText(TextField, 'Category');
     String value() => tester.widget<TextField>(category).controller!.text;
     await tester.enterText(name, 'Blue pen');

@@ -270,58 +270,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: const EdgeInsets.fromLTRB(AppSpacing.page, 0, AppSpacing.page, 24),
           child: Column(
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 30),
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(26),
-                    bottomRight: Radius.circular(26),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(0, 24, 0, 16),
+                child: Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    'Profile',
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.text,
+                    ),
                   ),
                 ),
-                child: Column(
+              ),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: AppColors.hero,
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: Row(
                   children: [
-                    const CircleAvatar(
-                      radius: 42,
-                      backgroundColor: AppColors.surface,
-                      child: Icon(Icons.person_outline, size: 42, color: AppColors.primaryDark),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      name.isEmpty ? 'User' : name,
-                      style: const TextStyle(
-                        fontSize: AppTypography.title,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.onBrand,
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: AppColors.primaryDark,
+                      child: Text(
+                        name.trim().isEmpty ? 'U' : name.trim()[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: AppColors.onBrand,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      role.isEmpty ? 'User' : role,
-                      style: const TextStyle(
-                        fontSize: AppTypography.label,
-                        color: AppColors.onBrand,
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name.isEmpty ? 'User' : name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.onHero,
+                            ),
+                          ),
+                          Text(
+                            role.isEmpty ? 'User' : role,
+                            style: const TextStyle(
+                              fontSize: AppTypography.caption + 1,
+                              color: AppColors.onHeroMuted,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(height: 16),
               Transform.translate(
-                offset: const Offset(0, -26),
+                offset: Offset.zero,
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.text.withValues(alpha: 0.05),
-                        blurRadius: 14,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.border),
                   ),
                   child: Column(
                     children: [
@@ -329,7 +350,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         icon: Icons.storefront_outlined,
                         iconBg: AppColors.soft,
                         iconColor: AppColors.primaryDark,
-                        title: 'Store Name',
+                        title: 'Store name',
                         value: storeName.isEmpty ? 'No store' : storeName,
                       ),
                       const SizedBox(height: 16),
@@ -337,7 +358,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         icon: Icons.tag_outlined,
                         iconBg: AppColors.warningSoft,
                         iconColor: AppColors.warning,
-                        title: 'Store Code',
+                        title: 'Store code',
                         value: storeCode.isEmpty ? '-' : storeCode,
                       ),
                       const SizedBox(height: 16),
@@ -416,7 +437,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Payment Settings',
+                                  'Payment settings',
                                   style: TextStyle(
                                     fontSize: AppTypography.section,
                                     fontWeight: FontWeight.w700,
@@ -448,7 +469,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         enabled: isOwner,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                          labelText: 'Benefit Number',
+                          labelText: 'Benefit number',
                           hintText: 'Enter your Benefit number',
                           filled: true,
                           fillColor: AppColors.background,
@@ -513,7 +534,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ),
                                   )
                                 : const Text(
-                                    'Save Payment Settings',
+                                    'Save payment settings',
                                     style: TextStyle(
                                       color: AppColors.onBrand,
                                       fontSize: AppTypography.button,

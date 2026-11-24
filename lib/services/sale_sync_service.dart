@@ -16,6 +16,13 @@ class ProductNotFoundException implements Exception {
   String toString() => 'Product not found in your store: $barcode';
 }
 
+/// The records show no free stock, but the cashier may hold the item (a miscount).
+/// Extends [StateError] so existing handlers keep treating it as a normal failure.
+class OutOfStockException extends StateError {
+  OutOfStockException(this.productName) : super('No available stock for $productName.');
+  final String productName;
+}
+
 enum SaleSubmissionStatus { synced, queued, conflict }
 
 class SaleSubmission {
@@ -230,7 +237,7 @@ class SaleSyncService extends ChangeNotifier {
         .where((item) => item.productId == product!['id'])
         .fold<int>(0, (totalQuantity, item) => totalQuantity + item.quantity);
     if (!allowStockCorrection && stock - reserved - inCart < 1) {
-      throw StateError('No available stock for ${product['name']}.');
+      throw OutOfStockException((product['name'] ?? 'this product').toString());
     }
     _changed();
     return product;

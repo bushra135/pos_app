@@ -48,16 +48,16 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      await tester.tap(find.text('Switch to cashier'));
+      await tester.tap(find.byTooltip('Switch to cashier'));
       await tester.pumpAndSettle();
       expect(find.byType(CashierHomeScreen), findsOneWidget);
       expect(find.text('Scan'), findsOneWidget);
-      expect(find.text('Switch to owner'), findsOneWidget);
+      expect(find.byTooltip('Switch to owner'), findsOneWidget);
       expect(CartManager.items.single.name, 'Pen');
-      await tester.tap(find.text('Switch to owner'));
+      await tester.tap(find.byTooltip('Switch to owner'));
       await tester.pumpAndSettle();
       expect(find.byType(CashierHomeScreen), findsNothing);
-      expect(find.text('Switch to cashier'), findsOneWidget);
+      expect(find.byTooltip('Switch to cashier'), findsOneWidget);
       expect(CartManager.items.single.name, 'Pen');
       expect((await db.collection('users').doc('owner').get()).data()!['role'], 'owner');
       expect(
@@ -86,7 +86,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Switch to owner'), findsNothing);
+    expect(find.byTooltip('Switch to owner'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

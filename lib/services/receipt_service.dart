@@ -47,6 +47,24 @@ abstract final class ReceiptService {
             cellStyle: const pw.TextStyle(fontSize: 10),
           ),
           pw.SizedBox(height: 16),
+          if (sale.discount > 0) ...[
+            pw.Align(
+              alignment: pw.Alignment.centerRight,
+              child: pw.Text('Subtotal: BD ${sale.subtotal.toStringAsFixed(3)}'),
+            ),
+            pw.Align(
+              alignment: pw.Alignment.centerRight,
+              child: pw.Text('Discount: - BD ${sale.discount.toStringAsFixed(3)}'),
+            ),
+          ],
+          if (sale.vatRate > 0)
+            pw.Align(
+              alignment: pw.Alignment.centerRight,
+              child: pw.Text(
+                'VAT ${sale.vatRate.toStringAsFixed(0)}% (included): BD ${sale.tax.toStringAsFixed(3)}',
+              ),
+            ),
+          pw.SizedBox(height: 4),
           pw.Align(
             alignment: pw.Alignment.centerRight,
             child: pw.Text(

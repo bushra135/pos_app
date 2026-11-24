@@ -6,8 +6,11 @@ import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 import '../../services/sale_sync_service.dart';
+import '../../services/sales_query.dart';
+import '../../utils/cart_manager.dart';
 import '../../widgets/sale_sync_panel.dart';
 import '../cart/cart_screen.dart';
+import '../closing/end_of_day_screen.dart';
 import '../products/products_screen.dart';
 import '../profile/profile_screen.dart';
 import '../scan/scan_screen.dart';
@@ -110,20 +113,20 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       final startOfDay = DateTime(now.year, now.month, now.day);
       final endOfDay = startOfDay.add(const Duration(days: 1));
 
-      final snapshot = await _firestore
-          .collection('sales')
-          .where('cashierUid', isEqualTo: cashierUid)
-          .where('storeCode', isEqualTo: _storeCode)
-          .get(
-            SaleSyncService.maybeInstance?.online == false
-                ? const GetOptions(source: Source.cache)
-                : const GetOptions(),
-          );
+      // Only today's receipts for this cashier.
+      final salesDocs = await SalesQuery.since(
+        _firestore,
+        storeCode: _storeCode,
+        cashierUid: cashierUid,
+        from: startOfDay,
+        options: SaleSyncService.maybeInstance?.online == false
+            ? const GetOptions(source: Source.cache)
+            : const GetOptions(),
+      );
 
       double total = 0.0;
       int count = 0;
-
-      for (final doc in snapshot.docs) {
+      for (final doc in salesDocs) {
         final data = doc.data();
         final createdAt = data['createdAt'];
         if (createdAt is Timestamp) {
@@ -206,276 +209,348 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: selectedIndex,
-        onTap: (index) async {
-          setState(() => selectedIndex = index);
-          if (index == 0) {
-            final uid = _userId;
-            if (uid != null) await _loadTodayStats(uid);
-          }
-        },
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primaryDark,
-        unselectedItemColor: AppColors.muted,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.qr_code_scanner), label: "Scan"),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: "Cart"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
-        ],
+      bottomNavigationBar: DecoratedBox(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        child: NavigationBar(
+          selectedIndex: selectedIndex,
+          onDestinationSelected: (index) async {
+            setState(() => selectedIndex = index);
+            if (index == 0) {
+              final uid = _userId;
+              if (uid != null) await _loadTodayStats(uid);
+            }
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded),
+              label: 'Home',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.qr_code_scanner_rounded),
+              selectedIcon: Icon(Icons.qr_code_scanner_rounded),
+              label: 'Scan',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.shopping_cart_outlined),
+              selectedIcon: Icon(Icons.shopping_cart_rounded),
+              label: 'Cart',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline_rounded),
+              selectedIcon: Icon(Icons.person_rounded),
+              label: 'Profile',
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildHomeContent() {
-    return SingleChildScrollView(
-      child: Column(
+    final cartCount = CartManager.items.length;
+    return RefreshIndicator(
+      color: AppColors.primaryDark,
+      onRefresh: () async {
+        final uid = _userId;
+        if (uid != null) await _loadTodayStats(uid);
+      },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.page, 24, AppSpacing.page, 24),
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(30),
-                bottomRight: Radius.circular(30),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Text(
-                          "Welcome back, ",
-                          style: TextStyle(color: AppColors.onBrand, fontSize: AppTypography.body),
-                        ),
-                        Text(
-                          cashierName.isEmpty ? "Cashier" : cashierName,
-                          style: const TextStyle(
-                            color: AppColors.onBrand,
-                            fontSize: AppTypography.body,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    GestureDetector(
-                      onTap: _toggleUserStatus,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          // Keep status readable over the colored header.
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                          border: Border.all(
-                            color: isActive ? AppColors.success : AppColors.danger,
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              isActive
-                                  ? Icons.check_circle_rounded
-                                  : Icons.pause_circle_filled_rounded,
-                              size: 16,
-                              color: isActive ? AppColors.success : AppColors.danger,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              isActive ? "Active • Ready" : "Inactive • Offline",
-                              style: TextStyle(
-                                color: isActive ? AppColors.success : AppColors.danger,
-                                fontWeight: FontWeight.w700,
-                                fontSize: AppTypography.caption,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  storeName.isEmpty ? "My Store" : storeName,
-                  style: const TextStyle(
-                    color: AppColors.onBrand,
-                    fontSize: AppTypography.brand,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          if (widget.onSwitchToOwner != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: widget.onSwitchToOwner,
-                  icon: const Icon(Icons.manage_accounts_outlined),
-                  label: const Text('Switch to owner'),
-                ),
-              ),
-            ),
-          const SizedBox(height: 20),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.attach_money,
-                    iconColor: AppColors.success,
-                    value: "BD ${todaySales.toStringAsFixed(3)}",
-                    label: "My Sales Today",
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.receipt,
-                    iconColor: AppColors.primaryDark,
-                    value: todayTransactions.toString(),
-                    label: "Transactions",
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 25),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Quick Actions",
-                  style: TextStyle(fontSize: AppTypography.section, fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 15),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildActionButton(
-                        icon: Icons.qr_code_scanner,
-                        label: "Start sale",
-                        highlighted: true,
-                        onTap: () => setState(() => selectedIndex = 1),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _buildActionButton(
-                        icon: Icons.shopping_cart,
-                        label: "Cart",
-                        onTap: () => setState(() => selectedIndex = 2),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildActionButton(
-                        icon: Icons.inventory_2,
-                        label: "Products",
-                        subtitle: "Manage items",
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const ProductsScreen()),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(child: SizedBox(height: 100)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 30),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard({
-    required IconData icon,
-    required Color iconColor,
-    required String value,
-    required String label,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: iconColor),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: const TextStyle(fontSize: AppTypography.metric, fontWeight: FontWeight.w700),
-          ),
-          Text(label, style: const TextStyle(fontSize: AppTypography.label)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    String? subtitle,
-    bool highlighted = false,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 100,
-        decoration: BoxDecoration(
-          color: highlighted ? AppColors.primary : AppColors.surface,
-          border: highlighted ? null : Border.all(color: AppColors.border),
-          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          _buildHeader(),
+          const SizedBox(height: 18),
+          _buildStatsCard(),
+          const SizedBox(height: 14),
+          _buildStartSaleButton(),
+          const SizedBox(height: 12),
+          Row(
             children: [
-              Icon(icon, color: highlighted ? AppColors.onBrand : AppColors.primaryDark),
-              const SizedBox(height: 8),
+              Expanded(
+                child: _buildActionTile(
+                  icon: Icons.shopping_cart_outlined,
+                  label: 'Cart',
+                  caption: cartCount == 0
+                      ? 'Empty'
+                      : '$cartCount ${cartCount == 1 ? 'item' : 'items'} waiting',
+                  onTap: () => setState(() => selectedIndex = 2),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildActionTile(
+                  icon: Icons.inventory_2_outlined,
+                  label: 'Products',
+                  caption: 'Prices and stock',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ProductsScreen()),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () =>
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const EndOfDayScreen())),
+            style: OutlinedButton.styleFrom(
+              backgroundColor: AppColors.surface,
+              foregroundColor: AppColors.text,
+              side: const BorderSide(color: AppColors.border),
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            ),
+            icon: const Icon(Icons.point_of_sale_outlined, color: AppColors.primaryDark),
+            label: const Text('End of day · close the drawer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    final statusColor = isActive ? AppColors.success : AppColors.muted;
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                label,
-                style: TextStyle(
-                  color: highlighted ? AppColors.onBrand : AppColors.text,
-                  fontSize: AppTypography.button,
+                'Hi, ${cashierName.isEmpty ? 'Cashier' : cashierName}',
+                style: const TextStyle(
+                  color: AppColors.muted,
+                  fontSize: AppTypography.body,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              if (subtitle != null)
-                Text(
-                  subtitle,
-                  style: const TextStyle(color: AppColors.text, fontSize: AppTypography.caption),
+              Text(
+                storeName.isEmpty ? 'My Store' : storeName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.text,
+                  fontSize: AppTypography.title,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
                 ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        if (widget.onSwitchToOwner != null)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Tooltip(
+                message: 'Switch to owner',
+                child: FilledButton.icon(
+                  onPressed: widget.onSwitchToOwner,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(48, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: const StadiumBorder(),
+                  ),
+                  icon: const Icon(Icons.swap_horiz_rounded, size: 20),
+                  label: const Text('Owner'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildDutyChip(statusColor),
+            ],
+          )
+        else
+          _buildDutyChip(statusColor),
+      ],
+    );
+  }
+
+  Widget _buildDutyChip(Color statusColor) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Tooltip(
+          message: isActive ? 'Tap to go off duty' : 'Tap to go on duty',
+          child: Material(
+            color: isActive ? AppColors.successSoft : AppColors.soft,
+            shape: StadiumBorder(
+              side: BorderSide(color: isActive ? const Color(0xFFCFE8DA) : AppColors.border),
+            ),
+            child: InkWell(
+              onTap: _toggleUserStatus,
+              customBorder: const StadiumBorder(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(color: statusColor, shape: BoxShape.circle),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isActive ? 'On duty' : 'Off duty',
+                      style: TextStyle(
+                        color: statusColor,
+                        fontSize: AppTypography.caption,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatsCard() {
+    Widget stat(String label, String value) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.onHeroMuted,
+            fontSize: AppTypography.caption + 1,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 4),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: AppColors.onHero,
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              height: 1.2,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(24)),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            Expanded(child: stat('My sales today', 'BD ${todaySales.toStringAsFixed(3)}')),
+            Container(
+              width: 1,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              color: AppColors.heroLine,
+            ),
+            stat('Transactions', '$todayTransactions'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The cashier's main action: a large indigo tile that opens the scanner.
+  Widget _buildStartSaleButton() {
+    final radius = BorderRadius.circular(22);
+    return Material(
+      color: AppColors.primaryDark,
+      borderRadius: radius,
+      child: InkWell(
+        onTap: () => setState(() => selectedIndex = 1),
+        borderRadius: radius,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 28),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Start sale',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      'Scan a barcode to add items',
+                      style: TextStyle(
+                        color: Color(0xFFDCDAFB),
+                        fontSize: AppTypography.caption + 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionTile({
+    required IconData icon,
+    required String label,
+    required String caption,
+    required VoidCallback onTap,
+  }) {
+    final radius = BorderRadius.circular(18);
+    return Material(
+      color: AppColors.surface,
+      borderRadius: radius,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Ink(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: AppColors.primaryDark, size: 24),
+              const SizedBox(height: 10),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.text,
+                  fontSize: AppTypography.button,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text(
+                caption,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
+              ),
             ],
           ),
         ),

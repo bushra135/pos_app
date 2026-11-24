@@ -18,8 +18,7 @@ import 'package:pos_app/utils/cart_manager.dart';
 void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
-    final font = FontLoader('Cairo')
-      ..addFont(rootBundle.load('assets/fonts/Cairo.ttf'));
+    final font = FontLoader('Cairo')..addFont(rootBundle.load('assets/fonts/Cairo.ttf'));
     await font.load();
     for (final name in [
       'dev.steenbakker.mobile_scanner/scanner/event',
@@ -51,67 +50,62 @@ void main() {
   });
   setUp(CartManager.clearCart);
   tearDown(CartManager.clearCart);
-  testWidgets(
-    'An unknown barcode previews catalogue data without selling or creating stock',
-    (tester) async {
-      final db = await databaseFactoryMemory.openDatabase(
-        'unknown-product-test',
-      );
-      final sync = _MissingProductSync(LocalPosStore(db));
-      SaleSyncService.maybeInstance = sync;
-      addTearDown(() async {
-        SaleSyncService.maybeInstance = null;
-        sync.dispose();
-        await db.close();
-      });
-      var calls = 0;
-      final catalog = BarcodeCatalogService(
-        client: MockClient((_) async {
-          calls++;
-          return http.Response(
-            jsonEncode({
-              'status': 'success',
-              'product': {'code': '012345678905', 'product_name': 'Milk'},
-            }),
-            200,
-          );
-        }),
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: ScanScreen(catalog: catalog),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Enter barcode'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), '012345678905');
-      await tester.tap(find.text('Add'));
-      await tester.pumpAndSettle();
-      expect(find.text('New barcode'), findsOneWidget);
-      expect(find.text('Milk'), findsOneWidget);
-      expect(CartManager.items, isEmpty);
-      expect(calls, 1);
-      expect(tester.takeException(), isNull);
-      await tester.tap(find.text('Close'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'SKU-123');
-      await tester.tap(find.text('Add'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('This lookup supports'), findsOneWidget);
-      expect(calls, 1);
-      expect(CartManager.items, isEmpty);
-      expect(tester.takeException(), isNull);
-      await tester.tap(find.text('Close'));
-      await tester.pumpAndSettle();
-      await tester.pumpWidget(const SizedBox());
-      await tester.pumpAndSettle();
-    },
-  );
-  testWidgets('browser camera opens inside Scan without a second button', (
+  testWidgets('An unknown barcode previews catalogue data without selling or creating stock', (
     tester,
   ) async {
+    final db = await databaseFactoryMemory.openDatabase('unknown-product-test');
+    final sync = _MissingProductSync(LocalPosStore(db));
+    SaleSyncService.maybeInstance = sync;
+    addTearDown(() async {
+      SaleSyncService.maybeInstance = null;
+      sync.dispose();
+      await db.close();
+    });
+    var calls = 0;
+    final catalog = BarcodeCatalogService(
+      client: MockClient((_) async {
+        calls++;
+        return http.Response(
+          jsonEncode({
+            'status': 'success',
+            'product': {'code': '012345678905', 'product_name': 'Milk'},
+          }),
+          200,
+        );
+      }),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: ScanScreen(catalog: catalog),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Enter barcode'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '012345678905');
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+    expect(find.text('New barcode'), findsOneWidget);
+    expect(find.text('Milk'), findsOneWidget);
+    expect(CartManager.items, isEmpty);
+    expect(calls, 1);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'SKU-123');
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('This lookup supports'), findsOneWidget);
+    expect(calls, 1);
+    expect(CartManager.items, isEmpty);
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+  });
+  testWidgets('browser camera opens inside Scan without a second button', (tester) async {
     final requests = <Completer<bool>>[];
     var reviews = 0;
     Future<bool> launch({
@@ -147,41 +141,33 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
-  testWidgets(
-    'browser startup failure keeps retry and manual entry available',
-    (tester) async {
-      var calls = 0;
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: ScanScreen(
-            browserCheckout: ({required onBarcode, required summary}) async {
-              calls++;
-              throw StateError('Browser camera blocked');
-            },
-          ),
+  testWidgets('browser startup failure keeps retry and manual entry available', (tester) async {
+    var calls = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: ScanScreen(
+          browserCheckout: ({required onBarcode, required summary}) async {
+            calls++;
+            throw StateError('Browser camera blocked');
+          },
         ),
-      );
-      await tester.pumpAndSettle();
-      expect(calls, 1);
-      expect(
-        find.textContaining('Could not open browser camera'),
-        findsOneWidget,
-      );
-      await tester.tap(find.text('Retry camera'));
-      await tester.pumpAndSettle();
-      expect(calls, 2);
-      await tester.tap(find.text('Enter barcode'));
-      await tester.pumpAndSettle();
-      expect(find.byType(TextField), findsOneWidget);
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox());
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(calls, 1);
+    expect(find.textContaining('Could not open browser camera'), findsOneWidget);
+    await tester.tap(find.text('Retry camera'));
+    await tester.pumpAndSettle();
+    expect(calls, 2);
+    await tester.tap(find.text('Enter barcode'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
   for (final width in [320.0, 800.0]) {
-    testWidgets('Manual barcode entry and review stay usable at width $width', (
-      tester,
-    ) async {
+    testWidgets('Manual barcode entry and review stay usable at width $width', (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = Size(width, 740);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -220,11 +206,7 @@ void main() {
 
 class _MissingProductSync extends SaleSyncService {
   _MissingProductSync(LocalPosStore store)
-    : super(
-        store: store,
-        gateway: _UnusedGateway(),
-        currentUserId: () => 'cashier',
-      );
+    : super(store: store, gateway: _UnusedGateway(), currentUserId: () => 'cashier');
   @override
   Future<Map<String, dynamic>> findProduct(
     String barcode, {
@@ -235,6 +217,5 @@ class _MissingProductSync extends SaleSyncService {
 
 class _UnusedGateway implements SaleGateway {
   @override
-  Future<void> commit(SaleRecord sale) async =>
-      throw StateError('No sale should be submitted');
+  Future<void> commit(SaleRecord sale) async => throw StateError('No sale should be submitted');
 }

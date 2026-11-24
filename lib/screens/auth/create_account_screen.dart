@@ -247,14 +247,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   }) {
     return InputDecoration(
       hintText: hintText,
-      prefixIcon: Icon(icon, color: AppColors.primaryDark),
+      prefixIcon: Icon(icon, color: AppColors.muted),
       suffixIcon: suffixIcon,
-      filled: true,
-      fillColor: AppColors.background,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
       errorText: errorText,
       errorMaxLines: 2,
     );
@@ -283,7 +277,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.border),
       ),
@@ -307,21 +301,32 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   Widget _roleOption({required bool owner}) {
     final selected = _isOwner == owner;
     return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _isOwner = owner),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.primary : AppColors.background,
-            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            owner ? 'Owner' : 'Cashier',
-            style: TextStyle(
-              color: selected ? AppColors.onBrand : AppColors.text,
-              fontSize: AppTypography.label,
-              fontWeight: FontWeight.w600,
+      child: Material(
+        color: selected ? AppColors.primaryDark : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: () => setState(() => _isOwner = owner),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  owner ? Icons.storefront_outlined : Icons.point_of_sale_outlined,
+                  size: 18,
+                  color: selected ? AppColors.onBrand : AppColors.muted,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  owner ? 'Owner' : 'Cashier',
+                  style: TextStyle(
+                    color: selected ? AppColors.onBrand : AppColors.text,
+                    fontSize: AppTypography.label,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -344,9 +349,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     children: [
       Text(
         label,
-        style: const TextStyle(fontSize: AppTypography.label, fontWeight: FontWeight.w600),
+        style: const TextStyle(fontSize: AppTypography.caption + 1, fontWeight: FontWeight.w700),
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: 6),
       TextField(
         controller: controller,
         obscureText: obscureText,
@@ -362,7 +367,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   );
 
   Widget _passwordToggle(bool visible, VoidCallback toggle) => IconButton(
-    color: AppColors.primaryDark,
+    tooltip: visible ? 'Hide password' : 'Show password',
+    color: AppColors.muted,
     onPressed: toggle,
     icon: Icon(visible ? Icons.visibility_outlined : Icons.visibility_off_outlined),
   );
@@ -370,161 +376,218 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(color: AppColors.primary),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Container(
-              width: double.infinity,
-              margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              constraints: BoxConstraints(minHeight: MediaQuery.of(context).size.height * 0.85),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(25),
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Theme(
+          // Same roles as sign-in: indigo brand, ink focus and secondary actions.
+          data: Theme.of(context).copyWith(
+            inputDecorationTheme: Theme.of(context).inputDecorationTheme.copyWith(
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+                borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'I am a...',
-                    style: TextStyle(fontSize: AppTypography.section, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 10),
-
-                  Row(
-                    children: [
-                      _roleOption(owner: true),
-                      const SizedBox(width: 10),
-                      _roleOption(owner: false),
-                    ],
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  _accountField(
-                    label: 'Full Name',
-                    controller: _fullNameController,
-                    hint: 'Enter your full name',
-                    icon: Icons.person_outline,
-                  ),
-                  const SizedBox(height: 20),
-                  _accountField(
-                    label: 'Email',
-                    controller: _emailController,
-                    hint: 'Enter your email',
-                    icon: Icons.email_outlined,
-                  ),
-                  const SizedBox(height: 20),
-                  _accountField(
-                    label: 'Password',
-                    controller: _passwordController,
-                    hint: 'Create a password',
-                    icon: Icons.lock_outline,
-                    obscureText: !_isPasswordVisible,
-                    onChanged: (_) => setState(() => _hasStartedPassword = true),
-                    errorText: _hasAttemptedSubmit && !_isStrongPassword(_passwordController.text)
-                        ? 'Please meet all password requirements.'
-                        : null,
-                    suffixIcon: _passwordToggle(
-                      _isPasswordVisible,
-                      () => setState(() => _isPasswordVisible = !_isPasswordVisible),
-                    ),
-                  ),
-                  if (_hasStartedPassword) _passwordRequirements(_passwordController.text),
-                  const SizedBox(height: 20),
-                  _accountField(
-                    label: 'Confirm Password',
-                    controller: _confirmPasswordController,
-                    hint: 'Confirm your password',
-                    icon: Icons.lock_outline,
-                    obscureText: !_isConfirmPasswordVisible,
-                    onChanged: (_) => setState(() {}),
-                    errorText:
-                        _hasAttemptedSubmit &&
-                            _confirmPasswordController.text.isNotEmpty &&
-                            _confirmPasswordController.text != _passwordController.text
-                        ? 'Passwords do not match.'
-                        : null,
-                    suffixIcon: _passwordToggle(
-                      _isConfirmPasswordVisible,
-                      () => setState(() => _isConfirmPasswordVisible = !_isConfirmPasswordVisible),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  _accountField(
-                    label: _isOwner ? 'Store Name' : 'Store Code',
-                    controller: _isOwner ? _storeNameController : _storeCodeController,
-                    hint: _isOwner ? 'Enter your store name' : 'Enter store code',
-                    icon: _isOwner ? Icons.store_outlined : Icons.numbers,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _isOwner
-                        ? "You'll create a new store and receive a store code"
-                        : 'Ask your store owner for the store code',
-                    style: const TextStyle(fontSize: AppTypography.caption, color: AppColors.muted),
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  GestureDetector(
-                    onTap: _isLoading ? null : _handleCreateAccount,
-                    child: Container(
-                      width: double.infinity,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                      ),
-                      child: Center(
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: AppColors.onBrand,
-                                  strokeWidth: 2.5,
-                                ),
-                              )
-                            : const Text(
-                                'Create Account',
-                                style: TextStyle(
-                                  color: AppColors.onBrand,
-                                  fontSize: AppTypography.button,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
+            ),
+            textSelectionTheme: const TextSelectionThemeData(cursorColor: AppColors.primary),
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: IconButton(
+                        tooltip: 'Back to sign in',
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.arrow_back_rounded, color: AppColors.text),
                       ),
                     ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  Center(
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Text.rich(
-                        TextSpan(
-                          text: "Already have an account? ",
-                          children: [
-                            TextSpan(
-                              text: "Sign in",
-                              style: TextStyle(
-                                color: AppColors.primaryDark,
-                                fontSize: AppTypography.button,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                    Center(
+                      child: Image.asset(
+                        'assets/logo.png',
+                        width: 88,
+                        height: 88,
+                        fit: BoxFit.contain,
+                        color: AppColors.primaryDark,
+                        colorBlendMode: BlendMode.srcIn,
+                        semanticLabel: 'ShopPad logo',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Center(
+                      child: Text(
+                        'Create your account',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: AppColors.text,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          height: 1.2,
                         ),
-                        style: TextStyle(fontSize: AppTypography.body),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 4),
+                    const Center(
+                      child: Text(
+                        'Set up your store or join one as a cashier.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.muted, fontSize: AppTypography.button),
+                      ),
+                    ),
+                    const SizedBox(height: 26),
+                    const Text(
+                      'I am a...',
+                      style: TextStyle(
+                        fontSize: AppTypography.caption + 1,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          _roleOption(owner: true),
+                          const SizedBox(width: 4),
+                          _roleOption(owner: false),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 30),
+
+                    _accountField(
+                      label: 'Full name',
+                      controller: _fullNameController,
+                      hint: 'Enter your full name',
+                      icon: Icons.person_outline,
+                    ),
+                    const SizedBox(height: 20),
+                    _accountField(
+                      label: 'Email',
+                      controller: _emailController,
+                      hint: 'Enter your email',
+                      icon: Icons.email_outlined,
+                    ),
+                    const SizedBox(height: 20),
+                    _accountField(
+                      label: 'Password',
+                      controller: _passwordController,
+                      hint: 'Create a password',
+                      icon: Icons.lock_outline,
+                      obscureText: !_isPasswordVisible,
+                      onChanged: (_) => setState(() => _hasStartedPassword = true),
+                      errorText: _hasAttemptedSubmit && !_isStrongPassword(_passwordController.text)
+                          ? 'Please meet all password requirements.'
+                          : null,
+                      suffixIcon: _passwordToggle(
+                        _isPasswordVisible,
+                        () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                      ),
+                    ),
+                    if (_hasStartedPassword) _passwordRequirements(_passwordController.text),
+                    const SizedBox(height: 20),
+                    _accountField(
+                      label: 'Confirm password',
+                      controller: _confirmPasswordController,
+                      hint: 'Confirm your password',
+                      icon: Icons.lock_outline,
+                      obscureText: !_isConfirmPasswordVisible,
+                      onChanged: (_) => setState(() {}),
+                      errorText:
+                          _hasAttemptedSubmit &&
+                              _confirmPasswordController.text.isNotEmpty &&
+                              _confirmPasswordController.text != _passwordController.text
+                          ? 'Passwords do not match.'
+                          : null,
+                      suffixIcon: _passwordToggle(
+                        _isConfirmPasswordVisible,
+                        () =>
+                            setState(() => _isConfirmPasswordVisible = !_isConfirmPasswordVisible),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    _accountField(
+                      label: _isOwner ? 'Store name' : 'Store code',
+                      controller: _isOwner ? _storeNameController : _storeCodeController,
+                      hint: _isOwner ? 'Enter your store name' : 'Enter store code',
+                      icon: _isOwner ? Icons.store_outlined : Icons.numbers,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _isOwner
+                          ? "You'll create a new store and receive a store code"
+                          : 'Ask your store owner for the store code',
+                      style: const TextStyle(
+                        fontSize: AppTypography.caption,
+                        color: AppColors.muted,
+                      ),
+                    ),
+
+                    const SizedBox(height: 30),
+
+                    ElevatedButton(
+                      onPressed: _isLoading ? null : _handleCreateAccount,
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(54),
+                        backgroundColor: AppColors.primaryDark,
+                        foregroundColor: AppColors.onBrand,
+                        disabledBackgroundColor: AppColors.primaryDark,
+                        disabledForegroundColor: AppColors.onBrand,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        textStyle: const TextStyle(
+                          fontFamily: AppTypography.family,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                color: AppColors.onBrand,
+                                strokeWidth: 2.4,
+                              ),
+                            )
+                          : const Text('Create account'),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    Center(
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                        },
+                        child: const Text.rich(
+                          TextSpan(
+                            text: "Already have an account? ",
+                            children: [
+                              TextSpan(
+                                text: "Sign in",
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontSize: AppTypography.button,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                          style: TextStyle(fontSize: AppTypography.body, color: AppColors.muted),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

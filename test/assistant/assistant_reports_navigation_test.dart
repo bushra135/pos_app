@@ -52,10 +52,10 @@ void main() {
         expect(find.textContaining('Coffee'), findsOneWidget);
         expect(find.textContaining('Other store secret'), findsNothing);
         await tester.enterText(find.byType(TextField), 'My next question');
-        await tester.ensureVisible(find.text('Open reports'));
-        await tester.tap(find.text('Open reports'));
+        await tester.ensureVisible(find.text('Open dashboard'));
+        await tester.tap(find.text('Open dashboard'));
         await tester.pumpAndSettle();
-        expect(find.text('POS Reports'), findsOneWidget);
+        expect(find.text('Dashboard'), findsOneWidget);
         expect(find.byTooltip('Back to assistant'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.tap(find.byTooltip('Back to assistant'));

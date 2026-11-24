@@ -31,6 +31,41 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       : FirebaseAuth.instance.currentUser?.uid;
   String selectedPaymentMethod = 'Cash';
 
+  /// Discount the cashier entered: a percent of the subtotal or a fixed BD amount.
+  double _discountValue = 0;
+  bool _discountIsPercent = true;
+
+  static double _fils(double value) => (value * 1000).roundToDouble() / 1000;
+  double get _subtotal => _fils(CartManager.total);
+  double get _discountAmount {
+    final raw = _discountIsPercent ? _subtotal * _discountValue / 100 : _discountValue;
+    return _fils(raw.clamp(0, _subtotal).toDouble());
+  }
+
+  double get _total => _fils(_subtotal - _discountAmount);
+
+  /// VAT contained in the VAT-inclusive total.
+  double get _vat {
+    const rate = SaleRecord.bahrainVatRate;
+    return _fils(_total * rate / (100 + rate));
+  }
+
+  Future<void> _editDiscount() async {
+    final result = await showDialog<({double value, bool percent})>(
+      context: context,
+      builder: (_) => _DiscountDialog(
+        subtotal: _subtotal,
+        initialValue: _discountValue,
+        initialPercent: _discountIsPercent,
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _discountValue = result.value;
+      _discountIsPercent = result.percent;
+    });
+  }
+
   String storeName = '';
   String cashierName = '';
   String benefitNumber = '';
@@ -175,6 +210,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
             name: item.name,
             price: item.price,
             quantity: item.quantity,
+            cost: item.cost,
           ),
         );
       }
@@ -188,6 +224,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         createdAt: _saleTime,
         items: items,
         correctStockShortages: true,
+        discount: _discountAmount,
+        vatRate: SaleRecord.bahrainVatRate,
       );
       final result = await sync.submit(sale);
 
@@ -369,21 +407,15 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                   children: [
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.only(
-                          bottomLeft: Radius.circular(30),
-                          bottomRight: Radius.circular(30),
-                        ),
-                      ),
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                      decoration: const BoxDecoration(color: AppColors.background),
                       child: Row(
                         children: [
                           CircleAvatar(
-                            backgroundColor: AppColors.surface.withValues(alpha: 0.25),
+                            backgroundColor: AppColors.surface,
                             child: IconButton(
                               onPressed: isSavingSale ? null : () => Navigator.pop(context),
-                              icon: const Icon(Icons.arrow_back, color: AppColors.onBrand),
+                              icon: const Icon(Icons.arrow_back, color: AppColors.text),
                             ),
                           ),
                           const SizedBox(width: 14),
@@ -394,16 +426,16 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                 Text(
                                   'Payment & Receipt',
                                   style: TextStyle(
-                                    color: AppColors.onBrand,
-                                    fontSize: AppTypography.title,
-                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.text,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
                                 SizedBox(height: 4),
                                 Text(
                                   'Review payment and invoice details',
                                   style: TextStyle(
-                                    color: AppColors.onBrand,
+                                    color: AppColors.muted,
                                     fontSize: AppTypography.body,
                                   ),
                                 ),
@@ -427,7 +459,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  'Payment Method',
+                                  'Payment method',
                                   style: TextStyle(
                                     fontSize: AppTypography.section,
                                     fontWeight: FontWeight.w700,
@@ -471,7 +503,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       const Text(
-                                        'Total Amount',
+                                        'Total amount',
                                         style: TextStyle(
                                           color: AppColors.muted,
                                           fontSize: AppTypography.body,
@@ -479,14 +511,40 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                       ),
                                       const SizedBox(height: 6),
                                       Text(
-                                        'BD ${CartManager.total.toStringAsFixed(3)}',
+                                        'BD ${_total.toStringAsFixed(3)}',
                                         style: const TextStyle(
                                           fontSize: AppTypography.metric,
                                           fontWeight: FontWeight.w700,
                                           color: AppColors.primaryDark,
                                         ),
                                       ),
+                                      if (_discountAmount > 0)
+                                        Text(
+                                          'Includes discount of BD ${_discountAmount.toStringAsFixed(3)}',
+                                          style: const TextStyle(
+                                            color: AppColors.success,
+                                            fontSize: AppTypography.caption,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
                                     ],
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                OutlinedButton.icon(
+                                  onPressed: isSavingSale ? null : _editDiscount,
+                                  icon: Icon(
+                                    _discountAmount > 0
+                                        ? Icons.edit_outlined
+                                        : Icons.local_offer_outlined,
+                                    size: 18,
+                                  ),
+                                  label: Text(
+                                    _discountAmount > 0
+                                        ? (_discountIsPercent
+                                              ? 'Discount ${_discountValue.toStringAsFixed(_discountValue % 1 == 0 ? 0 : 1)}% · Edit'
+                                              : 'Discount BD ${_discountAmount.toStringAsFixed(3)} · Edit')
+                                        : 'Add discount',
                                   ),
                                 ),
                                 if (selectedPaymentMethod == 'BenefitPay') ...[
@@ -621,37 +679,50 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                       ),
                                     ),
                                     Text(
-                                      'BD ${CartManager.total.toStringAsFixed(3)}',
+                                      'BD ${_subtotal.toStringAsFixed(3)}',
                                       style: const TextStyle(fontWeight: FontWeight.w600),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                const Row(
+                                Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
+                                    const Text(
                                       'Discount',
                                       style: TextStyle(
                                         color: AppColors.muted,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    Text('BD 0.000', style: TextStyle(fontWeight: FontWeight.w600)),
+                                    Text(
+                                      _discountAmount > 0
+                                          ? '− BD ${_discountAmount.toStringAsFixed(3)}'
+                                          : 'BD 0.000',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: _discountAmount > 0
+                                            ? AppColors.success
+                                            : AppColors.text,
+                                      ),
+                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                const Row(
+                                Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      'Tax',
-                                      style: TextStyle(
+                                      'VAT ${SaleRecord.bahrainVatRate.toStringAsFixed(0)}% (included)',
+                                      style: const TextStyle(
                                         color: AppColors.muted,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    Text('BD 0.000', style: TextStyle(fontWeight: FontWeight.w600)),
+                                    Text(
+                                      'BD ${_vat.toStringAsFixed(3)}',
+                                      style: const TextStyle(fontWeight: FontWeight.w600),
+                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 10),
@@ -666,7 +737,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                       ),
                                     ),
                                     Text(
-                                      'BD ${CartManager.total.toStringAsFixed(3)}',
+                                      'BD ${_total.toStringAsFixed(3)}',
                                       style: const TextStyle(
                                         fontSize: AppTypography.metric,
                                         fontWeight: FontWeight.w700,
@@ -700,8 +771,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                     )
                                   : Text(
                                       selectedPaymentMethod == 'Cash'
-                                          ? 'Confirm Cash Payment'
-                                          : 'Payment Received',
+                                          ? 'Confirm cash payment'
+                                          : 'Payment received',
                                       style: const TextStyle(
                                         color: AppColors.onBrand,
                                         fontWeight: FontWeight.w700,
@@ -718,6 +789,108 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                 ),
         ),
       ),
+    );
+  }
+}
+
+/// Lets the cashier enter a discount as a percent or a BD amount, or remove it.
+class _DiscountDialog extends StatefulWidget {
+  const _DiscountDialog({
+    required this.subtotal,
+    required this.initialValue,
+    required this.initialPercent,
+  });
+
+  final double subtotal;
+  final double initialValue;
+  final bool initialPercent;
+
+  @override
+  State<_DiscountDialog> createState() => _DiscountDialogState();
+}
+
+class _DiscountDialogState extends State<_DiscountDialog> {
+  late bool _percent = widget.initialPercent;
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.initialValue > 0 ? _trim(widget.initialValue) : '',
+  );
+
+  static String _trim(double value) => value % 1 == 0 ? value.toStringAsFixed(0) : value.toString();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  double get _value => double.tryParse(_controller.text.trim()) ?? 0;
+
+  String? get _error {
+    if (_controller.text.trim().isEmpty) return null;
+    final value = _value;
+    if (value <= 0) return 'Enter a value above 0.';
+    if (_percent && value > 100) return 'A percent discount cannot exceed 100%.';
+    if (!_percent && value > widget.subtotal) {
+      return 'Cannot exceed the subtotal of BD ${widget.subtotal.toStringAsFixed(3)}.';
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = _value;
+    final valid = value > 0 && _error == null;
+    final amount = valid ? (_percent ? widget.subtotal * value / 100 : value) : 0.0;
+    return AlertDialog(
+      title: const Text('Discount'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: true, label: Text('%')),
+                ButtonSegment(value: false, label: Text('BD')),
+              ],
+              selected: {_percent},
+              showSelectedIcon: false,
+              onSelectionChanged: (selection) => setState(() => _percent = selection.first),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: _percent ? 'Discount percent' : 'Discount amount (BD)',
+                suffixText: _percent ? '%' : 'BD',
+                errorText: _error,
+              ),
+            ),
+            if (valid) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Customer pays BD ${(widget.subtotal - amount).toStringAsFixed(3)}',
+                style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primaryDark),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        if (widget.initialValue > 0)
+          TextButton(
+            onPressed: () => Navigator.pop(context, (value: 0.0, percent: _percent)),
+            child: const Text('Remove', style: TextStyle(color: AppColors.danger)),
+          ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: valid ? () => Navigator.pop(context, (value: value, percent: _percent)) : null,
+          child: const Text('Apply'),
+        ),
+      ],
     );
   }
 }

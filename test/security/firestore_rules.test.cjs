@@ -140,3 +140,33 @@ test('approved cashier deletes own-store product but cannot delete foreign produ
   allowed(await request('/products/delete-foreign','ADMIN'));
   allowed(await request('/sales/saleA','ADMIN'));
 });
+// Shared barcode names: createdAt must be the server time, exactly like the app's serverTimestamp().
+async function shareName(code,data,uid,verified=true) {
+  return request(':commit',uid,{method:'POST',verified,data:{writes:[{
+    update:{name:'projects/demo-shoppad-security/databases/(default)/documents/catalog/'+code,fields:fields(data)},
+    updateTransforms:[{fieldPath:'createdAt',setToServerValue:'REQUEST_TIME'}],
+  }]}});
+}
+test('shared barcode names are readable by active stores and cannot be overwritten',async()=>{
+  allowed(await shareName('6287017260083',{name:'Juice',category:'Drinks',contributedBy:'ownerA'},'ownerA'));
+  allowed(await request('/catalog/6287017260083','cashierB'));
+  denied(await request('/catalog/6287017260083',null));
+  denied(await request('/catalog/6287017260083','cashierB',{verified:false}));
+  denied(await shareName('6287017260083',{name:'Vandal',category:'',contributedBy:'ownerB'},'ownerB'));
+  denied(await request('/catalog/6287017260083','ownerA',{method:'DELETE'}));
+  denied(await request('/catalog','ownerA'));
+});
+test('shared barcode names reject private fields, forged authors and custom codes',async()=>{
+  denied(await shareName('12345678',{name:'Pen',category:'',contributedBy:'ownerA',storeCode:'A'},'ownerA'));
+  denied(await shareName('12345670',{name:'Pen',category:'',contributedBy:'ownerB'},'ownerA'));
+  denied(await shareName('SKU-1',{name:'Pen',category:'',contributedBy:'ownerA'},'ownerA'));
+  denied(await shareName('12345679',{name:'',category:'',contributedBy:'ownerA'},'ownerA'));
+  denied(await shareName('12345671',{name:'Pen',category:'',contributedBy:'anon'},null));
+});
+test('shared suggested prices and images are validated and stock is never stored',async()=>{
+  allowed(await shareName('12345672',{name:'Pen',category:'',price:0.25,image:'data:image/png;base64,AA==',contributedBy:'ownerA'},'ownerA'));
+  denied(await shareName('12345673',{name:'Pen',category:'',price:-1,contributedBy:'ownerA'},'ownerA'));
+  denied(await shareName('12345674',{name:'Pen',category:'',price:'free',contributedBy:'ownerA'},'ownerA'));
+  denied(await shareName('12345675',{name:'Pen',category:'',image:'javascript:alert(1)',contributedBy:'ownerA'},'ownerA'));
+  denied(await shareName('12345676',{name:'Pen',category:'',stock:9,contributedBy:'ownerA'},'ownerA'));
+});

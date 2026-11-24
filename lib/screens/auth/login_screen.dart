@@ -16,24 +16,15 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _auth = FirebaseAuth.instance;
   bool _showPassword = false;
   bool _loading = false;
-  late final AnimationController _backgroundController;
-
-  @override
-  void initState() {
-    super.initState();
-    _backgroundController = AnimationController(vsync: this, duration: const Duration(seconds: 11))
-      ..repeat();
-  }
 
   @override
   void dispose() {
-    _backgroundController.dispose();
     _email.dispose();
     _password.dispose();
     super.dispose();
@@ -99,384 +90,181 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth >= 760;
-            return Stack(
-              children: [
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: _animatedHeader(height: wide ? 270 : 230),
-                ),
-                SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    AppSpacing.page,
-                    wide ? 40 : 25,
-                    AppSpacing.page,
-                    28,
-                  ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: math.max(0, constraints.maxHeight - (wide ? 68 : 53)),
-                    ),
-                    // Keep the brand inside the colored header on tall screens.
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 430),
-                        child: Column(
-                          children: [
-                            _brand(),
-                            SizedBox(height: wide ? 36 : 30),
-                            _card(),
-                            const SizedBox(height: 20),
-                            const Text(
-                              'Secure access for your store team',
-                              style: TextStyle(
-                                color: AppColors.muted,
-                                fontSize: AppTypography.caption,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+          builder: (context, constraints) => SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 40, 24, 28),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: math.max(0, constraints.maxHeight - 68)),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: IntrinsicHeight(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _brand(),
+                        const SizedBox(height: 32),
+                        _form(),
+                        const Spacer(),
+                        const SizedBox(height: 32),
+                        _createAccount(),
+                      ],
                     ),
                   ),
                 ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _animatedHeader({required double height}) {
-    return AnimatedBuilder(
-      animation: _backgroundController,
-      builder: (context, child) {
-        final progress = _backgroundController.value;
-        return Container(
-          height: height,
-          width: double.infinity,
-          clipBehavior: Clip.antiAlias,
-          decoration: const BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(44),
-              bottomRight: Radius.circular(44),
+              ),
             ),
           ),
-          child: CustomPaint(
-            painter: _HeaderSheenPainter(progress),
-            child: const SizedBox.expand(),
-          ),
-        );
-      },
+        ),
+      ),
     );
   }
 
   Widget _brand() => Column(
     children: [
+      // Large ink logo, centred, with no background tile.
       Image.asset(
         'assets/logo.png',
-        width: 100,
-        height: 100,
+        width: 120,
+        height: 120,
         fit: BoxFit.contain,
-        color: AppColors.onBrand,
+        // Sign-in swaps the app's roles: indigo brand, ink for secondary actions.
+        color: AppColors.primaryDark,
         colorBlendMode: BlendMode.srcIn,
         semanticLabel: 'ShopPad logo',
       ),
-      const SizedBox(height: 13),
+      const SizedBox(height: 16),
       const Text(
-        'ShopPad',
+        'Welcome back',
+        textAlign: TextAlign.center,
         style: TextStyle(
-          color: AppColors.onBrand,
-          fontSize: AppTypography.brand,
-          fontWeight: FontWeight.w700,
+          color: AppColors.text,
+          fontSize: 30,
+          fontWeight: FontWeight.w800,
+          height: 1.2,
         ),
       ),
-      const SizedBox(height: 5),
-      Text(
-        'Smart tools for your store',
-        style: TextStyle(color: AppColors.onBrand, fontSize: AppTypography.body),
+      const SizedBox(height: 4),
+      const Text(
+        'Sign in to your ShopPad workspace.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: AppColors.muted, fontSize: AppTypography.button),
       ),
     ],
   );
 
-  Widget _card() => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-    decoration: BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-      border: Border.all(color: AppColors.border),
-      boxShadow: [
-        BoxShadow(
-          color: AppColors.text.withValues(alpha: 0.10),
-          blurRadius: 28,
-          offset: const Offset(0, 12),
+  Widget _form() => Theme(
+    // Focused fields use ink here, since indigo carries the brand on this screen.
+    data: Theme.of(context).copyWith(
+      inputDecorationTheme: Theme.of(context).inputDecorationTheme.copyWith(
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
         ),
-      ],
+      ),
+      textSelectionTheme: const TextSelectionThemeData(cursorColor: AppColors.primary),
     ),
     child: AutofillGroup(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Welcome back',
-            style: TextStyle(
-              color: AppColors.text,
-              fontSize: AppTypography.title,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Sign in to continue to your workspace.',
-            style: TextStyle(color: AppColors.muted, fontSize: AppTypography.body),
-          ),
-          const SizedBox(height: 27),
-          const Text(
-            'Email address',
-            style: TextStyle(
-              color: AppColors.text,
-              fontSize: AppTypography.label,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
+          _label('Email address'),
           TextField(
             controller: _email,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
             autofillHints: const [AutofillHints.username, AutofillHints.email],
-            decoration: _input('you@example.com', Icons.alternate_email_rounded),
+            decoration: const InputDecoration(hintText: 'you@example.com'),
           ),
-          const SizedBox(height: 18),
-          const Text(
-            'Password',
-            style: TextStyle(
-              color: AppColors.text,
-              fontSize: AppTypography.label,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
+          _label('Password'),
           TextField(
             controller: _password,
             obscureText: !_showPassword,
             textInputAction: TextInputAction.done,
             autofillHints: const [AutofillHints.password],
             onSubmitted: (_) => _loading ? null : _signIn(),
-            decoration: _input(
-              'Enter your password',
-              Icons.lock_outline_rounded,
-              suffix: IconButton(
+            decoration: InputDecoration(
+              hintText: 'Enter your password',
+              suffixIcon: IconButton(
+                tooltip: _showPassword ? 'Hide password' : 'Show password',
                 onPressed: () => setState(() => _showPassword = !_showPassword),
                 icon: Icon(
                   _showPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
                 ),
-                color: AppColors.primaryDark,
+                color: AppColors.muted,
               ),
             ),
           ),
           Align(
-            alignment: Alignment.centerRight,
+            alignment: AlignmentDirectional.centerEnd,
             child: TextButton(
               onPressed: _resetPassword,
-              style: TextButton.styleFrom(foregroundColor: AppColors.primaryDark),
-              child: const Text(
-                'Forgot password?',
-                style: TextStyle(fontSize: AppTypography.button, fontWeight: FontWeight.w600),
-              ),
+              style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+              child: const Text('Forgot password?'),
             ),
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 53,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.22),
-                    blurRadius: 14,
-                    offset: const Offset(0, 7),
-                  ),
-                ],
-              ),
-              child: ElevatedButton(
-                onPressed: _loading ? null : _signIn,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  disabledBackgroundColor: Colors.transparent,
-                  foregroundColor: AppColors.onBrand,
-                  disabledForegroundColor: AppColors.onBrand,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                  ),
-                ),
-                child: _loading
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          color: AppColors.onBrand,
-                          strokeWidth: 2.4,
-                        ),
-                      )
-                    : const Text(
-                        'Sign in',
-                        style: TextStyle(
-                          fontSize: AppTypography.button,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+          const SizedBox(height: 4),
+          ElevatedButton(
+            onPressed: _loading ? null : _signIn,
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size.fromHeight(54),
+              backgroundColor: AppColors.primaryDark,
+              foregroundColor: AppColors.onBrand,
+              disabledBackgroundColor: AppColors.primaryDark,
+              disabledForegroundColor: AppColors.onBrand,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              textStyle: const TextStyle(
+                fontFamily: AppTypography.family,
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
               ),
             ),
-          ),
-          const SizedBox(height: 23),
-          const Row(
-            children: [
-              Expanded(child: Divider(color: AppColors.border)),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                child: Text(
-                  'NEW TO SHOPPAD?',
-                  style: TextStyle(
-                    color: AppColors.muted,
-                    fontSize: AppTypography.caption,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Expanded(child: Divider(color: AppColors.border)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          OutlinedButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CreateAccountScreen()),
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.primaryDark,
-              side: const BorderSide(color: AppColors.primaryDark),
-              minimumSize: const Size.fromHeight(50),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-              ),
-            ),
-            child: const Text(
-              'Create account',
-              style: TextStyle(fontSize: AppTypography.button, fontWeight: FontWeight.w700),
-            ),
+            child: _loading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(color: AppColors.onBrand, strokeWidth: 2.4),
+                  )
+                : const Text('Sign in'),
           ),
         ],
       ),
     ),
   );
 
-  InputDecoration _input(String hint, IconData icon, {Widget? suffix}) => InputDecoration(
-    hintText: hint,
-    prefixIcon: Icon(icon, size: 20, color: AppColors.primaryDark),
-    suffixIcon: suffix,
-    filled: true,
-    fillColor: AppColors.background,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-    border: _border(),
-    enabledBorder: _border(),
-    focusedBorder: _border(color: AppColors.primaryDark, width: 1.6),
+  Widget _createAccount() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const Text(
+        'New to ShopPad?',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: AppColors.muted, fontSize: AppTypography.body),
+      ),
+      const SizedBox(height: 10),
+      OutlinedButton(
+        onPressed: () =>
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateAccountScreen())),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.text,
+          backgroundColor: AppColors.surface,
+          side: const BorderSide(color: Color(0xFFD9D9D2)),
+          minimumSize: const Size.fromHeight(52),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        ),
+        child: const Text('Create an account'),
+      ),
+    ],
   );
 
-  OutlineInputBorder _border({Color color = AppColors.border, double width = 1}) =>
-      OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-        borderSide: BorderSide(color: color, width: width),
-      );
-}
-
-class _HeaderSheenPainter extends CustomPainter {
-  const _HeaderSheenPainter(this.progress);
-
-  final double progress;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final phase = progress * math.pi * 2;
-    final center = Offset(size.width * 0.82, size.height * 0.48);
-    final rx = size.width * 0.53;
-    final ry = size.height * 0.47;
-
-    // Draw the glow first so the animated rings appear above it.
-    canvas.drawCircle(center, rx * 0.92, Paint()..color = AppColors.accent.withValues(alpha: 0.20));
-
-    for (var ring = 0; ring < 3; ring++) {
-      final tilt = (ring - 1) * 0.62;
-      final oval = Rect.fromCenter(
-        center: Offset.zero,
-        width: rx * 2,
-        height: ry * (1.05 + ring * 0.12) * 2,
-      );
-      final rotation = tilt + 0.08 * math.sin(phase * 0.5 + ring);
-
-      canvas.save();
-      canvas.translate(center.dx, center.dy);
-      canvas.rotate(rotation);
-      canvas.drawOval(
-        oval,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = ring == 1 ? 1.1 : 0.8
-          ..color = AppColors.surface.withValues(alpha: ring == 1 ? 0.25 : 0.13),
-      );
-
-      final start = phase * (ring.isEven ? 1 : -1) + ring * 2.08;
-      final sweep = ring == 1 ? math.pi * 0.62 : math.pi * 0.42;
-      final trail = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round
-        ..strokeWidth = ring == 1 ? 4.2 : 2.8
-        ..color = AppColors.soft;
-      canvas.drawArc(
-        oval,
-        start,
-        sweep,
-        false,
-        trail..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
-      );
-      trail.maskFilter = null;
-      canvas.drawArc(oval, start, sweep, false, trail);
-
-      final angle = start + sweep * 0.72;
-      final position = Offset(rx * math.cos(angle), oval.height * 0.5 * math.sin(angle));
-      canvas.drawCircle(
-        position,
-        ring == 1 ? 4.3 : 3,
-        Paint()
-          ..color = AppColors.surface.withValues(alpha: 0.84)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
-      );
-      canvas.drawCircle(position, ring == 1 ? 2.2 : 1.5, Paint()..color = AppColors.accentSoft);
-      canvas.restore();
-    }
-
-    // Reuse the animation progress for the light sweep without another timer.
-    final sweepX = size.width * (-0.4 + progress * 1.8);
-    canvas.save();
-    canvas.translate(sweepX, size.height * 0.5);
-    canvas.rotate(-0.32);
-    final streak = Rect.fromCenter(
-      center: Offset.zero,
-      width: size.width * 0.14,
-      height: size.height * 2.3,
-    );
-    canvas.drawRect(streak, Paint()..color = AppColors.surface.withValues(alpha: 0.09));
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _HeaderSheenPainter oldDelegate) => oldDelegate.progress != progress;
+  Widget _label(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      text,
+      style: const TextStyle(
+        color: AppColors.text,
+        fontSize: AppTypography.caption + 1,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
 }

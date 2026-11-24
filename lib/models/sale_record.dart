@@ -6,6 +6,7 @@ class SaleLine {
     required this.name,
     required this.price,
     required this.quantity,
+    this.cost = 0,
   });
 
   final String productId;
@@ -13,6 +14,9 @@ class SaleLine {
   final String name;
   final double price;
   final int quantity;
+
+  /// Unit cost captured at sale time (0 = not recorded); later cost edits never change it.
+  final double cost;
 
   double get subtotal => price * quantity;
 
@@ -23,6 +27,7 @@ class SaleLine {
     'price': price,
     'quantity': quantity,
     'subtotal': subtotal,
+    if (cost > 0) 'cost': cost,
   };
 
   factory SaleLine.fromJson(Map<String, dynamic> json) => SaleLine(
@@ -31,6 +36,7 @@ class SaleLine {
     name: json['name'] as String,
     price: (json['price'] as num).toDouble(),
     quantity: json['quantity'] as int,
+    cost: (json['cost'] as num?)?.toDouble() ?? 0,
   );
 }
 
@@ -46,7 +52,12 @@ class SaleRecord {
     required this.createdAt,
     required List<SaleLine> items,
     this.correctStockShortages = false,
+    this.discount = 0,
+    this.vatRate = 0,
   }) : items = List.unmodifiable(items);
+
+  /// Bahrain standard VAT (percent). Shelf prices include it.
+  static const double bahrainVatRate = 10;
 
   final String id;
   final String storeCode;
@@ -58,7 +69,23 @@ class SaleRecord {
   final List<SaleLine> items;
   final bool correctStockShortages;
 
-  double get total => items.fold(0, (sum, item) => sum + item.subtotal);
+  /// Discount in BD taken off the subtotal (0 when none).
+  final double discount;
+
+  /// VAT percent included in the prices; 0 for receipts made before VAT was shown.
+  final double vatRate;
+
+  /// Sum of the lines before any discount.
+  double get subtotal => _fils(items.fold(0.0, (sum, item) => sum + item.subtotal));
+
+  /// Amount the customer pays.
+  double get total => _fils(subtotal - discount);
+
+  /// VAT already contained in [total] (prices are VAT-inclusive).
+  double get tax => vatRate <= 0 ? 0 : _fils(total * vatRate / (100 + vatRate));
+
+  /// Rounds to fils (3 decimals) so stored and recomputed totals match exactly.
+  static double _fils(double value) => (value * 1000).roundToDouble() / 1000;
   String get receiptNumber => 'RCPT-$id';
 
   Map<String, dynamic> toJson() => {
@@ -73,6 +100,8 @@ class SaleRecord {
     'items': items.map((item) => item.toJson()).toList(),
     'total': total,
     if (correctStockShortages) 'correctStockShortages': true,
+    if (discount > 0) 'discountAmount': discount,
+    if (vatRate > 0) 'vatRate': vatRate,
   };
 
   factory SaleRecord.fromJson(Map<String, dynamic> json) => SaleRecord(
@@ -84,6 +113,8 @@ class SaleRecord {
     paymentMethod: json['paymentMethod'] as String,
     createdAt: DateTime.parse(json['createdAt'] as String),
     correctStockShortages: json['correctStockShortages'] == true,
+    discount: (json['discountAmount'] as num?)?.toDouble() ?? 0,
+    vatRate: (json['vatRate'] as num?)?.toDouble() ?? 0,
     items: (json['items'] as List)
         .map((item) => SaleLine.fromJson(Map<String, dynamic>.from(item as Map)))
         .toList(),

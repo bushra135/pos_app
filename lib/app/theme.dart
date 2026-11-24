@@ -41,7 +41,7 @@ abstract final class AppTheme {
       visualDensity: VisualDensity.adaptivePlatformDensity,
       splashFactory: InkSparkle.splashFactory,
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.soft,
+        backgroundColor: AppColors.background,
         foregroundColor: AppColors.text,
         centerTitle: false,
         elevation: 0,
@@ -65,7 +65,7 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.background,
+        fillColor: AppColors.surface,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         hintStyle: const TextStyle(color: AppColors.muted),
         labelStyle: const TextStyle(color: AppColors.muted),
@@ -173,9 +173,26 @@ abstract final class AppTheme {
           ),
         ),
       ),
-      navigationBarTheme: const NavigationBarThemeData(
+      navigationBarTheme: NavigationBarThemeData(
         backgroundColor: AppColors.surface,
-        indicatorColor: AppColors.primary,
+        indicatorColor: AppColors.accentSoft,
+        elevation: 0,
+        height: 72,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            color: states.contains(WidgetState.selected) ? AppColors.primaryDark : AppColors.muted,
+            size: 24,
+          ),
+        ),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            fontFamily: AppTypography.family,
+            fontSize: AppTypography.caption,
+            fontWeight: states.contains(WidgetState.selected) ? FontWeight.w800 : FontWeight.w600,
+            color: states.contains(WidgetState.selected) ? AppColors.text : AppColors.muted,
+          ),
+        ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: AppColors.primary,
@@ -192,7 +209,7 @@ abstract final class AppTheme {
       progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.primaryDark),
       dividerColor: AppColors.border,
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.text,
+        backgroundColor: AppColors.primary,
         contentTextStyle: const TextStyle(
           fontFamily: AppTypography.family,
           color: Colors.white,

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_colors.dart';
 import '../../models/sale_record.dart';
+import '../../services/refund_service.dart';
 import '../../services/report_download.dart';
 import '../../utils/report_workbook.dart';
 import '../../widgets/sale_receipt_view.dart';
@@ -586,7 +587,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                 OutlinedButton.icon(
                   onPressed: rows.isEmpty ? null : _export,
                   icon: const Icon(Icons.download_outlined),
-                  label: const Text('Export Excel'),
+                  label: const Text('Export to Excel'),
                 ),
               IconButton(
                 tooltip: 'Clear report filters',
@@ -622,14 +623,23 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                     return Card(
                       margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
                       child: ListTile(
-                        title: Text(sale.receipt, overflow: TextOverflow.ellipsis),
+                        contentPadding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+                        title: Text(
+                          sale.receipt,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                        ),
                         subtitle: Text(
                           '${sale.cashierName} · ${_dateLabel(sale.date)}\n${sale.method} · ${sale.refund ? 'Refund · ' : ''}${sale.status}',
                         ),
                         isThreeLine: true,
                         trailing: Text(
                           'BD ${sale.total.toStringAsFixed(3)}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                            color: sale.refund ? AppColors.danger : AppColors.text,
+                          ),
                         ),
                         onTap: () => _details(sale),
                       ),
@@ -707,6 +717,83 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     );
   }
 
+  /// Owner-approved return: choose units per item, then stock and reports update.
+  Future<void> _startRefund(_HistorySale sale) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final storeCode = (sale.data['storeCode'] ?? '').toString();
+    final lines = <String, ({String name, double price, int sold})>{};
+    for (final item in sale.items) {
+      final id = (item['productId'] ?? '').toString();
+      if (id.isEmpty) continue;
+      final previous = lines[id];
+      lines[id] = (
+        name: (item['name'] ?? 'Item').toString(),
+        price: _number(item['price']),
+        sold: (previous?.sold ?? 0) + _number(item['quantity']).toInt(),
+      );
+    }
+    if (lines.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('This receipt has no returnable items.')),
+      );
+      return;
+    }
+    Map<String, int> already;
+    try {
+      already = await RefundService.refundedQuantities(
+        _db,
+        storeCode: storeCode,
+        originalSaleId: sale.id,
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Could not check earlier returns. Try again.')),
+      );
+      return;
+    }
+    if (!mounted) return;
+    final available = {
+      for (final entry in lines.entries)
+        entry.key: (
+          name: entry.value.name,
+          price: entry.value.price,
+          left: entry.value.sold - (already[entry.key] ?? 0),
+        ),
+    }..removeWhere((_, line) => line.left <= 0);
+    if (available.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Everything on this receipt was already returned.')),
+      );
+      return;
+    }
+    final paidShare = _number(sale.data['subtotal']) > 0 && sale.total > 0
+        ? sale.total / _number(sale.data['subtotal'])
+        : 1.0;
+    final chosen = await showDialog<Map<String, int>>(
+      context: context,
+      builder: (_) => _RefundDialog(receipt: sale.receipt, lines: available, paidShare: paidShare),
+    );
+    if (chosen == null || chosen.values.every((qty) => qty <= 0)) return;
+    try {
+      final uid = _uid ?? '';
+      final amount = await RefundService.refund(
+        _db,
+        originalSaleId: sale.id,
+        original: sale.data,
+        quantities: chosen,
+        ownerUid: uid,
+        ownerName: (_profiles[uid]?['fullName'] ?? 'Owner').toString(),
+      );
+      messenger.showSnackBar(
+        SnackBar(content: Text('Refunded BD ${amount.toStringAsFixed(3)} · stock updated')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(e is StateError ? e.message : 'Refund failed. Try again.')),
+      );
+    }
+  }
+
   Future<void> _details(_HistorySale sale) async {
     FocusScope.of(context).unfocus();
     await showModalBottomSheet<void>(
@@ -772,6 +859,19 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                         ),
                       ),
                     ],
+                    if (!sale.refund && sale.status == 'completed')
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.assignment_return_outlined),
+                          label: const Text('Refund items'),
+                          style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger),
+                          onPressed: () {
+                            Navigator.pop(sheetContext);
+                            _startRefund(sale);
+                          },
+                        ),
+                      ),
                     if (sale.exportableReceipt != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 16),
@@ -909,4 +1009,95 @@ String _exportDate(DateTime? date) {
   if (date == null) return '';
   String pad(int value) => value.toString().padLeft(2, '0');
   return '${date.year}-${pad(date.month)}-${pad(date.day)} ${pad(date.hour)}:${pad(date.minute)}';
+}
+
+/// Picks how many units of each item the customer is returning.
+class _RefundDialog extends StatefulWidget {
+  const _RefundDialog({required this.receipt, required this.lines, required this.paidShare});
+
+  final String receipt;
+  final Map<String, ({String name, double price, int left})> lines;
+  final double paidShare;
+
+  @override
+  State<_RefundDialog> createState() => _RefundDialogState();
+}
+
+class _RefundDialogState extends State<_RefundDialog> {
+  late final Map<String, int> _qty = {for (final id in widget.lines.keys) id: 0};
+
+  @override
+  Widget build(BuildContext context) {
+    final amount = widget.lines.entries.fold<double>(
+      0,
+      (running, entry) => running + entry.value.price * (_qty[entry.key] ?? 0) * widget.paidShare,
+    );
+    return AlertDialog(
+      title: Text('Refund · ${widget.receipt}'),
+      content: SizedBox(
+        width: 380,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final entry in widget.lines.entries)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              entry.value.name,
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            Text(
+                              'Up to ${entry.value.left} · BD ${entry.value.price.toStringAsFixed(3)} each',
+                              style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'One less ${entry.value.name}',
+                        onPressed: (_qty[entry.key] ?? 0) > 0
+                            ? () => setState(() => _qty[entry.key] = _qty[entry.key]! - 1)
+                            : null,
+                        icon: const Icon(Icons.remove_circle_outline),
+                      ),
+                      Text(
+                        '${_qty[entry.key]}',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      IconButton(
+                        tooltip: 'Return one ${entry.value.name}',
+                        onPressed: (_qty[entry.key] ?? 0) < entry.value.left
+                            ? () => setState(() => _qty[entry.key] = _qty[entry.key]! + 1)
+                            : null,
+                        icon: const Icon(Icons.add_circle_outline),
+                      ),
+                    ],
+                  ),
+                ),
+              const Divider(),
+              Text(
+                'Refund to customer: BD ${amount.toStringAsFixed(3)}',
+                style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.danger),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: amount > 0 ? () => Navigator.pop(context, _qty) : null,
+          style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+          child: const Text('Confirm refund'),
+        ),
+      ],
+    );
+  }
 }

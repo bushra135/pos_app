@@ -55,9 +55,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(
-        MaterialApp(theme: AppTheme.light, home: const CartScreen()),
-      );
+      await tester.pumpWidget(MaterialApp(theme: AppTheme.light, home: const CartScreen()));
       expect(find.text('No items in cart'), findsOneWidget);
     });
     testWidgets('Cart quantity controls work at width $width', (tester) async {
@@ -71,39 +69,29 @@ void main() {
         barcode: '123',
         image: '',
       );
-      await tester.pumpWidget(
-        MaterialApp(theme: AppTheme.light, home: const CartScreen()),
-      );
-      await tester.tap(find.byIcon(Icons.add_circle));
+      await tester.pumpWidget(MaterialApp(theme: AppTheme.light, home: const CartScreen()));
+      await tester.tap(find.byIcon(Icons.add_rounded));
       await tester.pump();
       expect(CartManager.total, 25);
-      await tester.tap(find.byIcon(Icons.remove_circle));
+      await tester.tap(find.byIcon(Icons.remove_rounded));
       await tester.pump();
       expect(CartManager.total, 12.5);
-      await tester.tap(find.byIcon(Icons.delete));
+      await tester.tap(find.byIcon(Icons.delete_outline_rounded));
       await tester.pump();
       expect(find.text('No items in cart'), findsOneWidget);
     });
   }
 
-  test(
-    'Cart merges products and recalculates totals when quantity changes',
-    () {
-      for (var i = 0; i < 2; i++) {
-        CartManager.addItem(
-          name: 'Coffee',
-          price: 12.5,
-          barcode: '123',
-          image: '',
-        );
-      }
-      expect(CartManager.items, hasLength(1));
-      expect(CartManager.total, 25);
-      CartManager.decreaseQuantity(0);
-      expect(CartManager.total, 12.5);
-      CartManager.decreaseQuantity(0);
-      expect(CartManager.items, isEmpty);
-      expect(CartManager.total, 0);
-    },
-  );
+  test('Cart merges products and recalculates totals when quantity changes', () {
+    for (var i = 0; i < 2; i++) {
+      CartManager.addItem(name: 'Coffee', price: 12.5, barcode: '123', image: '');
+    }
+    expect(CartManager.items, hasLength(1));
+    expect(CartManager.total, 25);
+    CartManager.decreaseQuantity(0);
+    expect(CartManager.total, 12.5);
+    CartManager.decreaseQuantity(0);
+    expect(CartManager.items, isEmpty);
+    expect(CartManager.total, 0);
+  });
 }

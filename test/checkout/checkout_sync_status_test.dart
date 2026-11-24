@@ -131,7 +131,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      final confirm = find.text('Confirm Cash Payment');
+      final confirm = find.text('Confirm cash payment');
       await tester.scrollUntilVisible(confirm, 350);
       final button = tester.widget<ElevatedButton>(
         find.ancestor(of: confirm, matching: find.byType(ElevatedButton)),

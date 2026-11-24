@@ -135,7 +135,7 @@ void main() {
     expect(find.text('Filters (4)'), findsOneWidget);
     expect(find.text('1 receipts · Net receipt total: BD 25.000'), findsOneWidget);
     expect(find.textContaining('Selected product: 2 units · BD 2.000'), findsOneWidget);
-    await tester.tap(find.text('Export Excel'));
+    await tester.tap(find.text('Export to Excel'));
     await tester.pumpAndSettle();
     expect(filename, 'shoppad-sales-20261029.xlsx');
     final workbook = ZipDecoder().decodeBytes(base64Decode(exported!));
@@ -318,15 +318,15 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Top Sellers'));
+      await tester.ensureVisible(find.text('Top sellers'));
       await tester.pumpAndSettle();
-      final top = tester.getTopLeft(find.text('Top Sellers'));
-      final least = tester.getTopLeft(find.text('Least Selling'));
+      final top = tester.getTopLeft(find.text('Top sellers'));
+      final least = tester.getTopLeft(find.text('Least selling'));
       expect(width < 600 ? least.dy > top.dy : (least.dy - top.dy).abs() < 1, isTrue);
       expect(tester.takeException(), isNull);
-      await tester.tap(find.text('Top Sellers'));
+      await tester.tap(find.text('Top sellers'));
       await tester.pumpAndSettle();
-      expect(find.text('Top 10 Sellers'), findsOneWidget);
+      expect(find.text('Top 10 sellers'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });

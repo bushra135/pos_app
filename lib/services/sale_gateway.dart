@@ -123,10 +123,11 @@ class FirestoreSaleGateway implements SaleGateway {
         'createdAt': Timestamp.fromDate(sale.createdAt),
         'syncedAt': FieldValue.serverTimestamp(),
         'productIds': quantities.keys.toList(),
-        'subtotal': sale.total,
-        'discount': 0.0,
+        'subtotal': sale.subtotal,
+        'discount': sale.discount,
         'refund': 0.0,
-        'tax': 0.0,
+        // VAT included in the total, kept for receipts and the dashboard.
+        'tax': sale.tax,
         'status': 'completed',
         'type': 'sale',
         if (corrections.isNotEmpty) 'stockCorrections': corrections.values.toList(),
@@ -159,7 +160,13 @@ class FirestoreSaleGateway implements SaleGateway {
         sale.storeCode.trim().isEmpty ||
         !['Cash', 'BenefitPay'].contains(sale.paymentMethod) ||
         sale.items.isEmpty ||
-        !sale.total.isFinite) {
+        !sale.total.isFinite ||
+        !sale.discount.isFinite ||
+        sale.discount < 0 ||
+        sale.discount > sale.subtotal ||
+        !sale.vatRate.isFinite ||
+        sale.vatRate < 0 ||
+        sale.vatRate > 100) {
       throw const SaleConflictException('The sale details are invalid.');
     }
     final quantities = <String, int>{};
@@ -170,7 +177,9 @@ class FirestoreSaleGateway implements SaleGateway {
           item.name.trim().isEmpty ||
           item.quantity <= 0 ||
           !item.price.isFinite ||
-          item.price < 0) {
+          item.price < 0 ||
+          !item.cost.isFinite ||
+          item.cost < 0) {
         throw const SaleConflictException('A sale item has invalid details.');
       }
       final previous = lines[item.productId];

@@ -6,6 +6,9 @@ class CartItem {
   final String image;
   final String productId;
   final String storeCode;
+
+  /// Unit cost in BD when the owner recorded one (0 = unknown). Used for profit.
+  final double cost;
   int quantity;
 
   CartItem({
@@ -16,6 +19,7 @@ class CartItem {
     this.productId = '',
     this.storeCode = '',
     this.quantity = 1,
+    this.cost = 0,
   });
 
   double get totalPrice => price * quantity;
@@ -31,5 +35,6 @@ class CartItem {
     // Several embedded images can exceed the size limit of a sales document.
     'image': image.trimLeft().startsWith('data:image/') ? '' : image,
     'subtotal': totalPrice,
+    if (cost > 0) 'cost': cost,
   };
 }

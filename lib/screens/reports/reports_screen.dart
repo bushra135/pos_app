@@ -5,10 +5,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../../services/sales_query.dart';
 import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 import '../../models/report_sale.dart';
+import '../../models/sale_record.dart';
+import '../closing/end_of_day_screen.dart';
 import 'sales_history_screen.dart';
 
 /// Dashboard periods use local dates; history filters live on their separate route.
@@ -69,11 +72,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
       if (storeCode.isEmpty) throw Exception('Store code not found');
 
-      final salesSnapshot = await _firestore
-          .collection('sales')
-          .where('storeCode', isEqualTo: storeCode)
-          .get()
-          .timeout(_requestTimeout);
+      // The longest period is a year; last year is kept for period comparisons.
+      final now = DateTime.now();
+      final salesDocs = await SalesQuery.since(
+        _firestore,
+        storeCode: storeCode,
+        from: DateTime(now.year - 1),
+        timeout: _requestTimeout,
+      );
 
       final productsSnapshot = await _firestore
           .collection('products')
@@ -90,7 +96,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
       setState(() {
         _canOpenSalesHistory = userDoc.data()?['role'] == 'owner';
-        _salesDocuments = salesSnapshot.docs;
+        _salesDocuments = salesDocs;
         _productDocuments = storeProducts;
         _isLoading = false;
       });
@@ -120,6 +126,37 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final paymentMethods = <String, double>{};
     final productSales = <String, _ProductSales>{};
 
+    // Profit, VAT, timing and category breakdowns for the selected period.
+    double costedRevenue = 0, costOfGoods = 0, uncostedRevenue = 0, vatCollected = 0;
+    final hourly = List<double>.filled(24, 0);
+    final weekday = List<double>.filled(7, 0); // Sunday first
+    final categorySales = <String, double>{};
+    final categoryByKey = <String, String>{};
+    double stockRetailValue = 0, stockCostValue = 0;
+    int uncostedProducts = 0;
+    for (final doc in _productDocuments) {
+      final data = doc.data();
+      final name = (data['name'] ?? data['productName'] ?? 'Unknown product').toString();
+      final category = (data['category'] ?? '').toString().trim();
+      categoryByKey[reportProductKey(data, name)] = category.isEmpty ? 'Uncategorized' : category;
+      final stock = reportNumber(data, ['stock', 'quantity']);
+      final price = reportNumber(data, ['price']);
+      final cost = reportNumber(data, ['cost']);
+      if (stock > 0) {
+        stockRetailValue += stock * price;
+        if (cost > 0) {
+          stockCostValue += stock * cost;
+        } else {
+          uncostedProducts++;
+        }
+      }
+    }
+
+    // Same-length window right before the selected one, for the % change.
+    final previousStart = range.start.subtract(range.end.difference(range.start));
+    double previousNet = 0;
+    int previousOrders = 0;
+
     // Seed inventory first so unsold products appear among the least-selling items.
     for (final doc in _productDocuments) {
       final data = doc.data();
@@ -134,9 +171,23 @@ class _ReportsScreenState extends State<ReportsScreen> {
       final createdAt = reportDate(saleData['createdAt']);
 
       if (createdAt == null) continue;
+      if (_inRange(createdAt, previousStart, range.start)) {
+        final previous = ReportSale.fromMap(saleData);
+        previousNet += previous.netSales;
+        if (!previous.isRefund) previousOrders++;
+        continue;
+      }
       if (!_inRange(createdAt, range.start, range.end)) continue;
 
       final sale = ReportSale.fromMap(saleData);
+      // Refund documents carry negative VAT, so they reduce what is owed.
+      vatCollected += reportNumber(saleData, ['tax', 'vat', 'vatAmount']);
+      if (!sale.isRefund) {
+        hourly[createdAt.hour] += sale.netSales;
+        weekday[createdAt.weekday % 7] += sale.netSales;
+      }
+      // Share of the sale actually paid, so discounts reduce each line's revenue.
+      final paidShare = sale.grossSales > 0 ? sale.netSales / sale.grossSales : 1.0;
 
       grossSales += sale.grossSales;
       netSales += sale.netSales;
@@ -161,6 +212,21 @@ class _ReportsScreenState extends State<ReportsScreen> {
           product.quantity += item.quantity;
           product.revenue += item.subtotal;
           productSales[item.key] = product;
+
+          final paid = item.subtotal * paidShare;
+          final unitCost = reportNumber(rawItem, ['cost', 'unitCost']);
+          if (unitCost > 0) {
+            costedRevenue += paid;
+            costOfGoods += unitCost * item.quantity;
+          } else {
+            uncostedRevenue += paid;
+          }
+          final category =
+              categoryByKey[item.key] ??
+              ((rawItem['category'] ?? '').toString().trim().isEmpty
+                  ? 'Uncategorized'
+                  : rawItem['category'].toString().trim());
+          categorySales[category] = (categorySales[category] ?? 0) + paid;
         }
       }
     }
@@ -200,6 +266,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
       leastSelling: leastSelling.take(10).toList(),
       topRevenue: topRevenue.take(10).toList(),
       paymentMethods: paymentReports,
+      costedRevenue: costedRevenue,
+      costOfGoods: costOfGoods,
+      uncostedRevenue: uncostedRevenue,
+      vatCollected: vatCollected,
+      hourly: hourly,
+      weekday: weekday,
+      categories: (categorySales.entries.toList()..sort((a, b) => b.value.compareTo(a.value)))
+          .map((entry) => _PaymentReport(entry.key, entry.value))
+          .toList(),
+      previousNet: previousNet,
+      previousOrders: previousOrders,
+      stockRetailValue: stockRetailValue,
+      stockCostValue: stockCostValue,
+      uncostedProducts: uncostedProducts,
     );
   }
 
@@ -249,14 +329,39 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             label: const Text('Sales history'),
                           ),
                         ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => EndOfDayScreen(
+                                firestore: _firestore,
+                                currentUserId: widget.currentUserId,
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.point_of_sale_outlined),
+                          label: const Text('End of day (Z-report)'),
+                        ),
+                      ),
                       const SizedBox(height: 16),
                       _buildPeriodSelector(),
                       const SizedBox(height: 16),
+                      _buildHeroCard(data),
+                      const SizedBox(height: 16),
                       _buildTrendChart(data),
+                      const SizedBox(height: 16),
+                      _buildProfitSection(data),
                       const SizedBox(height: 16),
                       _buildSummaryCards(data),
                       const SizedBox(height: 16),
                       _buildProductCards(data),
+                      const SizedBox(height: 16),
+                      _buildCategorySection(data),
+                      const SizedBox(height: 16),
+                      _buildPeakTimesSection(data),
+                      const SizedBox(height: 16),
+                      _buildVatSection(data),
                       const SizedBox(height: 16),
                       _buildNetSalesSection(data),
                       const SizedBox(height: 16),
@@ -278,12 +383,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'POS Reports',
-                style: TextStyle(
-                  fontSize: AppTypography.title,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.text,
-                ),
+                'Dashboard',
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: AppColors.text),
               ),
               SizedBox(height: 4),
               Text(
@@ -297,10 +398,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ],
           ),
         ),
-        IconButton(
+        IconButton.outlined(
+          tooltip: 'Refresh',
           onPressed: _loadReports,
-          icon: const Icon(Icons.refresh_rounded),
-          color: AppColors.primaryDark,
+          style: IconButton.styleFrom(
+            backgroundColor: AppColors.surface,
+            side: const BorderSide(color: AppColors.border),
+          ),
+          icon: const Icon(Icons.refresh_rounded, color: AppColors.text),
         ),
       ],
     );
@@ -308,10 +413,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Widget _buildPeriodSelector() {
     return Container(
-      padding: const EdgeInsets.all(5),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppColors.border,
-        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        color: const Color(0xFFECECE7),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
@@ -332,16 +437,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
         onTap: () => setState(() => _selectedPeriod = period),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 11),
+          padding: const EdgeInsets.symmetric(vertical: 9),
           decoration: BoxDecoration(
             color: isSelected ? AppColors.surface : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+            borderRadius: BorderRadius.circular(10),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
                       color: AppColors.text.withValues(alpha: 0.08),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      blurRadius: 2,
+                      offset: const Offset(0, 1),
                     ),
                   ]
                 : null,
@@ -350,9 +455,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
           child: Text(
             label,
             style: TextStyle(
-              color: isSelected ? AppColors.primaryDark : AppColors.muted,
-              fontWeight: FontWeight.w700,
-              fontSize: AppTypography.label,
+              color: isSelected ? AppColors.text : AppColors.muted,
+              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
+              fontSize: AppTypography.caption + 1,
             ),
           ),
         ),
@@ -364,7 +469,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final maxY = _niceMax(data.chartValues);
 
     return _SectionCard(
-      title: 'Sales Trend',
+      title: 'Sales trend',
       subtitle: _periodSubtitle(_selectedPeriod),
       child: SizedBox(
         height: 250,
@@ -413,13 +518,104 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     toY: math.max(0.0, data.chartValues[index]),
                     width: _barWidth(_selectedPeriod),
                     borderRadius: BorderRadius.circular(7),
-                    color: AppColors.primary,
+                    color: AppColors.primaryDark,
                   ),
                 ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// Ink summary card: net sales for the period with orders, average and gross sales.
+  Widget _buildHeroCard(_ReportsData data) {
+    Widget figure(String label, String value) => Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: AppColors.onHeroMuted, fontSize: AppTypography.caption),
+          ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: AppColors.onHero,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(22)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Net sales · ${_periodLabel(_selectedPeriod)}',
+                  style: const TextStyle(
+                    color: AppColors.onHeroMuted,
+                    fontSize: AppTypography.caption + 1,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (data.netChange != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${data.netChange! >= 0 ? '+' : ''}${data.netChange!.toStringAsFixed(0)}% vs ${_previousLabel(_selectedPeriod)}',
+                    style: TextStyle(
+                      color: data.netChange! >= 0 ? AppColors.success : AppColors.danger,
+                      fontSize: AppTypography.caption,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              _money(data.netSales),
+              style: const TextStyle(
+                color: AppColors.onHero,
+                fontSize: 30,
+                fontWeight: FontWeight.w800,
+                height: 1.25,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              figure('Orders', '${data.ordersCount}'),
+              const SizedBox(width: 8),
+              figure('Average', _money(data.averageOrder)),
+              const SizedBox(width: 8),
+              figure('Gross', _money(data.grossSales)),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -434,29 +630,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
           value: value,
           subtitle: subtitle ?? _periodLabel(_selectedPeriod),
         );
+    // Sales, net sales, orders and average order are in the hero card above.
     final cards = [
-      stat('Sales', _money(data.grossSales), Icons.payments_rounded, AppColors.success),
-      stat(
-        'Net Sales',
-        _money(data.netSales),
-        Icons.account_balance_wallet_rounded,
-        AppColors.primaryDark,
-        subtitle: 'After discounts/refunds',
-      ),
-      stat(
-        'Orders',
-        '${data.ordersCount}',
-        Icons.receipt_long_rounded,
-        AppColors.warning,
-        subtitle: 'Invoices count',
-      ),
-      stat(
-        'Avg Order',
-        _money(data.averageOrder),
-        Icons.calculate_rounded,
-        AppColors.primaryDark,
-        subtitle: 'Sales / orders',
-      ),
       stat('Discounts', _money(data.discounts), Icons.local_offer_rounded, AppColors.warning),
       stat('Refunds', _money(data.refunds), Icons.undo_rounded, AppColors.danger),
     ];
@@ -482,16 +657,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
       data.topSelling,
       icon: Icons.trending_up_rounded,
       color: AppColors.primaryDark,
-      title: 'Top Sellers',
-      sheetTitle: 'Top 10 Sellers',
+      title: 'Top sellers',
+      sheetTitle: 'Top 10 sellers',
       emptySubtitle: 'Tap to view top 10',
     );
     final least = _productInsight(
       data.leastSelling,
       icon: Icons.south_rounded,
       color: AppColors.warning,
-      title: 'Least Selling',
-      sheetTitle: 'Least 10 Selling',
+      title: 'Least selling',
+      sheetTitle: 'Least 10 selling',
       emptySubtitle: 'Tap to view lowest 10',
     );
     return LayoutBuilder(
@@ -517,7 +692,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               data.topRevenue,
               icon: Icons.workspace_premium_rounded,
               color: AppColors.primaryDark,
-              title: 'Top Revenue Products',
+              title: 'Top revenue products',
               sheetTitle: 'Top 10 Revenue Products',
               emptySubtitle: 'Tap to view top 10',
               mode: _ProductSheetMode.revenue,
@@ -553,17 +728,215 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  String _previousLabel(ReportPeriod period) => switch (period) {
+    ReportPeriod.today => 'yesterday',
+    ReportPeriod.week => 'last week',
+    ReportPeriod.month => 'last month',
+    ReportPeriod.year => 'last year',
+  };
+
+  /// Gross profit from items with a cost price, plus what the shelves are worth.
+  Widget _buildProfitSection(_ReportsData data) {
+    final hasCosts = data.costedRevenue > 0;
+    return _SectionCard(
+      title: 'Profit',
+      subtitle: 'Sales minus the cost of the items sold',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (!hasCosts)
+            const _EmptyState(
+              text: 'Add a cost price to your products (Products › Edit) to see profit here.',
+            )
+          else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _ProfitFigure(
+                    label: 'Gross profit',
+                    value: _money(data.grossProfit),
+                    color: data.grossProfit >= 0 ? AppColors.success : AppColors.danger,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _ProfitFigure(
+                    label: 'Margin',
+                    value: '${data.margin.toStringAsFixed(1)}%',
+                    color: AppColors.primaryDark,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _AmountRow('Sales with a cost price', _money(data.costedRevenue)),
+            _AmountRow('Cost of goods sold', '- ${_money(data.costOfGoods)}'),
+            if (data.uncostedRevenue > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '${_money(data.uncostedRevenue)} of sales had no cost price and are not counted.',
+                  style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
+                ),
+              ),
+          ],
+          const Divider(height: 24),
+          _AmountRow('Stock value at selling price', _money(data.stockRetailValue)),
+          if (data.stockCostValue > 0)
+            _AmountRow('Stock value at cost', _money(data.stockCostValue)),
+          if (data.uncostedProducts > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                data.uncostedProducts == 1
+                    ? '1 product in stock has no cost price yet.'
+                    : '${data.uncostedProducts} products in stock have no cost price yet.',
+                style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategorySection(_ReportsData data) {
+    final total = data.categories.fold<double>(0, (running, c) => running + c.amount);
+    return _SectionCard(
+      title: 'Sales by category',
+      subtitle: 'Which kinds of products bring in the money',
+      child: data.categories.isEmpty
+          ? const _EmptyState(text: 'No sales in this period yet')
+          : Column(
+              children: [
+                for (final category in data.categories.take(6))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: _ProgressRow(
+                      title: category.name,
+                      trailing:
+                          '${_money(category.amount)} · ${total == 0 ? 0 : (category.amount / total * 100).toStringAsFixed(0)}%',
+                      progress: total == 0 ? 0 : category.amount / total,
+                      color: AppColors.primaryDark,
+                    ),
+                  ),
+              ],
+            ),
+    );
+  }
+
+  /// Busiest hours and weekdays, to plan staff and opening times.
+  Widget _buildPeakTimesSection(_ReportsData data) {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    final hourMax = data.hourly.reduce(math.max);
+    final dayMax = data.weekday.reduce(math.max);
+    if (hourMax <= 0) {
+      return const _SectionCard(
+        title: 'Peak times',
+        subtitle: 'When customers buy the most',
+        child: _EmptyState(text: 'No sales in this period yet'),
+      );
+    }
+    final bestHour = data.hourly.indexOf(hourMax);
+    final bestDay = data.weekday.indexOf(dayMax);
+    String hourLabel(int h) => h == 0
+        ? '12 AM'
+        : h < 12
+        ? '$h AM'
+        : h == 12
+        ? '12 PM'
+        : '${h - 12} PM';
+
+    Widget bars(List<double> values, double max, int best, String Function(int) label, int every) =>
+        SizedBox(
+          height: 96,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (var i = 0; i < values.length; i++)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Container(
+                          height: max <= 0 ? 0 : 64 * values[i] / max,
+                          decoration: BoxDecoration(
+                            color: i == best ? AppColors.primaryDark : AppColors.hero,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        SizedBox(
+                          height: 16,
+                          child: i % every == 0
+                              ? FittedBox(
+                                  child: Text(
+                                    label(i),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: i == best ? AppColors.primaryDark : AppColors.muted,
+                                      fontWeight: i == best ? FontWeight.w800 : FontWeight.w500,
+                                    ),
+                                  ),
+                                )
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+
+    return _SectionCard(
+      title: 'Peak times',
+      subtitle: 'Busiest: ${hourLabel(bestHour)} · ${days[bestDay]}',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('By hour', style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          bars(data.hourly, hourMax, bestHour, (h) => '$h', 3),
+          const SizedBox(height: 14),
+          const Text('By day', style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          bars(data.weekday, dayMax, bestDay, (d) => days[d], 1),
+        ],
+      ),
+    );
+  }
+
+  /// VAT already included in the period's sales (Bahrain standard rate).
+  Widget _buildVatSection(_ReportsData data) {
+    final excluding = data.netSales - data.vatCollected;
+    return _SectionCard(
+      title: 'VAT',
+      subtitle:
+          'Prices include ${SaleRecord.bahrainVatRate.toStringAsFixed(0)}% VAT · for your NBR return',
+      child: Column(
+        children: [
+          _AmountRow('Sales including VAT', _money(data.netSales)),
+          _AmountRow('Sales excluding VAT', _money(excluding < 0 ? 0 : excluding)),
+          const Divider(height: 24),
+          _AmountRow('VAT collected', _money(data.vatCollected), highlighted: true),
+        ],
+      ),
+    );
+  }
+
   Widget _buildNetSalesSection(_ReportsData data) {
     return _SectionCard(
-      title: 'Net Sales',
+      title: 'Net sales',
       subtitle: 'Gross sales minus discounts and refunds',
       child: Column(
         children: [
-          _AmountRow('Gross Sales', _money(data.grossSales)),
+          _AmountRow('Gross sales', _money(data.grossSales)),
           _AmountRow('Discounts', '- ${_money(data.discounts)}'),
           _AmountRow('Refunds', '- ${_money(data.refunds)}'),
           const Divider(height: 24),
-          _AmountRow('Net Sales', _money(data.netSales), highlighted: true),
+          _AmountRow('Net sales', _money(data.netSales), highlighted: true),
         ],
       ),
     );
@@ -576,7 +949,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
 
     return _SectionCard(
-      title: 'Payment Methods',
+      title: 'Payment methods',
       subtitle: 'Cash, BenefitPay, card, and other payment totals',
       child: data.paymentMethods.isEmpty
           ? const _EmptyState(text: 'No payment data yet')
@@ -1014,13 +1387,13 @@ class _RankedProductTile extends StatelessWidget {
             height: 34,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+              color: rank == 1 ? AppColors.primary : AppColors.soft,
+              borderRadius: BorderRadius.circular(17),
             ),
             child: Text(
               '$rank',
-              style: const TextStyle(
-                color: AppColors.primaryDark,
+              style: TextStyle(
+                color: rank == 1 ? AppColors.onBrand : AppColors.text,
                 fontSize: AppTypography.label,
                 fontWeight: FontWeight.w700,
               ),
@@ -1118,7 +1491,7 @@ class _ErrorState extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            ElevatedButton(onPressed: onRetry, child: const Text('Try Again')),
+            ElevatedButton(onPressed: onRetry, child: const Text('Try again')),
           ],
         ),
       ),
@@ -1154,7 +1527,43 @@ class _ReportsData {
     required this.leastSelling,
     required this.topRevenue,
     required this.paymentMethods,
+    required this.costedRevenue,
+    required this.costOfGoods,
+    required this.uncostedRevenue,
+    required this.vatCollected,
+    required this.hourly,
+    required this.weekday,
+    required this.categories,
+    required this.previousNet,
+    required this.previousOrders,
+    required this.stockRetailValue,
+    required this.stockCostValue,
+    required this.uncostedProducts,
   });
+
+  /// Revenue (after discounts) from lines that had a cost price recorded.
+  final double costedRevenue;
+  final double costOfGoods;
+
+  /// Revenue from lines sold before a cost price was set; excluded from profit.
+  final double uncostedRevenue;
+
+  /// VAT contained in the period's receipts.
+  final double vatCollected;
+  final List<double> hourly;
+  final List<double> weekday;
+  final List<_PaymentReport> categories;
+  final double previousNet;
+  final int previousOrders;
+  final double stockRetailValue;
+  final double stockCostValue;
+  final int uncostedProducts;
+
+  double get grossProfit => costedRevenue - costOfGoods;
+  double get margin => costedRevenue <= 0 ? 0 : grossProfit / costedRevenue * 100;
+
+  /// Percent change of net sales against the previous period; null when there is no base.
+  double? get netChange => previousNet <= 0 ? null : (netSales - previousNet) / previousNet * 100;
 }
 
 class _ProductSales {
@@ -1192,15 +1601,8 @@ enum _ProductSheetMode { quantity, revenue }
 BoxDecoration _cardDecoration() {
   return BoxDecoration(
     color: AppColors.surface,
-    borderRadius: BorderRadius.circular(22),
+    borderRadius: BorderRadius.circular(20),
     border: Border.all(color: AppColors.border),
-    boxShadow: [
-      BoxShadow(
-        color: AppColors.text.withValues(alpha: 0.06),
-        blurRadius: 16,
-        offset: const Offset(0, 9),
-      ),
-    ],
   );
 }
 
@@ -1383,4 +1785,40 @@ String _compactNumber(double value) {
   }
 
   return value.toInt().toString();
+}
+
+class _ProfitFigure extends StatelessWidget {
+  const _ProfitFigure({required this.label, required this.value, required this.color});
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
+          ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              value,
+              style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

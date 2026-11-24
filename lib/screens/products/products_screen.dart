@@ -1,11 +1,10 @@
 import 'dart:async';
-import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -34,38 +33,18 @@ class ProductsScreen extends StatefulWidget {
 }
 
 class _ProductsScreenState extends State<ProductsScreen> {
-  static const double _minimumCardWidth = 160;
-  static const double _cardPadding = 10;
-  static const double _gridSpacing = 8;
-  static const double _actionExtent = 28;
-  static const double _imageHeight = 120;
   static const Duration _requestTimeout = Duration(seconds: 20);
-  static const TextStyle _productNameStyle = TextStyle(
-    fontFamily: AppTypography.family,
-    fontSize: AppTypography.body,
-    fontWeight: FontWeight.w600,
-    height: 1.5,
-    color: AppColors.text,
-  );
-  static const TextStyle _productPriceStyle = TextStyle(
-    fontFamily: AppTypography.family,
-    fontSize: AppTypography.body,
-    fontWeight: FontWeight.w600,
-    height: 1.5,
-    color: AppColors.primaryDark,
-  );
-  static const TextStyle _productStockStyle = TextStyle(
-    fontFamily: AppTypography.family,
-    fontSize: AppTypography.caption,
-    fontWeight: FontWeight.w400,
-    height: 1.5,
-  );
-
   FirebaseFirestore get _firestore => widget.firestore ?? FirebaseFirestore.instance;
   final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController searchController = TextEditingController();
 
   String searchText = '';
+
+  /// Owners see and edit cost prices; cashiers never do.
+  bool _isOwner = false;
+
+  /// Product list order chosen from the sort button next to search.
+  _ProductSort _sort = _ProductSort.name;
   String storeCode = '';
   bool isLoadingStore = true;
 
@@ -101,6 +80,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
       setState(() {
         storeCode = code;
+        _isOwner = userDoc.data()?['role'] == 'owner';
         isLoadingStore = false;
       });
     } catch (e) {
@@ -246,7 +226,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     child: CircleAvatar(
                       backgroundColor: AppColors.soft,
                       child: IconButton(
-                        icon: const Icon(Icons.close, color: AppColors.onBrand),
+                        tooltip: 'Close',
+                        icon: const Icon(Icons.close, color: AppColors.text),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ),
@@ -310,6 +291,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final nameController = TextEditingController(text: product?['name']?.toString() ?? '');
     final categoryController = TextEditingController(text: product?['category']?.toString() ?? '');
     final priceController = TextEditingController(text: product?['price']?.toString() ?? '');
+    final costController = TextEditingController(
+      text: (product?['cost'] is num && (product!['cost'] as num) > 0)
+          ? product['cost'].toString()
+          : '',
+    );
     final stockController = TextEditingController(text: product?['stock']?.toString() ?? '');
     final minStockController = TextEditingController(
       text: (product?['minStock'] ?? product?['minQuantity'] ?? product?['minimumStock'] ?? 5)
@@ -392,6 +378,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
               final String name = nameController.text.trim();
               final String category = categoryController.text.trim();
               final double? price = double.tryParse(priceController.text.trim());
+              final costText = costController.text.trim();
+              final double? cost = costText.isEmpty ? 0 : double.tryParse(costText);
               final int? stock = int.tryParse(stockController.text.trim());
               final int minStock = int.tryParse(minStockController.text.trim()) ?? 5;
               final String barcode = barcodeController.text.trim();
@@ -409,7 +397,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   stock == null ||
                   stock < 0 ||
                   minStock < 0 ||
-                  barcode.isEmpty) {
+                  barcode.isEmpty ||
+                  (_isOwner && (cost == null || !cost.isFinite || cost < 0))) {
                 setDialogState(() {
                   saveError = 'Please fill all required fields correctly';
                 });
@@ -458,6 +447,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   'name': name,
                   'category': category,
                   'price': price,
+                  // Cost is owner-only; cashier edits leave it untouched.
+                  if (_isOwner) 'cost': cost ?? 0,
                   'stock': stock,
                   'minStock': minStock,
                   'barcode': barcode,
@@ -473,6 +464,22 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   await productRef
                       .set({...productData, 'createdAt': FieldValue.serverTimestamp()})
                       .timeout(_requestTimeout);
+                }
+                // Share only barcode, name and category so other stores can find this product.
+                // Best effort: it must never delay or fail the store's own save.
+                final community = catalogue.community;
+                if (community != null) {
+                  unawaited(
+                    community
+                        .contribute(
+                          barcode: barcode,
+                          name: name,
+                          category: category,
+                          price: price,
+                          image: image,
+                        )
+                        .catchError((Object e) => debugPrint('Catalogue share skipped: $e')),
+                  );
                 }
                 if (!context.mounted) return;
 
@@ -522,12 +529,36 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          isEdit ? 'Edit Product' : 'Add Product',
-                          style: const TextStyle(
-                            fontSize: AppTypography.title,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                isEdit ? 'Edit product' : 'Add product',
+                                style: const TextStyle(
+                                  fontSize: AppTypography.title,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            // Delete lives here so the product list stays uncluttered.
+                            if (isEdit)
+                              IconButton(
+                                tooltip: 'Delete product',
+                                onPressed: isBusy
+                                    ? null
+                                    : () {
+                                        Navigator.pop(context);
+                                        _showDeleteDialog(
+                                          docId,
+                                          (product?['name'] ?? '').toString(),
+                                        );
+                                      },
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: AppColors.danger,
+                                ),
+                              ),
+                          ],
                         ),
                         const SizedBox(height: 20),
                         Row(
@@ -606,8 +637,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                   imagePreviewUrl.isEmpty &&
                                   imageController.text.trim().isEmpty &&
                                   result.imageUrl.isNotEmpty) {
-                                imageController.text = result.imageUrl;
+                                // Embedded images from other stores go to the preview, not the URL field.
+                                if (!result.imageUrl.startsWith('data:image/')) {
+                                  imageController.text = result.imageUrl;
+                                }
                                 imagePreviewUrl = result.imageUrl;
+                                filled = true;
+                              }
+                              // A price set by another ShopPad store is only a starting point.
+                              if (priceController.text.trim().isEmpty &&
+                                  result.suggestedPrice > 0) {
+                                priceController.text = result.suggestedPrice.toStringAsFixed(3);
                                 filled = true;
                               }
                               if (filled) catalogueSource = result.attribution;
@@ -618,13 +658,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           Padding(
                             padding: const EdgeInsets.only(top: 6, bottom: 12),
                             child: SelectableText(
-                              'Source: ${catalogueSource!['provider']} · data ODbL · images CC BY-SA\n${catalogueSource!['url']}',
+                              [
+                                'Source: ${catalogueSource!['provider']} · ${catalogueSource!['note'] ?? (catalogueSource!.containsKey('dataLicense') ? 'data ODbL · images CC BY-SA' : 'name and category only')}',
+                                if ('${catalogueSource!['url'] ?? ''}'.isNotEmpty)
+                                  '${catalogueSource!['url']}',
+                              ].join('\n'),
                               style: const TextStyle(fontSize: 11, color: AppColors.muted),
                             ),
                           ),
                         _buildField(
                           nameController,
-                          'Product Name',
+                          'Product name',
                           enabled: !isBusy,
                           onChanged: (value) {
                             if (categoryManuallyEdited) return;
@@ -662,6 +706,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           enabled: !isBusy,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         ),
+                        if (_isOwner)
+                          _buildField(
+                            costController,
+                            'Cost price (owner only, optional)',
+                            enabled: !isBusy,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          ),
                         _buildField(
                           stockController,
                           'Stock',
@@ -670,7 +721,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         ),
                         _buildField(
                           minStockController,
-                          'Low Stock Alert Limit',
+                          'Low stock alert limit',
                           enabled: !isBusy,
                           keyboardType: TextInputType.number,
                         ),
@@ -698,7 +749,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 onPressed: isBusy ? null : chooseImage,
                                 icon: const Icon(Icons.upload_file_rounded),
                                 label: Text(
-                                  isChoosingImage ? 'Preparing image...' : 'Choose Image',
+                                  isChoosingImage ? 'Preparing image...' : 'Choose image',
                                 ),
                                 style: OutlinedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -799,7 +850,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                         ),
                                       )
                                     : Text(
-                                        isEdit ? 'Save' : 'Add Product',
+                                        isEdit ? 'Save' : 'Add product',
                                         style: const TextStyle(
                                           color: AppColors.onBrand,
                                           fontSize: AppTypography.button,
@@ -898,7 +949,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         builder: (dialogContext, updateDialog) => PopScope(
           canPop: !deleting,
           child: AlertDialog(
-            title: const Text('Delete Product'),
+            title: const Text('Delete product'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -988,7 +1039,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     children: [
                       const Expanded(
                         child: Text(
-                          'Low Stock Alerts',
+                          'Low stock alerts',
                           style: TextStyle(
                             fontSize: AppTypography.section,
                             fontWeight: FontWeight.w700,
@@ -1054,7 +1105,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                     ),
                                     child: Row(
                                       children: [
-                                        _productImage(image),
+                                        _productThumb(image),
                                         const SizedBox(width: 12),
                                         Expanded(
                                           child: Column(
@@ -1159,153 +1210,231 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
-  // Product cards and responsive layout.
-  Widget _productImage(String imageUrl, {bool expanded = false}) {
-    final image = ProductImage(
+  // Product rows and filters.
+  Widget _productThumb(String imageUrl) => Container(
+    width: 48,
+    height: 48,
+    decoration: BoxDecoration(color: AppColors.soft, borderRadius: BorderRadius.circular(12)),
+    clipBehavior: Clip.antiAlias,
+    child: ProductImage(
       source: imageUrl,
-      fit: BoxFit.contain,
-      placeholder: const Icon(Icons.inventory_2_outlined, color: AppColors.muted, size: 36),
-    );
+      fit: BoxFit.cover,
+      placeholder: const Icon(Icons.inventory_2_outlined, color: AppColors.muted, size: 22),
+    ),
+  );
 
-    if (!expanded) {
-      return SizedBox(width: 80, height: 80, child: image);
+  /// Adds received units to a product's stock, e.g. +12 for a new box of notebooks.
+  Future<void> _showRestockDialog(QueryDocumentSnapshot<Map<String, dynamic>> doc) async {
+    final item = doc.data();
+    final name = (item['name'] ?? '').toString();
+    final current = _stockFrom(item);
+    final messenger = ScaffoldMessenger.of(context);
+
+    final amount = await showDialog<int>(
+      context: context,
+      builder: (_) => _RestockDialog(name: name, current: current),
+    );
+    if (amount == null || amount <= 0) return;
+
+    try {
+      // Increment on the server so a sale saved at the same moment is not overwritten.
+      await doc.reference
+          .update({
+            'stock': FieldValue.increment(amount),
+            'updatedAt': FieldValue.serverTimestamp(),
+          })
+          .timeout(_requestTimeout);
+      messenger.showSnackBar(
+        SnackBar(content: Text('$name restocked: +$amount (now ${current + amount})')),
+      );
+    } catch (e) {
+      debugPrint('Restock failed: $e');
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Could not update stock. Check your connection and try again.'),
+        ),
+      );
     }
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: SizedBox(width: double.infinity, height: _imageHeight, child: image),
-    );
   }
 
-  Widget _productCardHeader(
-    String name, {
-    required VoidCallback onEdit,
-    required VoidCallback onDelete,
-  }) {
-    final actionStyle = IconButton.styleFrom(
-      minimumSize: const Size(_actionExtent, _actionExtent),
-      maximumSize: const Size(_actionExtent, _actionExtent),
-      padding: EdgeInsets.zero,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.standard,
-    );
-    return Row(
-      children: [
-        Expanded(
-          child: Tooltip(
-            message: name,
-            child: Text(
-              name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: _productNameStyle,
-            ),
+  Widget _productRow(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final item = doc.data();
+    final name = (item['name'] ?? '').toString();
+    final category = (item['category'] ?? '').toString().trim();
+    final barcode = (item['barcode'] ?? '').toString().trim();
+    final stockColor = _stockColor(item);
+    final low = _stockFrom(item) <= _minStockFrom(item);
+    final details = [
+      if (category.isNotEmpty) category,
+      if (barcode.isNotEmpty) barcode,
+    ].join(' · ');
+
+    return Tooltip(
+      message: 'Edit product',
+      child: InkWell(
+        onTap: () => _showProductDialog(docId: doc.id, product: item),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+          child: Row(
+            children: [
+              _productThumb((item['image'] ?? '').toString()),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: AppTypography.button,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.text,
+                      ),
+                    ),
+                    if (details.isNotEmpty)
+                      Text(
+                        details,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: AppTypography.caption,
+                          color: AppColors.muted,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    _priceLabel(item),
+                    style: const TextStyle(
+                      fontSize: AppTypography.button,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.text,
+                    ),
+                  ),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: low ? 8 : 0),
+                    decoration: BoxDecoration(
+                      color: low ? stockColor.withValues(alpha: 0.12) : null,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      _stockText(item),
+                      style: TextStyle(
+                        fontSize: AppTypography.caption,
+                        fontWeight: FontWeight.w700,
+                        color: stockColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 8),
+              // Quick restock: add received units without opening the full editor.
+              IconButton.filledTonal(
+                tooltip: 'Restock',
+                onPressed: () => _showRestockDialog(doc),
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.accentSoft,
+                  foregroundColor: AppColors.primaryDark,
+                  fixedSize: const Size(40, 40),
+                ),
+                icon: const Icon(Icons.add_rounded),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 4),
-        IconButton(
-          tooltip: 'Edit product',
-          iconSize: 15,
-          color: AppColors.primaryDark,
-          style: actionStyle,
-          onPressed: onEdit,
-          icon: const Icon(Icons.edit_outlined),
-        ),
-        IconButton(
-          tooltip: 'Delete product',
-          iconSize: 15,
-          color: AppColors.danger,
-          style: actionStyle,
-          onPressed: onDelete,
-          icon: const Icon(Icons.delete_outline_rounded),
-        ),
+      ),
+    );
+  }
+
+  Widget _buildSortButton() {
+    return PopupMenuButton<_ProductSort>(
+      tooltip: 'Sort products',
+      initialValue: _sort,
+      onSelected: (value) => setState(() => _sort = value),
+      position: PopupMenuPosition.under,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      itemBuilder: (context) => [
+        for (final option in _ProductSort.values)
+          PopupMenuItem(
+            value: option,
+            child: Row(
+              children: [
+                Icon(
+                  option == _sort ? Icons.check_rounded : option.icon,
+                  size: 20,
+                  color: option == _sort ? AppColors.primaryDark : AppColors.muted,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  option.label,
+                  style: TextStyle(fontWeight: option == _sort ? FontWeight.w800 : FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
       ],
-    );
-  }
-
-  double _productCardExtent(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
-    double cardWidth,
-  ) {
-    final painter = TextPainter(
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-      locale: Localizations.maybeLocaleOf(context),
-    );
-    final contentWidth = cardWidth - _cardPadding * 2 - 2;
-
-    double measure(String text, TextStyle style, {double inset = 0, int? maxLines}) {
-      painter.maxLines = maxLines;
-      painter.text = TextSpan(text: text, style: style);
-      painter.layout(maxWidth: math.max(1, contentWidth - inset));
-      return painter.height;
-    }
-
-    // Measure the real Cairo text at the current scale so every card fits its content.
-    double extent = 168;
-    for (final doc in docs) {
-      final item = doc.data();
-      final stockStyle = _productStockStyle.copyWith(
-        color: _stockColor(item),
-        fontWeight: _stockFrom(item) <= _minStockFrom(item) ? FontWeight.w600 : FontWeight.w400,
-      );
-      final headerHeight = math.max(
-        _actionExtent,
-        measure(
-          (item['name'] ?? '').toString(),
-          _productNameStyle,
-          inset: _actionExtent * 2 + 4,
-          maxLines: 2,
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: _sort == _ProductSort.name ? AppColors.surface : AppColors.primary,
+          borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+          border: Border.all(
+            color: _sort == _ProductSort.name ? AppColors.border : AppColors.primary,
+          ),
         ),
-      );
-      final footerHeight = math.max(
-        measure(_priceLabel(item), _productPriceStyle),
-        measure(_stockText(item), stockStyle, inset: 16) + 8,
-      );
-      final height = _cardPadding * 2 + _imageHeight + headerHeight + footerHeight + 18;
-      if (height > extent) extent = height;
-    }
-    painter.dispose();
-    return extent.ceilToDouble() + 2;
+        child: Icon(
+          Icons.sort_rounded,
+          color: _sort == _ProductSort.name ? AppColors.text : AppColors.onBrand,
+        ),
+      ),
+    );
   }
+
+  double _priceFrom(Map<String, dynamic> item) =>
+      double.tryParse((item['price'] ?? 0).toString()) ?? 0;
 
   @override
   Widget build(BuildContext context) {
+    final canPop = Navigator.of(context).canPop();
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.text),
-          onPressed: () {
-            Navigator.pop(context);
-          },
-        ),
+        automaticallyImplyLeading: false,
+        leading: canPop
+            ? IconButton(
+                tooltip: 'Back',
+                icon: const Icon(Icons.arrow_back_rounded, color: AppColors.text),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
+        titleSpacing: canPop ? 0 : AppSpacing.page,
         title: const Text(
           'Products',
-          style: TextStyle(
-            color: AppColors.text,
-            fontSize: AppTypography.title,
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(color: AppColors.text, fontSize: 26, fontWeight: FontWeight.w800),
         ),
         actions: [_buildNotificationButton()],
       ),
-      floatingActionButton: DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppColors.primary,
-          borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-        ),
-        child: FloatingActionButton(
-          onPressed: storeCode.isEmpty ? null : () => _showProductDialog(),
-          backgroundColor: Colors.transparent,
-          foregroundColor: AppColors.onBrand,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-          ),
-          child: const Icon(Icons.add, color: AppColors.onBrand),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: storeCode.isEmpty ? null : () => _showProductDialog(),
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onBrand,
+        elevation: 2,
+        shape: const StadiumBorder(),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text(
+          'Add',
+          style: TextStyle(fontFamily: AppTypography.family, fontWeight: FontWeight.w800),
         ),
       ),
       body: SafeArea(
@@ -1313,176 +1442,198 @@ class _ProductsScreenState extends State<ProductsScreen> {
             ? const Center(child: CircularProgressIndicator())
             : storeCode.isEmpty
             ? const Center(child: Text('Store code not found'))
-            : Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                child: Column(
-                  children: [
-                    TextField(
-                      controller: searchController,
-                      onChanged: (value) {
-                        setState(() {
-                          searchText = value.trim().toLowerCase();
-                        });
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Search products...',
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,
-                        fillColor: AppColors.surface,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                          borderSide: BorderSide.none,
+            : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: _productsStream(),
+                builder: (context, snapshot) {
+                  final waiting = snapshot.connectionState == ConnectionState.waiting;
+                  final docs = waiting || snapshot.hasError
+                      ? <QueryDocumentSnapshot<Map<String, dynamic>>>[]
+                      : _storeProductDocs(snapshot.data);
+                  final filteredDocs = docs.where((doc) {
+                    final item = doc.data();
+                    final name = (item['name'] ?? '').toString().toLowerCase();
+                    final category = (item['category'] ?? '').toString().toLowerCase();
+                    final barcode = (item['barcode'] ?? '').toString().toLowerCase();
+                    return searchText.isEmpty ||
+                        name.contains(searchText) ||
+                        category.contains(searchText) ||
+                        barcode.contains(searchText);
+                  }).toList();
+
+                  String nameOf(QueryDocumentSnapshot<Map<String, dynamic>> doc) =>
+                      (doc.data()['name'] ?? '').toString().toLowerCase();
+                  filteredDocs.sort((a, b) {
+                    final byChoice = switch (_sort) {
+                      _ProductSort.name => 0,
+                      _ProductSort.priceLow => _priceFrom(a.data()).compareTo(_priceFrom(b.data())),
+                      _ProductSort.priceHigh => _priceFrom(
+                        b.data(),
+                      ).compareTo(_priceFrom(a.data())),
+                      _ProductSort.stockLow => _stockFrom(a.data()).compareTo(_stockFrom(b.data())),
+                    };
+                    return byChoice != 0 ? byChoice : nameOf(a).compareTo(nameOf(b));
+                  });
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(AppSpacing.page, 4, AppSpacing.page, 14),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: searchController,
+                                onChanged: (value) =>
+                                    setState(() => searchText = value.trim().toLowerCase()),
+                                decoration: const InputDecoration(
+                                  hintText: 'Search name, category or barcode',
+                                  prefixIcon: Icon(Icons.search_rounded, color: AppColors.muted),
+                                  contentPadding: EdgeInsets.symmetric(vertical: 14),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            _buildSortButton(),
+                          ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Expanded(
-                      child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                        stream: _productsStream(),
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
-                            return const Center(child: CircularProgressIndicator());
-                          }
-
-                          if (snapshot.hasError) {
-                            return const Center(child: Text('Something went wrong'));
-                          }
-
-                          final docs = _storeProductDocs(snapshot.data);
-
-                          final filteredDocs = docs.where((doc) {
-                            final item = doc.data();
-
-                            final String name = (item['name'] ?? '').toString().toLowerCase();
-                            final String category = (item['category'] ?? '')
-                                .toString()
-                                .toLowerCase();
-                            final String barcode = (item['barcode'] ?? '').toString().toLowerCase();
-
-                            return searchText.isEmpty ||
-                                name.contains(searchText) ||
-                                category.contains(searchText) ||
-                                barcode.contains(searchText);
-                          }).toList();
-
-                          if (filteredDocs.isEmpty) {
-                            return AppEmptyState(
-                              icon: Icons.inventory_2_outlined,
-                              title: searchText.isEmpty
-                                  ? 'Your inventory starts here'
-                                  : 'No products found',
-                              message: searchText.isEmpty
-                                  ? 'Tap + to add your first product, its barcode, price, and stock.'
-                                  : 'Try another name, category, or barcode.',
-                            );
-                          }
-
-                          return LayoutBuilder(
-                            builder: (context, constraints) {
-                              // A second column starts only when two 160 px cards and the gap fit.
-                              final columns =
-                                  ((constraints.maxWidth + _gridSpacing) /
-                                          (_minimumCardWidth + _gridSpacing))
-                                      .floor()
-                                      .clamp(1, 6)
-                                      .toInt();
-                              final cardWidth =
-                                  (constraints.maxWidth - _gridSpacing * (columns - 1)) / columns;
-                              final cardExtent = _productCardExtent(filteredDocs, cardWidth);
-
-                              return GridView.builder(
-                                padding: const EdgeInsets.only(bottom: 90),
-                                itemCount: filteredDocs.length,
-                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: columns,
-                                  crossAxisSpacing: _gridSpacing,
-                                  mainAxisSpacing: _gridSpacing,
-                                  mainAxisExtent: cardExtent,
+                      Expanded(
+                        child: waiting
+                            ? const Center(child: CircularProgressIndicator())
+                            : snapshot.hasError
+                            ? const Center(child: Text('Something went wrong'))
+                            : filteredDocs.isEmpty
+                            ? AppEmptyState(
+                                icon: Icons.inventory_2_outlined,
+                                title: docs.isEmpty
+                                    ? 'Your inventory starts here'
+                                    : 'No products found',
+                                message: docs.isEmpty
+                                    ? 'Tap Add to create your first product with its barcode, price, and stock.'
+                                    : 'Try another name, category or barcode.',
+                              )
+                            : ListView(
+                                padding: const EdgeInsets.fromLTRB(
+                                  AppSpacing.page,
+                                  0,
+                                  AppSpacing.page,
+                                  96,
                                 ),
-                                itemBuilder: (context, index) {
-                                  final doc = filteredDocs[index];
-                                  final item = doc.data();
-                                  final String docId = doc.id;
-
-                                  final String name = (item['name'] ?? '').toString();
-                                  final String image = (item['image'] ?? '').toString();
-
-                                  final stockText = _stockText(item);
-                                  final stockColor = _stockColor(item);
-
-                                  return Container(
-                                    padding: const EdgeInsets.all(_cardPadding),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.surface,
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: AppColors.border.withValues(alpha: 0.35),
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: AppColors.text.withValues(alpha: 0.04),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 3),
-                                        ),
-                                      ],
+                                children: [
+                                  Material(
+                                    color: AppColors.surface,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                      side: const BorderSide(color: AppColors.border),
                                     ),
+                                    clipBehavior: Clip.antiAlias,
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        _productCardHeader(
-                                          name,
-                                          onEdit: () =>
-                                              _showProductDialog(docId: docId, product: item),
-                                          onDelete: () => _showDeleteDialog(docId, name),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        _productImage(image, expanded: true),
-                                        const SizedBox(height: 8),
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                _priceLabel(item),
-                                                style: _productPriceStyle,
-                                              ),
-                                            ),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 4,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: stockColor.withValues(alpha: 0.1),
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              child: Text(
-                                                stockText,
-                                                style: _productStockStyle.copyWith(
-                                                  color: stockColor,
-                                                  fontWeight:
-                                                      _stockFrom(item) <= _minStockFrom(item)
-                                                      ? FontWeight.w600
-                                                      : FontWeight.w400,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                        for (var i = 0; i < filteredDocs.length; i++) ...[
+                                          if (i > 0)
+                                            const Divider(height: 1, color: AppColors.soft),
+                                          _productRow(filteredDocs[i]),
+                                        ],
                                       ],
                                     ),
-                                  );
-                                },
-                              );
-                            },
-                          );
-                        },
+                                  ),
+                                ],
+                              ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  );
+                },
               ),
       ),
+    );
+  }
+}
+
+/// Orders offered by the sort button on the products list.
+enum _ProductSort {
+  name('Name A–Z', Icons.sort_by_alpha_rounded),
+  priceLow('Price: low to high', Icons.arrow_upward_rounded),
+  priceHigh('Price: high to low', Icons.arrow_downward_rounded),
+  stockLow('Lowest stock first', Icons.inventory_2_outlined);
+
+  const _ProductSort(this.label, this.icon);
+
+  final String label;
+  final IconData icon;
+}
+
+/// Asks how many units arrived; owns its text field so closing never races disposal.
+class _RestockDialog extends StatefulWidget {
+  const _RestockDialog({required this.name, required this.current});
+
+  final String name;
+  final int current;
+
+  @override
+  State<_RestockDialog> createState() => _RestockDialogState();
+}
+
+class _RestockDialogState extends State<_RestockDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = int.tryParse(_controller.text.trim()) ?? 0;
+    final valid = value > 0 && value <= 100000;
+    return AlertDialog(
+      title: Text('Restock ${widget.name}'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('In stock now: ${widget.current}', style: const TextStyle(color: AppColors.muted)),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final n in const [1, 6, 12, 24])
+                  ChoiceChip(
+                    label: Text('+$n'),
+                    selected: value == n,
+                    showCheckmark: false,
+                    onSelected: (_) => setState(() => _controller.text = '$n'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _controller,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(labelText: 'Units received', hintText: 'e.g. 12'),
+            ),
+            if (valid) ...[
+              const SizedBox(height: 10),
+              Text(
+                'New stock: ${widget.current + value}',
+                style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primaryDark),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: valid ? () => Navigator.pop(context, value) : null,
+          child: const Text('Add to stock'),
+        ),
+      ],
     );
   }
 }

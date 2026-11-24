@@ -7,6 +7,7 @@ import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 import '../../services/sale_sync_service.dart';
+import '../../services/sales_query.dart';
 import '../../widgets/sale_sync_panel.dart';
 import '../ai/ai_assistant_screen.dart';
 import '../cashier/cashier_home_screen.dart';
@@ -42,12 +43,19 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   bool isLoading = true;
 
   double todaySales = 0.0;
+  int todayOrders = 0;
+  double yesterdaySales = 0.0;
   int lowStockCount = 0;
   String bestSellerName = '';
   int bestSellerSold = 0;
   int totalProducts = 0;
   int cashierCount = 0;
   int activeCashierCount = 0;
+
+  /// Products whose stock a cashier corrected while selling a miscounted item.
+  List<({DocumentReference<Map<String, dynamic>> ref, String name, int recorded, int sold})>
+  stockCorrections = const [];
+  bool _reviewingCorrections = false;
 
   @override
   void initState() {
@@ -131,12 +139,26 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       final total = productsSnapshot.docs.length;
       String topProduct = '';
       int topSold = 0;
+      final corrections =
+          <({DocumentReference<Map<String, dynamic>> ref, String name, int recorded, int sold})>[];
 
       for (final doc in productsSnapshot.docs) {
         final data = doc.data();
 
-        final quantity = ((data['quantity'] ?? 0) as num).toInt();
-        final minQty = ((data['minQuantity'] ?? 0) as num).toInt();
+        final correction = data['lastStockCorrection'];
+        if (correction is Map && correction['reviewed'] != true) {
+          int whole(Object? value) => value is num ? value.toInt() : 0;
+          corrections.add((
+            ref: doc.reference,
+            name: (data['name'] ?? correction['name'] ?? 'Product').toString(),
+            recorded: whole(correction['stockBefore']),
+            sold: whole(correction['quantitySold']),
+          ));
+        }
+
+        // Products are saved with `stock`/`minStock`; older records used `quantity`/`minQuantity`.
+        final quantity = ((data['stock'] ?? data['quantity'] ?? 0) as num).toInt();
+        final minQty = ((data['minStock'] ?? data['minQuantity'] ?? 5) as num).toInt();
         final sold = ((data['soldCount'] ?? 0) as num).toInt();
 
         if (quantity <= minQty) lowStock++;
@@ -151,23 +173,33 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
       final endOfDay = startOfDay.add(const Duration(days: 1));
+      final startOfYesterday = startOfDay.subtract(const Duration(days: 1));
 
-      final salesSnapshot = await _firestore
-          .collection('sales')
-          .where('storeCode', isEqualTo: code)
-          .get(options);
+      // Today and yesterday are all this screen needs.
+      final salesDocs = await SalesQuery.since(
+        _firestore,
+        storeCode: code,
+        from: startOfYesterday,
+        options: options,
+      );
 
       double totalSales = 0.0;
+      int orders = 0;
+      double yesterdayTotal = 0.0;
 
-      for (final sale in salesSnapshot.docs) {
+      for (final sale in salesDocs) {
         final data = sale.data();
         final createdAt = data['createdAt'];
 
         if (createdAt is Timestamp) {
           final date = createdAt.toDate();
 
+          final amount = ((data['total'] ?? 0) as num).toDouble();
           if (!date.isBefore(startOfDay) && date.isBefore(endOfDay)) {
-            totalSales += ((data['total'] ?? 0) as num).toDouble();
+            totalSales += amount;
+            orders++;
+          } else if (!date.isBefore(startOfYesterday) && date.isBefore(startOfDay)) {
+            yesterdayTotal += amount;
           }
         }
       }
@@ -176,12 +208,15 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
       setState(() {
         todaySales = totalSales;
+        todayOrders = orders;
+        yesterdaySales = yesterdayTotal;
         lowStockCount = lowStock;
         bestSellerName = topProduct;
         bestSellerSold = topSold;
         totalProducts = total;
         cashierCount = totalCashiers;
         activeCashierCount = activeCashiers;
+        stockCorrections = corrections;
       });
     } catch (e) {
       debugPrint('Error loading dashboard data: $e');
@@ -251,238 +286,262 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) => setState(() => _selectedIndex = index),
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primaryDark,
-        unselectedItemColor: AppColors.muted,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.inventory), label: "Products"),
-          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: "Reports"),
-          BottomNavigationBarItem(icon: Icon(Icons.smart_toy), label: "AI"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
-        ],
+      bottomNavigationBar: DecoratedBox(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        child: NavigationBar(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: (index) => setState(() => _selectedIndex = index),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded),
+              label: 'Home',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.inventory_2_outlined),
+              selectedIcon: Icon(Icons.inventory_2_rounded),
+              label: 'Products',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.space_dashboard_outlined),
+              selectedIcon: Icon(Icons.space_dashboard_rounded),
+              label: 'Dashboard',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.auto_awesome_outlined),
+              selectedIcon: Icon(Icons.auto_awesome),
+              label: 'AI',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline_rounded),
+              selectedIcon: Icon(Icons.person_rounded),
+              label: 'Profile',
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildHomeContent() {
-    return SingleChildScrollView(
-      child: Column(
+    final wide = MediaQuery.sizeOf(context).width >= 700;
+    return RefreshIndicator(
+      color: AppColors.primaryDark,
+      onRefresh: () async {
+        if (storeCode.isNotEmpty) await _loadDashboardData(storeCode);
+      },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.page, 24, AppSpacing.page, 24),
         children: [
           _buildHeader(),
-          const SizedBox(height: 20),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
-            child: GridView(
-              // A fixed minimum height keeps labels visible on small phones.
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: MediaQuery.sizeOf(context).width >= 900 ? 4 : 2,
-                crossAxisSpacing: 14,
-                mainAxisSpacing: 14,
-                mainAxisExtent: 190 + (MediaQuery.textScalerOf(context).scale(14) - 14) * 5,
-              ),
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _buildMetricCard(
-                  icon: Icons.attach_money,
-                  color: AppColors.success,
-                  title: "Today's Sales",
-                  value: "BD ${todaySales.toStringAsFixed(3)}",
-                  subtitle: 'Recorded today',
-                ),
-                _buildMetricCard(
-                  icon: Icons.warning_amber,
-                  color: AppColors.warning,
-                  title: "Low Stock",
-                  value: "$lowStockCount Items",
-                  subtitle: lowStockCount > 0 ? "Needs attention" : "All good",
-                ),
-                _buildMetricCard(
-                  icon: Icons.inventory,
-                  color: AppColors.primaryDark,
-                  title: "Total Products",
-                  value: "$totalProducts",
-                  subtitle: 'Store catalogue',
-                ),
-                _buildMetricCard(
-                  icon: Icons.trending_up,
-                  color: AppColors.primaryDark,
-                  title: "Best Seller",
-                  value: bestSellerName.isEmpty ? "No data" : bestSellerName,
-                  subtitle: "$bestSellerSold sold",
-                ),
-              ],
+          const SizedBox(height: 18),
+          _buildSalesCard(),
+          if (stockCorrections.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _buildCorrectionsAlert(),
+          ],
+          const SizedBox(height: 26),
+          const Text(
+            'Overview',
+            style: TextStyle(
+              fontSize: AppTypography.section,
+              fontWeight: FontWeight.w800,
+              color: AppColors.text,
             ),
           ),
-          const SizedBox(height: 14),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
-            child: _buildCashiersCard(),
+          const SizedBox(height: 12),
+          GridView.count(
+            crossAxisCount: wide ? 4 : 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            // Taller tiles when the system text size is increased.
+            childAspectRatio: 1.35 / MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _OverviewTile(
+                icon: Icons.warning_amber_rounded,
+                color: AppColors.warning,
+                label: 'Low stock',
+                value: '$lowStockCount',
+                caption: lowStockCount == 1 ? 'item needs restocking' : 'items need restocking',
+                onTap: () => setState(() => _selectedIndex = 1),
+              ),
+              _OverviewTile(
+                icon: Icons.inventory_2_outlined,
+                color: AppColors.primaryDark,
+                label: 'Products',
+                value: '$totalProducts',
+                caption: 'in your catalogue',
+                onTap: () => setState(() => _selectedIndex = 1),
+              ),
+              _OverviewTile(
+                icon: Icons.local_fire_department_outlined,
+                color: AppColors.danger,
+                label: 'Best seller',
+                value: bestSellerName.isEmpty ? 'No sales yet' : bestSellerName,
+                caption: bestSellerName.isEmpty
+                    ? 'record a sale to see it'
+                    : '$bestSellerSold sold',
+                smallValue: true,
+                onTap: _openTopCashiers,
+              ),
+              _OverviewTile(
+                icon: Icons.people_alt_outlined,
+                color: AppColors.success,
+                label: 'Cashiers',
+                value: '$activeCashierCount/$cashierCount',
+                caption: 'active right now',
+                onTap: _openCashiersManagement,
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 8),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              onPressed: _openTopCashiers,
+              icon: const Icon(Icons.emoji_events_outlined, size: 18),
+              label: const Text('Top cashiers'),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  String get _greeting {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
   }
 
   Widget _buildHeader() {
-    final identity = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Text(
-          "Welcome back, ${firstName.isEmpty ? "Owner" : firstName}",
-          style: const TextStyle(
-            color: AppColors.onBrand,
-            fontSize: AppTypography.body,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          storeName.isEmpty ? "My Store" : storeName,
-          style: const TextStyle(
-            fontSize: AppTypography.brand,
-            fontWeight: FontWeight.w700,
-            color: AppColors.onBrand,
-          ),
-        ),
-      ],
-    );
-    final actions = Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        GestureDetector(
-          onTap: _copyStoreCode,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-            decoration: BoxDecoration(
-              color: AppColors.surface.withValues(alpha: 0.22),
-              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-              border: Border.all(color: AppColors.surface.withValues(alpha: 0.18)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  storeCode.isEmpty ? 'No Code' : storeCode,
-                  style: const TextStyle(
-                    color: AppColors.onBrand,
-                    fontSize: AppTypography.label,
-                    fontWeight: FontWeight.w700,
-                  ),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$_greeting, ${firstName.isEmpty ? 'Owner' : firstName}',
+                style: const TextStyle(
+                  color: AppColors.muted,
+                  fontSize: AppTypography.body,
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(width: 8),
-                const Icon(Icons.copy, color: AppColors.onBrand, size: 18),
-              ],
-            ),
+              ),
+              Text(
+                storeName.isEmpty ? 'My Store' : storeName,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.text,
+                  fontSize: AppTypography.title,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 8),
-        TextButton.icon(
-          onPressed: isLoading ? null : _switchToCashier,
-          style: TextButton.styleFrom(
-            foregroundColor: AppColors.onBrand,
-            backgroundColor: AppColors.surface.withValues(alpha: 0.16),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        const SizedBox(width: 12),
+        Tooltip(
+          message: 'Switch to cashier',
+          child: FilledButton.icon(
+            onPressed: isLoading ? null : _switchToCashier,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(48, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              shape: const StadiumBorder(),
+            ),
+            icon: const Icon(Icons.swap_horiz_rounded, size: 20),
+            label: const Text('Cashier'),
           ),
-          icon: const Icon(Icons.point_of_sale, size: 18),
-          label: const Text('Switch to cashier'),
         ),
       ],
-    );
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 26, 20, 28),
-      decoration: const BoxDecoration(
-        color: AppColors.primary,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
-        ),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          // Stack header content before the store code squeezes the store name.
-          final narrow =
-              constraints.maxWidth < 360 || MediaQuery.textScalerOf(context).scale(14) > 18;
-          return narrow
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    identity,
-                    const SizedBox(height: 14),
-                    Align(alignment: Alignment.centerRight, child: actions),
-                  ],
-                )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: identity),
-                    const SizedBox(width: 16),
-                    actions,
-                  ],
-                );
-        },
-      ),
     );
   }
 
-  Widget _buildMetricCard({
-    required IconData icon,
-    required Color color,
-    required String title,
-    required String value,
-    required String subtitle,
-  }) {
+  /// Ink card with today's revenue, the change against yesterday and the store code.
+  /// Marks every listed correction as seen; the audit record on each sale is unchanged.
+  Future<void> _markCorrectionsReviewed() async {
+    setState(() => _reviewingCorrections = true);
+    try {
+      final batch = _firestore.batch();
+      for (final correction in stockCorrections) {
+        batch.update(correction.ref, {'lastStockCorrection.reviewed': true});
+      }
+      await batch.commit();
+      if (!mounted) return;
+      setState(() => stockCorrections = const []);
+    } catch (e) {
+      debugPrint('Could not mark corrections reviewed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not update. Check your connection and try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _reviewingCorrections = false);
+    }
+  }
+
+  /// Owner alert: items sold although the records said they were out of stock.
+  Widget _buildCorrectionsAlert() {
+    final shown = stockCorrections.take(3).toList();
+    final more = stockCorrections.length - shown.length;
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: _dashboardCardDecoration(),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+      decoration: BoxDecoration(
+        color: AppColors.warningSoft,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFF3D9B4)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const Spacer(),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: AppTypography.metric,
-              fontWeight: FontWeight.w700,
-              color: AppColors.text,
-            ),
+          Row(
+            children: [
+              const Icon(Icons.fact_check_outlined, color: AppColors.warning, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  stockCorrections.length == 1
+                      ? '1 stock count was corrected'
+                      : '${stockCorrections.length} stock counts were corrected',
+                  style: const TextStyle(
+                    color: Color(0xFF8A4E06),
+                    fontWeight: FontWeight.w800,
+                    fontSize: AppTypography.body,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 6),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: AppTypography.label,
-              fontWeight: FontWeight.w700,
-              color: AppColors.text,
+          for (final item in shown)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                '${item.name}: records showed ${item.recorded}, cashier sold ${item.sold}',
+                style: const TextStyle(color: AppColors.text, fontSize: AppTypography.caption + 1),
+              ),
             ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: color,
-              fontSize: AppTypography.caption,
-              fontWeight: FontWeight.w600,
+          if (more > 0)
+            Text(
+              '+$more more',
+              style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
+            ),
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: TextButton(
+              onPressed: _reviewingCorrections ? null : _markCorrectionsReviewed,
+              style: TextButton.styleFrom(foregroundColor: const Color(0xFF8A4E06)),
+              child: const Text('Mark as reviewed'),
             ),
           ),
         ],
@@ -490,81 +549,191 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     );
   }
 
-  Widget _buildCashiersCard() {
+  Widget _buildSalesCard() {
+    final average = todayOrders == 0 ? 0.0 : todaySales / todayOrders;
+    final String? change;
+    final Color changeColor;
+    if (yesterdaySales > 0) {
+      final percent = (todaySales - yesterdaySales) / yesterdaySales * 100;
+      change = '${percent >= 0 ? '+' : ''}${percent.toStringAsFixed(0)}% vs yesterday';
+      changeColor = percent >= 0 ? AppColors.success : AppColors.danger;
+    } else {
+      change = null;
+      changeColor = AppColors.onHeroMuted;
+    }
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(24)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  "Today's sales",
+                  style: TextStyle(
+                    color: AppColors.onHeroMuted,
+                    fontSize: AppTypography.body,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (change != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    change,
+                    style: TextStyle(
+                      color: changeColor,
+                      fontSize: AppTypography.caption,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              'BD ${todaySales.toStringAsFixed(3)}',
+              style: const TextStyle(
+                color: AppColors.onHero,
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                height: 1.2,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  todayOrders == 0
+                      ? 'No orders yet today'
+                      : '$todayOrders ${todayOrders == 1 ? 'order' : 'orders'} · avg BD ${average.toStringAsFixed(3)}',
+                  style: const TextStyle(
+                    color: AppColors.onHeroMuted,
+                    fontSize: AppTypography.caption + 1,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Tooltip(
+                message: 'Copy store code for new cashiers',
+                child: OutlinedButton.icon(
+                  onPressed: storeCode.isEmpty ? null : _copyStoreCode,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.onHero,
+                    side: const BorderSide(color: AppColors.heroLine),
+                    minimumSize: const Size(44, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    shape: const StadiumBorder(),
+                    textStyle: const TextStyle(
+                      fontFamily: AppTypography.family,
+                      fontSize: AppTypography.caption,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  icon: const Icon(Icons.copy_rounded, size: 14),
+                  label: Text(storeCode.isEmpty ? 'No code' : storeCode),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One white overview tile: coloured icon and label, a large value and a short caption.
+class _OverviewTile extends StatelessWidget {
+  const _OverviewTile({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.value,
+    required this.caption,
+    this.onTap,
+    this.smallValue = false,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String value;
+  final String caption;
+  final VoidCallback? onTap;
+
+  /// Names are longer than numbers, so they use a slightly smaller size.
+  final bool smallValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(18);
     return Material(
       color: AppColors.surface,
-      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+      borderRadius: radius,
       child: InkWell(
-        onTap: _openCashiersManagement,
-        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: _dashboardCardDecoration(),
+        onTap: onTap,
+        borderRadius: radius,
+        child: Ink(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(color: AppColors.border),
+          ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(
-                      Icons.people_alt_rounded,
-                      color: AppColors.primaryDark,
-                      size: 26,
-                    ),
-                  ),
-                  const SizedBox(width: 14),
+                  Icon(icon, color: color, size: 18),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "$cashierCount Cashiers",
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: AppTypography.section,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.text,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          "$activeCashierCount active cashiers",
-                          style: const TextStyle(
-                            color: AppColors.primaryDark,
-                            fontSize: AppTypography.body,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppColors.primaryDark,
-                      size: 26,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: AppTypography.caption + 1,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ],
               ),
-              const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Divider(height: 1)),
-              OutlinedButton.icon(
-                onPressed: _openTopCashiers,
-                icon: const Icon(Icons.emoji_events_outlined),
-                label: const Text('Top cashiers'),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: AppColors.text,
+                  fontSize: smallValue ? 20 : 26,
+                  fontWeight: FontWeight.w800,
+                  height: 1.2,
+                ),
+              ),
+              Text(
+                caption,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: AppColors.muted,
+                  fontSize: AppTypography.caption,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -573,17 +742,3 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     );
   }
 }
-
-// Both dashboard card types use the same border and shadow.
-BoxDecoration _dashboardCardDecoration() => BoxDecoration(
-  color: AppColors.surface,
-  borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-  border: Border.all(color: AppColors.border),
-  boxShadow: [
-    BoxShadow(
-      color: AppColors.text.withValues(alpha: 0.07),
-      blurRadius: 18,
-      offset: const Offset(0, 10),
-    ),
-  ],
-);

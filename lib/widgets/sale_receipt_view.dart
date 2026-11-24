@@ -186,6 +186,28 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                               ),
                             ),
                           const Divider(height: 28),
+                          // Subtotal, discount and the VAT already inside the total.
+                          for (final row in [
+                            if (sale.discount > 0) ...[
+                              ('Subtotal', 'BD ${sale.subtotal.toStringAsFixed(3)}'),
+                              ('Discount', '− BD ${sale.discount.toStringAsFixed(3)}'),
+                            ],
+                            if (sale.vatRate > 0)
+                              (
+                                'VAT ${sale.vatRate.toStringAsFixed(0)}% (included)',
+                                'BD ${sale.tax.toStringAsFixed(3)}',
+                              ),
+                          ])
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(row.$1, style: const TextStyle(color: AppColors.muted)),
+                                  Text(row.$2, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            ),
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(16),

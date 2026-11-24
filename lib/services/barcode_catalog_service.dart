@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+
+import 'community_catalog.dart';
 
 class CatalogProduct {
   const CatalogProduct({
@@ -9,27 +12,63 @@ class CatalogProduct {
     required this.imageUrl,
     required this.category,
     this.productType = 'food',
+    this.suggestedPrice = 0,
   });
   final String barcode;
   final String name;
   final String imageUrl;
   final String category;
   final String productType;
+
+  /// Selling price another ShopPad store set; 0 when unknown. Public catalogues never supply one.
+  final double suggestedPrice;
   static const _sources = {
     'food': ('Open Food Facts', 'openfoodfacts.org'),
     'product': ('Open Products Facts', 'openproductsfacts.org'),
     'beauty': ('Open Beauty Facts', 'openbeautyfacts.org'),
     'petfood': ('Open Pet Food Facts', 'openpetfoodfacts.org'),
   };
+
+  /// Product type used for general merchandise found through the UPCitemdb fallback.
+  static const upcItemDbType = 'upcitemdb';
+
+  /// Product type for names shared by other ShopPad stores.
+  static const communityType = 'shoppad';
+
+  bool get _isUpcItemDb => productType == upcItemDbType;
+  bool get _isCommunity => productType == communityType;
+  bool get _isOpenFacts => !_isUpcItemDb && !_isCommunity;
   (String, String) get _source => _sources[productType] ?? _sources['product']!;
-  String get provider => _source.$1;
-  String get sourceUrl => 'https://world.${_source.$2}/product/$barcode';
+  String get provider => _isCommunity
+      ? 'ShopPad stores'
+      : _isUpcItemDb
+      ? 'UPCitemdb'
+      : _source.$1;
+
+  /// Public page for the product; empty for community entries, which have none.
+  String get sourceUrl => _isCommunity
+      ? ''
+      : _isUpcItemDb
+      ? 'https://www.upcitemdb.com/upc/$barcode'
+      : 'https://world.${_source.$2}/product/$barcode';
+
+  /// Short licence line shown beside the source link.
+  String get licenseNote => _isCommunity
+      ? 'shared by other stores'
+      : _isUpcItemDb
+      ? 'name and category only'
+      : 'data ODbL · images CC BY-SA';
+
+  /// One-line credit for the UI: provider, licence, and the source page when there is one.
+  String get creditLine =>
+      ['$provider · $licenseNote', if (sourceUrl.isNotEmpty) sourceUrl].join('\n');
+
   Map<String, dynamic> get attribution => {
     'provider': provider,
     'productType': productType,
     'url': sourceUrl,
-    'dataLicense': 'ODbL-1.0',
-    'imageLicense': 'CC-BY-SA-3.0',
+    'note': licenseNote,
+    if (_isOpenFacts) ...{'dataLicense': 'ODbL-1.0', 'imageLicense': 'CC-BY-SA-3.0'},
   };
 }
 
@@ -41,17 +80,32 @@ class CatalogLookupException implements Exception {
 }
 
 /// Read-only public catalogue across food, general products, beauty and pet food. Never supplies store prices or quantities.
+///
+/// Search order:
+/// 1. Names shared by other ShopPad stores (covers local Gulf products).
+/// 2. Open Food Facts and its sister catalogues.
+/// 3. The free UPCitemdb trial endpoint for general merchandise such as stationery.
 class BarcodeCatalogService {
   BarcodeCatalogService({
     http.Client? client,
     DateTime Function()? now,
     this.timeout = const Duration(seconds: 4),
+    bool? generalFallback,
+    this.community,
   }) : _client = client ?? http.Client(),
-       _now = now ?? DateTime.now;
-  static final shared = BarcodeCatalogService();
+       _now = now ?? DateTime.now,
+       // UPCitemdb only allows browser requests from its own site, so web builds skip it.
+       generalFallback = generalFallback ?? !kIsWeb;
+  static final shared = BarcodeCatalogService(community: FirestoreCommunityCatalog());
   final http.Client _client;
   final DateTime Function() _now;
   final Duration timeout;
+
+  /// Store-shared names, checked before any internet catalogue.
+  final CommunityCatalog? community;
+
+  /// Whether to try UPCitemdb when Open Food Facts has no match.
+  final bool generalFallback;
   final _cache = <String, ({DateTime expires, CatalogProduct? product})>{};
   final _pending = <String, Future<CatalogProduct?>>{};
   final _requests = <DateTime>[];
@@ -78,6 +132,9 @@ class BarcodeCatalogService {
   }
 
   Future<CatalogProduct?> _fetch(String code) async {
+    final shared = await _lookupCommunity(code);
+    if (shared != null) return _remember(code, shared);
+
     final now = _now();
     _requests.removeWhere((time) => now.difference(time) >= const Duration(minutes: 1));
     if (_requests.length >= 15) {
@@ -101,7 +158,7 @@ class BarcodeCatalogService {
             },
           )
           .timeout(timeout);
-      if (response.statusCode == 404) return _remember(code, null);
+      if (response.statusCode == 404) return _remember(code, await _lookupGeneral(code));
       if (response.statusCode == 429 || response.statusCode == 503) {
         throw const CatalogLookupException(
           'The free catalogue is busy. Try again later or enter the product manually.',
@@ -117,7 +174,7 @@ class BarcodeCatalogService {
       final product = decoded['product'];
       if (product is! Map) {
         if (decoded['status'] == 'failure' || decoded['status'] == 0) {
-          return _remember(code, null);
+          return _remember(code, await _lookupGeneral(code));
         }
         throw const FormatException();
       }
@@ -131,7 +188,7 @@ class BarcodeCatalogService {
         product['product_name'],
         product['product_name_ar'],
       ].map(text).firstWhere((s) => s.isNotEmpty, orElse: () => '');
-      if (name.isEmpty) return _remember(code, null);
+      if (name.isEmpty) return _remember(code, await _lookupGeneral(code));
       final image = Uri.tryParse(
         text(product['image_front_url']).isNotEmpty
             ? text(product['image_front_url'])
@@ -170,6 +227,57 @@ class BarcodeCatalogService {
       throw const CatalogLookupException(
         'Could not load product information. Check your connection or use manual entry.',
       );
+    }
+  }
+
+  /// Kept short so an offline device moves on to the internet catalogues quickly.
+  Future<CatalogProduct?> _lookupCommunity(String code) async {
+    final source = community;
+    if (source == null) return null;
+    try {
+      return await source.lookup(code).timeout(const Duration(milliseconds: 1500));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Second source for general merchandise. Any failure here (offline, browser CORS,
+  /// daily limit) means "not found", so manual entry stays available without an error.
+  Future<CatalogProduct?> _lookupGeneral(String code) async {
+    if (!generalFallback) return null;
+    try {
+      final response = await _client
+          .get(
+            Uri.https('api.upcitemdb.com', '/prod/trial/lookup', {'upc': code}),
+            headers: {'Accept': 'application/json'},
+          )
+          .timeout(timeout);
+      if (response.statusCode != 200) return null;
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is! Map || decoded['items'] is! List) return null;
+
+      String text(dynamic value) => value is String ? value.trim() : '';
+      String digits(dynamic value) => text(value).replaceFirst(RegExp(r'^0+'), '');
+      final wanted = digits(code);
+      for (final item in decoded['items'] as List) {
+        if (item is! Map) continue;
+        // Accept the same number written as UPC-A or EAN-13 (leading zeros differ).
+        final matches = digits(item['ean']) == wanted || digits(item['upc']) == wanted;
+        final name = text(item['title']);
+        if (!matches || name.isEmpty) continue;
+        // UPCitemdb categories run general > specific; the last part is most useful in a shop.
+        final category = text(item['category']).split('>').last.trim();
+        return CatalogProduct(
+          barcode: code,
+          name: name.length > 80 ? name.substring(0, 80).trim() : name,
+          imageUrl: '',
+          category: category,
+          productType: CatalogProduct.upcItemDbType,
+        );
+      }
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 

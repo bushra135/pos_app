@@ -5,8 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../services/sales_query.dart';
 import '../../app/app_colors.dart';
 import '../../models/report_sale.dart';
+import '../../utils/bundle_offer_planner.dart';
 import '../reports/reports_screen.dart';
 
 /// Calculates store insights locally using keyword rules and store records.
@@ -128,6 +130,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final data = await _loadStoreData();
     final q = question.toLowerCase();
 
+    if (_containsAny(q, ['bundle', 'offer', 'promotion', 'promo', 'combo', 'deal'])) {
+      return _bundleOffers(data);
+    }
+
     if (_containsAny(q, ['low stock', 'stock alert', 'out of stock', 'empty stock'])) {
       return _lowStockAlerts(data);
     }
@@ -205,11 +211,22 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       return productStoreCode == storeCode;
     }).toList();
 
-    final salesSnapshot = await _firestore
-        .collection('sales')
-        .where('storeCode', isEqualTo: storeCode)
-        .get()
-        .timeout(_requestTimeout);
+    // Answers cover at most this month, this week or the last 30 days.
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month);
+    final thirtyDays = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 31));
+    final weekStart = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(Duration(days: now.weekday % 7));
+    final from = [monthStart, thirtyDays, weekStart].reduce((a, b) => a.isBefore(b) ? a : b);
+    final salesDocs = await SalesQuery.since(
+      _firestore,
+      storeCode: storeCode,
+      from: from,
+      timeout: _requestTimeout,
+    );
 
     final products = productDocs.map((doc) {
       final item = doc.data();
@@ -222,11 +239,13 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         name: name,
         stock: reportNumber(item, ['stock', 'quantity']).toInt(),
         minStock: minStockKeys.any(item.containsKey) ? reportNumber(item, minStockKeys).toInt() : 5,
+        category: (item['category'] ?? '').toString(),
+        price: reportNumber(item, ['price']),
       );
     }).toList();
 
     // Later calculations require valid dates, so skip records with missing timestamps.
-    final sales = salesSnapshot.docs
+    final sales = salesDocs
         .map((doc) => _SaleInfo.fromMap(doc.data()))
         .where((sale) => sale.createdAt != null)
         .toList();
@@ -371,6 +390,67 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     });
 
     return ["Slow moving products this month:", "", ...lines].join('\n');
+  }
+
+  // Pair best sellers with slow-moving stock over the last 30 days.
+  String _bundleOffers(_StoreData data) {
+    if (data.products.isEmpty) {
+      return "No products found in your inventory.";
+    }
+
+    final from = DateTime.now().subtract(const Duration(days: 30));
+    final recentSales = data.sales
+        .where((sale) => !sale.isRefund && !sale.createdAt!.isBefore(from))
+        .toList();
+    final metrics = _aggregateProducts(recentSales);
+
+    final offers = BundleOfferPlanner.plan([
+      for (final product in data.products)
+        BundleCandidate(
+          key: product.key,
+          name: product.name,
+          stock: product.stock,
+          soldRecently: metrics[product.key]?.quantity ?? 0,
+          category: product.category,
+          price: product.price,
+        ),
+    ]);
+
+    if (offers.isEmpty) {
+      return [
+        "No bundle offers to suggest right now.",
+        "",
+        "Offers need at least one product that sells well and another product with stock that sells much less. Record more sales and try again.",
+      ].join('\n');
+    }
+
+    final lines = <String>[];
+    for (var i = 0; i < offers.length; i++) {
+      final offer = offers[i];
+      final slow = offer.slowMover;
+      lines
+        ..add("${i + 1}. Buy ${offer.anchor.name}, get ${slow.name} ${offer.discountPercent}% off")
+        ..add(
+          "   - ${offer.anchor.name}: ${offer.anchor.soldRecently.toStringAsFixed(0)} sold (best seller)",
+        )
+        ..add(
+          "   - ${slow.name}: ${slow.soldRecently.toStringAsFixed(0)} sold, ${slow.stock} in stock",
+        );
+      if (slow.price > 0) {
+        lines.add("   - Offer price: ${_money(slow.price)} → ${_money(offer.discountedPrice)}");
+      }
+      if (offer.sameCategory) {
+        lines.add("   - Same category, so customers are likely to want both");
+      }
+      lines.add("");
+    }
+
+    return [
+      "Bundle offer ideas (last 30 days):",
+      "",
+      ...lines,
+      "Each offer uses a popular product to help sell items that are not moving.",
+    ].join('\n');
   }
 
   String _lowStockAlerts(_StoreData data) {
@@ -679,21 +759,18 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(bottom: BorderSide(color: AppColors.border)),
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 20, 12, 8),
+      color: AppColors.background,
       child: Row(
         children: [
           Container(
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppColors.primaryDark,
+              color: AppColors.primary,
               borderRadius: BorderRadius.circular(15),
             ),
-            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
+            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 22),
           ),
           const SizedBox(width: 12),
           const Expanded(
@@ -703,8 +780,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 Text(
                   'ShopPad Assistant',
                   style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.text,
                   ),
                 ),
@@ -727,41 +804,33 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
   Widget _buildWelcomeCard() {
     return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFE1EEFF), Color(0xFFF8FBFF)],
-        ),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: AppColors.border),
-      ),
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(24)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AppColors.primaryDark,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Icon(Icons.auto_awesome_rounded, color: AppColors.primaryDark, size: 28),
+            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 26),
           ),
           const SizedBox(height: 20),
           const Text(
             'Your store.\nA clearer picture.',
             style: TextStyle(
-              fontSize: 29,
+              fontSize: 28,
               height: 1.25,
-              fontWeight: FontWeight.w700,
-              color: AppColors.onBrand,
+              fontWeight: FontWeight.w800,
+              color: AppColors.onHero,
             ),
           ),
           const SizedBox(height: 12),
           const Text(
             'Choose a question below to explore your sales and stock. Local analysis supports the suggested topics and similar English questions.',
-            style: TextStyle(fontSize: 14, height: 1.6, color: AppColors.muted),
+            style: TextStyle(fontSize: 14, height: 1.6, color: AppColors.onHeroMuted),
           ),
           const SizedBox(height: 18),
           Wrap(
@@ -783,9 +852,16 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: AppColors.primaryDark),
+        Icon(icon, size: 14, color: AppColors.onHero),
         const SizedBox(width: 6),
-        Text(label, style: const TextStyle(fontSize: 11, color: AppColors.primaryDark)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            color: AppColors.onHero,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ],
     ),
   );
@@ -811,6 +887,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         'Slow-moving items',
         'Slow moving products',
         'Find items with fewer sales',
+      ),
+      (
+        Icons.local_offer_outlined,
+        'Bundle offers',
+        'Suggest bundle offers',
+        'Pair best sellers with slow items',
       ),
       (
         Icons.payments_outlined,
@@ -1032,9 +1114,9 @@ class _MessageBubble extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 18),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: isUser ? AppColors.accentSoft : AppColors.surface,
+            color: isUser ? AppColors.primary : AppColors.surface,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: isUser ? AppColors.primary : AppColors.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1044,16 +1126,16 @@ class _MessageBubble extends StatelessWidget {
                   Icon(
                     isUser ? Icons.person_outline_rounded : Icons.auto_awesome_rounded,
                     size: 17,
-                    color: AppColors.primaryDark,
+                    color: isUser ? AppColors.onBrandMuted : AppColors.primaryDark,
                   ),
                   const SizedBox(width: 7),
                   Expanded(
                     child: Text(
                       isUser ? 'You' : 'Local analysis',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.primaryDark,
+                        color: isUser ? AppColors.onBrandMuted : AppColors.primaryDark,
                       ),
                     ),
                   ),
@@ -1079,14 +1161,18 @@ class _MessageBubble extends StatelessWidget {
                 textDirection: RegExp(r'[\u0600-\u06FF]').hasMatch(explanation)
                     ? TextDirection.rtl
                     : TextDirection.ltr,
-                style: const TextStyle(color: AppColors.text, fontSize: 14, height: 1.65),
+                style: TextStyle(
+                  color: isUser ? AppColors.onBrand : AppColors.text,
+                  fontSize: 14,
+                  height: 1.65,
+                ),
               ),
               if (message.hasReport)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.bar_chart_rounded, size: 18),
-                    label: const Text('Open reports'),
+                    label: const Text('Open dashboard'),
                     onPressed: onOpenReports,
                   ),
                 ),
@@ -1139,12 +1225,16 @@ class _ProductInfo {
   final String name;
   final int stock;
   final int minStock;
+  final String category;
+  final double price;
 
   const _ProductInfo({
     required this.key,
     required this.name,
     required this.stock,
     required this.minStock,
+    this.category = '',
+    this.price = 0,
   });
 }
 
