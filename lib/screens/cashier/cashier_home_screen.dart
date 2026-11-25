@@ -233,15 +233,10 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       child: Focus(
         autofocus: true,
         child: AdaptiveNavScaffold(
-          // Screens: 0 home, 1 scanner, 2 cart, 3 profile. The scanner opens from
-          // "Start sale" and belongs to Home in the navigation.
-          selectedIndex: switch (selectedIndex) {
-            2 => 1,
-            3 => 2,
-            _ => 0,
-          },
-          onSelected: (tab) async {
-            final index = const [0, 2, 3][tab];
+          // Screens and tabs match: 0 home, 1 scanner, 2 cart, 3 profile. The scanner
+          // also opens from "Start sale" on Home and with F2.
+          selectedIndex: selectedIndex,
+          onSelected: (index) async {
             setState(() => selectedIndex = index);
             if (index == 0) {
               final uid = _userId;
@@ -250,6 +245,11 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
           },
           items: [
             (icon: Icons.home_outlined, selectedIcon: Icons.home_rounded, label: 'Home'.tr),
+            (
+              icon: Icons.qr_code_scanner_rounded,
+              selectedIcon: Icons.qr_code_scanner_rounded,
+              label: 'Scan'.tr,
+            ),
             (
               icon: Icons.shopping_cart_outlined,
               selectedIcon: Icons.shopping_cart_rounded,
