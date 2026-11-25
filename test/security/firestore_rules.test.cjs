@@ -304,3 +304,12 @@ test('VAT invoice details: owner only, 15-digit number required when registered'
   // Not registered: no number needed.
   allowed(await patch('stores/A',{vatRegistered:false,vatNumber:''},'ownerA'));
 });
+
+test('existing apps keep working: store settings saved without the new VAT fields',async()=>{
+  // What the current production app writes: no VAT fields at all.
+  allowed(await patch('stores/B',{storeName:'Demo B',benefitNumber:'33000000'},'ownerB'));
+  allowed(await patch('stores/B',{benefitQrBase64:'aGVsbG8='},'ownerB'));
+  // Cashiers still cannot change store settings, old fields or new.
+  denied(await patch('stores/B',{benefitNumber:'1'},'cashierB'));
+  denied(await patch('stores/B',{vatRegistered:false},'cashierB'));
+});
