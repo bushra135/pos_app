@@ -190,6 +190,15 @@ class SaleSyncService extends ChangeNotifier {
 
   /// Camera checkout can use the live local catalogue without a network round trip.
   /// Server submission still validates stock; a cache miss uses the server path.
+  /// Quick-button products for the checkout screen, from the offline catalogue.
+  Future<List<Map<String, dynamic>>> quickProducts() async {
+    final uid = currentUserId();
+    if (uid == null) return const [];
+    final context = await store.contextFor(uid) ?? await loadContext(uid);
+    final profile = Map<String, dynamic>.from(context['profile'] as Map);
+    return store.quickProducts(profile['storeCode'].toString());
+  }
+
   /// Store products matching a name, from the offline catalogue.
   Future<List<Map<String, dynamic>>> searchProducts(String query) async {
     final uid = currentUserId();

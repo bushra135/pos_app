@@ -85,6 +85,19 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
 
   /// Products matching a typed name, for items whose barcode cannot be scanned.
   List<Map<String, dynamic>> _nameMatches = const [];
+
+  /// Products the owner marked as quick buttons (one tap, same stock checks as a scan).
+  List<Map<String, dynamic>> _quickProducts = const [];
+
+  Future<void> _loadQuickProducts() async {
+    try {
+      final products = await SaleSyncService.maybeInstance?.quickProducts() ?? const [];
+      if (mounted) setState(() => _quickProducts = products);
+    } catch (error) {
+      debugPrint('Quick buttons not loaded: $error');
+    }
+  }
+
   Timer? _searchDebounce;
 
   bool get _usesBrowserScanner => kIsWeb || widget.browserCheckout != null;
@@ -94,6 +107,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     HardwareKeyboard.instance.addHandler(_onHardwareKey);
+    unawaited(_loadQuickProducts());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _usesBrowserScanner) {
         unawaited(_openBrowserCheckout());
@@ -271,7 +285,10 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         _lastAddedProductId = null;
       }
     });
-    if (paid == true) widget.onSaleCompleted?.call();
+    if (paid == true) {
+      widget.onSaleCompleted?.call();
+      unawaited(_loadQuickProducts());
+    }
     if (mounted && _usesBrowserScanner && !_browserScannerOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) unawaited(_openBrowserCheckout());
@@ -818,6 +835,33 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   }
 
   /// On wide screens the entry field is always shown, so the toggle is left out.
+  /// One-tap buttons for frequent items; each adds through the normal barcode path.
+  Widget _buildQuickProducts() {
+    return SizedBox(
+      height: 52,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+        itemCount: _quickProducts.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final product = _quickProducts[i];
+          final price = product['price'] is num ? product['price'] as num : 0;
+          return ActionChip(
+            avatar: const Icon(Icons.bolt_rounded, size: 18, color: AppColors.primaryDark),
+            label: Text(
+              '{name} · {price}'.trArgs({
+                'name': product['name'] ?? '',
+                'price': Money.format(price),
+              }),
+            ),
+            onPressed: _isAddingProduct ? null : () => _addMatch(product),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildEntryOptions({bool showToggle = true}) => Padding(
     padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
     child: Row(
@@ -1034,6 +1078,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     final salePane = [
       if (!wide) _buildEntryOptions(),
       if (entryVisible) _buildManualBarcodeInput(autofocus: wide),
+      if (_quickProducts.isNotEmpty) _buildQuickProducts(),
       if (_statusMessage != null) _buildScanStatus(),
       _buildLiveCart(),
       _buildReviewSaleButton(unitCount),

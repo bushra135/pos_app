@@ -270,8 +270,14 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final orders = validSales.length;
     final averageOrder = orders == 0 ? 0.0 : total / orders;
 
+    // Same order as the dashboard and owner home: units, then revenue, then name.
     final topProducts = _aggregateProducts(validSales).values.toList()
-      ..sort((a, b) => b.quantity.compareTo(a.quantity));
+      ..sort((a, b) {
+        final byUnits = b.quantity.compareTo(a.quantity);
+        if (byUnits != 0) return byUnits;
+        final byRevenue = b.revenue.compareTo(a.revenue);
+        return byRevenue != 0 ? byRevenue : a.name.compareTo(b.name);
+      });
 
     final topProduct = topProducts.isEmpty ? null : topProducts.first;
 
@@ -1048,7 +1054,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                      borderSide: const BorderSide(color: AppColors.border),
+                      borderSide: const BorderSide(color: AppColors.fieldBorder),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(AppSpacing.cardRadius),

@@ -261,6 +261,22 @@ class LocalPosStore {
     return matches.take(limit).toList();
   }
 
+  /// Products the owner marked as quick buttons at checkout, by name.
+  Future<List<Map<String, dynamic>>> quickProducts(String storeCode, {int limit = 12}) async {
+    final records = await _products.find(
+      database,
+      finder: Finder(
+        filter: Filter.and([
+          Filter.equals('storeCode', storeCode),
+          Filter.equals('quickKey', true),
+        ]),
+      ),
+    );
+    final products = records.map((r) => Map<String, dynamic>.from(r.value)).toList()
+      ..sort((a, b) => (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString()));
+    return products.take(limit).toList();
+  }
+
   Future<Map<String, dynamic>?> productById(String storeCode, String id) async {
     final product = await _products.record(_productKey(storeCode, id)).get(database);
     return product == null ? null : Map<String, dynamic>.from(product);
