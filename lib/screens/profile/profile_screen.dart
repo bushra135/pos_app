@@ -16,6 +16,7 @@ import '../backup/backup_screen.dart';
 import '../../app/app_language.dart';
 import '../../widgets/adaptive_layout.dart';
 import '../../services/profile_edits.dart';
+import '../../utils/profile_photo_data.dart';
 import 'vat_settings_card.dart';
 
 /// Shows user details and payment settings shared by store employees.
@@ -38,6 +39,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String storeName = '';
   String storeCode = '';
   String benefitQrBase64 = '';
+  String photo = '';
+  bool _photoSaving = false;
   Map<String, dynamic> storeData = const {};
 
   bool isLoading = true;
@@ -128,6 +131,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         name = userData['fullName'] ?? '';
         email = userData['email'] ?? '';
         phone = (userData['phone'] ?? '').toString();
+        photo = (userData['photo'] ?? '').toString();
         role = userData['role'] ?? '';
         storeName = fetchedStoreName;
         storeCode = fetchedStoreCode;
@@ -140,6 +144,97 @@ class _ProfileScreenState extends State<ProfileScreen> {
         isLoading = false;
       });
     }
+  }
+
+  /// Lets the user add, replace or remove their own profile photo.
+  Future<void> _changePhoto() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || _photoSaving) return;
+    final hasPhoto = ProfilePhotoData.decode(photo) != null;
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                'Profile photo'.tr,
+                style: const TextStyle(
+                  fontSize: AppTypography.section,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined, color: AppColors.primaryDark),
+              title: Text('Choose from gallery'.tr),
+              onTap: () => Navigator.pop(sheetContext, 'gallery'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined, color: AppColors.primaryDark),
+              title: Text('Take a photo'.tr),
+              onTap: () => Navigator.pop(sheetContext, 'camera'),
+            ),
+            if (hasPhoto)
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                title: Text('Remove photo'.tr, style: const TextStyle(color: AppColors.danger)),
+                onTap: () => Navigator.pop(sheetContext, 'remove'),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !mounted) return;
+
+    String? next;
+    if (action != 'remove') {
+      final XFile? picked;
+      try {
+        picked = await ImagePicker().pickImage(
+          source: action == 'camera' ? ImageSource.camera : ImageSource.gallery,
+          preferredCameraDevice: CameraDevice.front,
+        );
+      } catch (e) {
+        debugPrint('Photo pick failed: $e');
+        _photoMessage('Could not open the camera or gallery.');
+        return;
+      }
+      if (picked == null || !mounted) return;
+      setState(() => _photoSaving = true);
+      try {
+        next = await ProfilePhotoData.prepare(await picked.readAsBytes());
+      } catch (e) {
+        debugPrint('Photo resize failed: $e');
+        if (mounted) setState(() => _photoSaving = false);
+        _photoMessage('Could not use this image. Choose another one.');
+        return;
+      }
+    }
+
+    if (mounted) setState(() => _photoSaving = true);
+    try {
+      await ProfileEdits.savePhoto(FirebaseFirestore.instance, uid: user.uid, photo: next);
+      if (!mounted) return;
+      setState(() {
+        photo = next ?? '';
+        _photoSaving = false;
+      });
+      _photoMessage(next == null ? 'Profile photo removed' : 'Profile photo updated');
+    } catch (e) {
+      debugPrint('Photo save failed: $e');
+      if (mounted) setState(() => _photoSaving = false);
+      _photoMessage('Could not update the photo. Try again.');
+    }
+  }
+
+  void _photoMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message.tr)));
   }
 
   Future<void> _pickQrImage() async {
@@ -572,17 +667,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor: AppColors.primaryDark,
-                          child: Text(
-                            name.trim().isEmpty ? 'U' : name.trim()[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: AppColors.onBrand,
-                              fontSize: AppTypography.metric,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
+                        ProfileAvatar(
+                          name: name,
+                          photo: photo,
+                          saving: _photoSaving,
+                          onTap: _changePhoto,
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -1014,6 +1103,127 @@ class _InfoRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The profile picture: the user's photo, or the first letter of their name.
+/// A small camera badge shows that it can be changed; tapping opens the choices.
+class ProfileAvatar extends StatelessWidget {
+  const ProfileAvatar({
+    super.key,
+    required this.name,
+    required this.photo,
+    required this.onTap,
+    this.saving = false,
+    this.radius = 30,
+  });
+
+  final String name;
+  final String photo;
+  final VoidCallback onTap;
+  final bool saving;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final bytes = ProfilePhotoData.decode(photo);
+    final initial = name.trim().isEmpty ? 'U' : name.trim()[0].toUpperCase();
+    final reduced = Motion.reduced(context);
+    final face = bytes == null
+        ? Container(
+            key: const ValueKey('initial'),
+            color: AppColors.primaryDark,
+            alignment: Alignment.center,
+            child: Text(
+              initial,
+              style: const TextStyle(
+                color: AppColors.onBrand,
+                fontSize: AppTypography.metric,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          )
+        : Image.memory(
+            bytes,
+            key: ValueKey(photo.length ^ photo.hashCode),
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            errorBuilder: (_, _, _) => Container(color: AppColors.primaryDark),
+          );
+    return Semantics(
+      button: true,
+      label: (bytes == null ? 'Add a profile photo' : 'Change profile photo').tr,
+      child: PressableScale(
+        enabled: !saving,
+        child: GestureDetector(
+          onTap: saving ? null : onTap,
+          child: SizedBox.square(
+            dimension: radius * 2 + 6,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  left: 3,
+                  top: 3,
+                  right: 3,
+                  bottom: 3,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: AppColors.surface,
+                      shape: BoxShape.circle,
+                    ),
+                    child: ClipOval(
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          AnimatedSwitcher(
+                            duration: reduced ? Duration.zero : Motion.fast,
+                            child: face,
+                          ),
+                          if (saving)
+                            const ColoredBox(
+                              color: Color(0x66142C4E),
+                              child: Center(
+                                child: SizedBox.square(
+                                  dimension: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.4,
+                                    color: AppColors.onBrand,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                PositionedDirectional(
+                  end: 0,
+                  bottom: 0,
+                  child: ExcludeSemantics(
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.surface, width: 2),
+                      ),
+                      child: Icon(
+                        bytes == null ? Icons.add_a_photo_outlined : Icons.photo_camera_outlined,
+                        size: 13,
+                        color: AppColors.onBrand,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

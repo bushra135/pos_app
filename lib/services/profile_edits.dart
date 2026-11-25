@@ -79,6 +79,19 @@ abstract final class ProfileEdits {
     return changed;
   }
 
+  /// Sets the user's own profile photo (a data URL from ProfilePhotoData), or removes
+  /// it when [photo] is null. Touches only `photo` and `updatedAt`.
+  static Future<void> savePhoto(
+    FirebaseFirestore firestore, {
+    required String uid,
+    required String? photo,
+  }) {
+    return firestore.collection('users').doc(uid).update({
+      'photo': photo ?? FieldValue.delete(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   /// After the user confirms a new email (link sent by Firebase Auth), copies it to their
   /// profile so the owner's cashier list shows the right address. No-op when equal.
   static Future<bool> syncEmail(

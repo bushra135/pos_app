@@ -59,6 +59,7 @@ const Map<String, String> arabicStrings = {
   'Add': 'إضافة',
   'Add a cost price to your products (Products › Edit) to see profit here.':
       'أضف سعر التكلفة لمنتجاتك (المنتجات › تعديل) لتظهر الأرباح هنا.',
+  'Add a profile photo': 'أضف صورة شخصية',
   'Add cost prices to your products to see the largest discount you can give without a loss.':
       'أضف أسعار التكلفة لمنتجاتك لتعرف أكبر خصم ممكن بدون خسارة.',
   'Add discount': 'إضافة خصم',
@@ -159,9 +160,11 @@ const Map<String, String> arabicStrings = {
   'Change': 'الباقي',
   'Change password': 'تغيير كلمة المرور',
   'Change products and prices': 'تعديل المنتجات والأسعار',
+  'Change profile photo': 'غيّر الصورة الشخصية',
   'Check this price': 'راجع هذا السعر',
   'Choose a question below to explore your sales and stock. Local analysis supports the suggested topics and similar English questions.':
       'اختر سؤالاً من الأسفل لاستكشاف مبيعاتك ومخزونك. يدعم التحليل المحلي المواضيع المقترحة والأسئلة المشابهة بالإنجليزية.',
+  'Choose from gallery': 'اختر من المعرض',
   'Choose image': 'اختيار صورة',
   'Clear report filters': 'مسح فلاتر التقرير',
   'Close': 'إغلاق',
@@ -203,6 +206,7 @@ const Map<String, String> arabicStrings = {
   'Could not open browser camera. Retry or use Enter barcode.':
       'تعذّر فتح الكاميرا. أعد المحاولة أو أدخل الباركود يدوياً.',
   'Could not open the browser.': 'تعذّر فتح المتصفح.',
+  'Could not open the camera or gallery.': 'تعذّر فتح الكاميرا أو المعرض.',
   'Could not prepare the report. Retry the download.': 'تعذّر تجهيز التقرير. أعد محاولة التنزيل.',
   'Could not resume the sale. Your carts are kept. Please retry.':
       'تعذّر استئناف البيع. سلالك محفوظة. أعد المحاولة.',
@@ -215,9 +219,11 @@ const Map<String, String> arabicStrings = {
   'Could not update stock. Check your connection and try again.':
       'تعذّر تحديث المخزون. تحقق من الاتصال وحاول مرة أخرى.',
   'Could not update the offer. Try again.': 'تعذّر تحديث العرض. حاول مرة أخرى.',
+  'Could not update the photo. Try again.': 'تعذّر تحديث الصورة. حاول مرة أخرى.',
   'Could not update. Check your connection and try again.':
       'تعذّر التحديث. تحقق من الاتصال وحاول مرة أخرى.',
   'Could not upload the QR image. Try again.': 'تعذّر رفع صورة QR. حاول مرة أخرى.',
+  'Could not use this image. Choose another one.': 'تعذّر استخدام هذه الصورة. اختر صورة أخرى.',
   'Count correction': 'تصحيح الجرد',
   'Count the cash in the drawer and enter it below.': 'عُدّ النقد في الدرج وأدخله أدناه.',
   'Counted cash': 'النقد المعدود',
@@ -558,6 +564,9 @@ const Map<String, String> arabicStrings = {
   'Product updated successfully': 'تم تحديث المنتج',
   'Products': 'المنتجات',
   'Profile': 'حسابي',
+  'Profile photo': 'الصورة الشخصية',
+  'Profile photo removed': 'تمت إزالة الصورة الشخصية',
+  'Profile photo updated': 'تم تحديث الصورة الشخصية',
   'Profile updated': 'تم تحديث الملف الشخصي',
   'Profile updated. Open the link we sent to {email} to finish changing your email, then sign in with it.':
       'تم تحديث الملف الشخصي. افتح الرابط الذي أرسلناه إلى {email} لإكمال تغيير البريد، ثم سجّل الدخول به.',
@@ -600,6 +609,7 @@ const Map<String, String> arabicStrings = {
   'Remove': 'إزالة',
   'Remove one': 'إزالة واحد',
   'Remove one {name}': 'إزالة واحد من {name}',
+  'Remove photo': 'إزالة الصورة',
   'Remove this cart item and scan it again for your store.':
       'احذف هذا المنتج من السلة وامسحه مرة أخرى لمتجرك.',
   'Remove {name}': 'إزالة {name}',
@@ -765,6 +775,7 @@ const Map<String, String> arabicStrings = {
   'Switch to cashier': 'التحويل إلى الكاشير',
   'Switch to owner': 'التحويل إلى المالك',
   'Synchronized': 'تمت المزامنة',
+  'Take a photo': 'التقط صورة',
   'Tap Add to create your first product with its barcode, price, and stock.':
       'اضغط إضافة لإنشاء أول منتج بالباركود والسعر والمخزون.',
   'Tap a question, or ask about sales, stock and offers.':
