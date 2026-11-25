@@ -53,6 +53,12 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   int todayOrders = 0;
   double yesterdaySales = 0.0;
   int lowStockCount = 0;
+
+  /// Products at or below their minimum, lowest first, for the stock alerts.
+  List<({String name, int stock, int minStock})> lowStockItems = const [];
+
+  /// The low-stock notice shows once per app session, not on every refresh.
+  static bool _stockNoticeShown = false;
   String bestSellerName = '';
   int bestSellerSold = 0;
   int totalProducts = 0;
@@ -154,6 +160,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           .get(options);
 
       int lowStock = 0;
+      final lowItems = <({String name, int stock, int minStock})>[];
       final total = productsSnapshot.docs.length;
       final corrections =
           <({DocumentReference<Map<String, dynamic>> ref, String name, int recorded, int sold})>[];
@@ -176,7 +183,14 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         final quantity = ((data['stock'] ?? data['quantity'] ?? 0) as num).toInt();
         final minQty = ((data['minStock'] ?? data['minQuantity'] ?? 5) as num).toInt();
 
-        if (quantity <= minQty) lowStock++;
+        if (quantity <= minQty) {
+          lowStock++;
+          lowItems.add((
+            name: (data['name'] ?? 'Product').toString(),
+            stock: quantity,
+            minStock: minQty,
+          ));
+        }
       }
 
       // Use the device's local day, excluding the start of tomorrow.
@@ -216,6 +230,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         todayOrders = today.orders;
         yesterdaySales = today.yesterdaySales;
         lowStockCount = lowStock;
+        lowStockItems = lowItems..sort((a, b) => a.stock.compareTo(b.stock));
         bestSellerName = today.bestSeller;
         bestSellerSold = today.bestSellerUnits;
         totalProducts = total;
@@ -226,6 +241,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         stockCorrections = corrections;
         receiptsToReview = reviewCount;
       });
+      _maybeShowStockNotice();
     } catch (e) {
       debugPrint('Error loading dashboard data: $e');
     }
@@ -442,7 +458,23 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             ],
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
+        IconButton(
+          tooltip: 'Low stock alerts'.tr,
+          onPressed: isLoading ? null : _showStockAlerts,
+          icon: Badge(
+            isLabelVisible: lowStockCount > 0,
+            label: Text('$lowStockCount'),
+            backgroundColor: AppColors.danger,
+            child: Icon(
+              lowStockCount > 0
+                  ? Icons.notifications_active_outlined
+                  : Icons.notifications_none_rounded,
+              color: lowStockCount > 0 ? AppColors.danger : AppColors.text,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
         Tooltip(
           message: 'Switch to cashier'.tr,
           child: FilledButton.icon(
@@ -457,6 +489,101 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Once per app session: tells the owner some products are running out.
+  void _maybeShowStockNotice() {
+    if (_stockNoticeShown || lowStockCount == 0 || !mounted) return;
+    _stockNoticeShown = true;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 6),
+        content: Text(
+          (lowStockCount == 1 ? '1 product is low on stock' : '{n} products are low on stock')
+              .trArgs({'n': lowStockCount}),
+        ),
+        action: SnackBarAction(label: 'View'.tr, onPressed: _showStockAlerts),
+      ),
+    );
+  }
+
+  /// The low-stock list behind the bell, lowest first.
+  void _showStockAlerts() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.page, 0, AppSpacing.page, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Low stock alerts'.tr,
+                style: const TextStyle(
+                  fontSize: AppTypography.section,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (lowStockItems.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    'Everything is in stock.'.tr,
+                    style: const TextStyle(color: AppColors.muted),
+                  ),
+                )
+              else
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.55,
+                  ),
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (final item in lowStockItems)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            item.stock <= 0
+                                ? Icons.remove_shopping_cart_outlined
+                                : Icons.warning_amber_rounded,
+                            color: item.stock <= 0 ? AppColors.danger : AppColors.warning,
+                          ),
+                          title: Text(
+                            item.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: Text(
+                            item.stock <= 0
+                                ? 'Out of stock · minimum {min}'.trArgs({'min': item.minStock})
+                                : '{n} left · minimum {min}'.trArgs({
+                                    'n': item.stock,
+                                    'min': item.minStock,
+                                  }),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.pop(sheetContext);
+                  setState(() => _selectedIndex = 1);
+                },
+                icon: const Icon(Icons.inventory_2_outlined),
+                label: Text('Open products to restock'.tr),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
