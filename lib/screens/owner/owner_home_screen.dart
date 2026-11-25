@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'offers_screen.dart';
 import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
@@ -392,6 +393,55 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                 onTap: _openCashiersManagement,
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          // The doctor's idea: help slow stock sell by pairing it with best sellers.
+          Material(
+            color: AppColors.accentSoft,
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => OffersScreen(
+                    firestore: widget.firestore,
+                    currentUserId: widget.currentUserId,
+                  ),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    const Icon(Icons.local_offer_outlined, color: AppColors.primaryDark),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Offers & tips'.tr,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.text,
+                            ),
+                          ),
+                          Text(
+                            'Sell slow items with your best sellers'.tr,
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: AppTypography.caption,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+                  ],
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 8),
           Align(

@@ -273,3 +273,20 @@ test('users edit their own phone and confirmed email, nothing else',async()=>{
   denied(await patch('users/cashierA',{phone:'+973 1'},'cashierB'));
   denied(await patch('users/ownerA',{email:'cashierA@test.invalid'},'cashierA'));
 });
+
+test('bundle offers: only the owner starts them, and receipts may record them',async()=>{
+  allowed(await put('users/editorA',{uid:'editorA',role:'cashier',storeCode:'A',isActive:true,status:'active',canEditProducts:true,canAdjustStock:true}));
+  allowed(await put('products/offerSlowA',{storeCode:'A',name:'Ruler',price:0.4,stock:5,barcode:'999'}));
+  const offer={offerActive:true,offerWithId:'productA',offerWithName:'Pen',offerPercent:20};
+  // Even a cashier allowed to edit products cannot start or change an offer.
+  denied(await patch('products/offerSlowA',offer,'editorA'));
+  denied(await patch('products/offerSlowA',{offerPercent:50},'cashierA'));
+  allowed(await patch('products/offerSlowA',offer,'ownerA'));
+  denied(await patch('products/offerSlowA',{offerActive:false},'editorA'));
+  allowed(await patch('products/offerSlowA',{offerActive:false},'ownerA'));
+  // A cashier receipt carries the offer's share of the discount; totals must still add up.
+  const withOffer=receipt('offer-receipt','cashierA',{productIds:[],subtotal:2,discount:0.2,total:1.8,offerDiscount:0.2,offers:['Pen + Ruler 20%']});
+  allowed(await commit([['sales/offer-receipt',withOffer]],'cashierA'));
+  const wrong=receipt('offer-wrong','cashierA',{productIds:[],subtotal:2,discount:0.2,total:2,offerDiscount:0.2});
+  denied(await commit([['sales/offer-wrong',wrong]],'cashierA'));
+});
