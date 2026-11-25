@@ -1,8 +1,8 @@
-import '../app/app_language.dart';
 import '../app/money.dart';
 import '../models/sale_record.dart';
+import 'receipt_layout.dart';
 
-/// A plain-text receipt for WhatsApp, in the app's current language.
+/// A plain-text bilingual receipt for WhatsApp.
 abstract final class ReceiptText {
   /// Digits for a wa.me link, or null when the number is not usable.
   /// Local Bahraini numbers (8 digits) get the 973 country code.
@@ -16,31 +16,25 @@ abstract final class ReceiptText {
     return digits;
   }
 
+  /// The bilingual receipt as plain text: same content as the screen and the PDF.
   static String message(SaleRecord sale) {
-    final date = sale.createdAt.toLocal();
-    String two(int value) => value.toString().padLeft(2, '0');
-    final lines = <String>[
+    final layout = ReceiptLayout.of(sale);
+    String row(ReceiptRow r) => '${r.label}: ${r.value}';
+    return [
       sale.storeName,
-      '${sale.receiptNumber} · ${two(date.day)}/${two(date.month)}/${date.year} ${two(date.hour)}:${two(date.minute)}',
+      ...layout.storeLines,
+      layout.title,
+      '',
+      for (final r in layout.meta) row(r),
+      if (layout.buyer.isNotEmpty) ...['', for (final r in layout.buyer) row(r)],
       '',
       for (final line in sale.items)
         '${line.name}  ${line.quantity} × ${Money.format(line.price)} = ${Money.format(line.subtotal)}',
       '',
-      if (sale.discount > 0) ...[
-        '${'Subtotal'.tr}: ${Money.format(sale.subtotal)}',
-        if (sale.offerDiscount > 0) '${'Bundle offer'.tr}: − ${Money.format(sale.offerDiscount)}',
-        if (sale.discount - sale.offerDiscount > 0.0005)
-          '${'Discount'.tr}: − ${Money.format(sale.discount - sale.offerDiscount)}',
-      ],
-      if (sale.vatRate > 0)
-        '${'VAT {rate}% (included)'.trArgs({'rate': sale.vatRate.toStringAsFixed(0)})}: '
-            '${Money.format(sale.tax)}',
-      'Total: {amount}'.trArgs({'amount': Money.format(sale.total)}),
-      'Payment: {method}'.trArgs({'method': sale.paymentMethod.tr}),
+      for (final r in layout.totals) row(r),
       '',
-      'Thank you for shopping with us'.tr,
-    ];
-    return lines.join('\n');
+      ReceiptLayout.thanks,
+    ].join('\n');
   }
 
   /// wa.me link that opens WhatsApp with the receipt typed in; without a number the

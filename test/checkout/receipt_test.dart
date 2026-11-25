@@ -67,7 +67,8 @@ void main() {
           ),
         );
         expect(find.text('Sale saved'), findsOneWidget);
-        expect(find.text('Total: BD 4.500'), findsOneWidget);
+        expect(find.text('الإجمالي · Total'), findsOneWidget);
+        expect(find.text('BD 4.500'), findsWidgets);
         await tester.scrollUntilVisible(
           find.text('Share PDF'),
           120,

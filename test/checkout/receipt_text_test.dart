@@ -31,22 +31,22 @@ void main() {
     expect(ReceiptText.whatsappNumber('33OO 0000'), isNull);
   });
 
-  test('the message lists items, discount, VAT, total and payment', () {
+  test('the message lists items, discount, VAT, total and payment, bilingual', () {
     final text = ReceiptText.message(_sale());
     expect(text, contains('Al Reem Stationery'));
     expect(text, contains('RCPT-ABC123'));
     expect(text, contains('Blue pen  2 × BD 0.500 = BD 1.000'));
-    expect(text, contains('Discount: − BD 0.250'));
-    expect(text, contains('Total: BD 2.500'));
-    expect(text, contains('Payment: Cash'));
+    expect(text, contains('خصم · Discount: − BD 0.250'));
+    expect(text, contains('ضريبة القيمة المضافة · VAT 10%: BD 0.227'));
+    expect(text, contains('الإجمالي شامل الضريبة · Total incl. VAT: BD 2.500'));
+    expect(text, contains('الدفع · Paid by: نقداً · Cash'));
   });
 
-  test('in Arabic the message is Arabic', () {
+  test('the receipt labels are bilingual in either app language; amounts follow it', () {
     AppLanguage.locale.value = AppLanguage.arabic;
     final text = ReceiptText.message(_sale());
-    expect(text, contains('الإجمالي'));
-    expect(text, contains('نقداً'));
-    expect(text, isNot(contains('Total')));
+    expect(text, contains('الإجمالي شامل الضريبة · Total incl. VAT: 2.500 د.ب'));
+    expect(text, contains('الدفع · Paid by: نقداً · Cash'));
   });
 
   test('the wa.me link carries the number and the receipt text', () {

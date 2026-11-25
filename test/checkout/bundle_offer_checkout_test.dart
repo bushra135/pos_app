@@ -134,6 +134,6 @@ void main() {
     expect(saved.offerDiscount, 0.1);
     expect(saved.total, 1.3);
     expect(saved.offerNames, ['Blue pen + Ruler 25%']);
-    expect(find.text('Bundle offer'), findsOneWidget, reason: 'shown on the receipt');
+    expect(find.text('عرض مجمّع · Bundle offer'), findsOneWidget, reason: 'shown on the receipt');
   });
 }

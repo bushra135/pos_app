@@ -9,7 +9,9 @@ import '../app/app_language.dart';
 import '../app/money.dart';
 import '../app/app_typography.dart';
 import '../app/app_spacing.dart';
+import '../utils/receipt_layout.dart';
 import '../utils/receipt_text.dart';
+import 'receipt_card.dart';
 
 /// Export failures stay on this screen and cannot submit the sale again.
 class SaleReceiptView extends StatefulWidget {
@@ -121,8 +123,6 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
   @override
   Widget build(BuildContext context) {
     final sale = widget.sale;
-    final date = sale.createdAt.toLocal();
-    String two(int value) => value.toString().padLeft(2, '0');
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -158,155 +158,11 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                     style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
                   ),
                   const SizedBox(height: 24),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            sale.storeName,
-                            style: const TextStyle(
-                              fontSize: AppTypography.headline,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          SelectableText(
-                            sale.receiptNumber,
-                            style: const TextStyle(
-                              color: AppColors.primaryDark,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '${two(date.day)}/${two(date.month)}/${date.year} · ${two(date.hour)}:${two(date.minute)}',
-                            style: const TextStyle(
-                              color: AppColors.muted,
-                              fontSize: AppTypography.caption,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              Chip(
-                                avatar: const Icon(
-                                  Icons.person_outline,
-                                  size: 16,
-                                  color: AppColors.primaryDark,
-                                ),
-                                label: Text('Cashier: {name}'.trArgs({'name': sale.cashierName})),
-                              ),
-                              Chip(
-                                avatar: const Icon(
-                                  Icons.payments_outlined,
-                                  size: 16,
-                                  color: AppColors.primaryDark,
-                                ),
-                                label: Text(
-                                  'Payment: {method}'.trArgs({'method': sale.paymentMethod.tr}),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 32),
-                          Text(
-                            'Items'.tr,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: AppTypography.subtitle,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          for (final line in sale.items)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          line.name,
-                                          style: const TextStyle(fontWeight: FontWeight.w600),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${line.quantity} × ${Money.format(line.price)}',
-                                          style: const TextStyle(
-                                            color: AppColors.muted,
-                                            fontSize: AppTypography.caption,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Flexible(
-                                    fit: FlexFit.tight,
-                                    child: Text(
-                                      Money.format(line.subtotal),
-                                      textAlign: TextAlign.end,
-                                      style: const TextStyle(fontWeight: FontWeight.w600),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          const Divider(height: 28),
-                          // Subtotal, discount and the VAT already inside the total.
-                          for (final row in [
-                            if (sale.discount > 0) ...[
-                              ('Subtotal'.tr, Money.format(sale.subtotal)),
-                              if (sale.offerDiscount > 0)
-                                ('Bundle offer'.tr, '− ${Money.format(sale.offerDiscount)}'),
-                              if (sale.discount - sale.offerDiscount > 0.0005)
-                                (
-                                  'Discount'.tr,
-                                  '− ${Money.format(sale.discount - sale.offerDiscount)}',
-                                ),
-                            ],
-                            if (sale.vatRate > 0)
-                              (
-                                'VAT {rate}% (included)'.trArgs({
-                                  'rate': sale.vatRate.toStringAsFixed(0),
-                                }),
-                                Money.format(sale.tax),
-                              ),
-                          ])
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(row.$1, style: const TextStyle(color: AppColors.muted)),
-                                  Text(row.$2, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                ],
-                              ),
-                            ),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppColors.accentSoft,
-                              borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                            ),
-                            child: Text(
-                              'Total: {amount}'.trArgs({'amount': Money.format(sale.total)}),
-                              style: const TextStyle(
-                                fontSize: AppTypography.title,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primaryDark,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                  // A receipt keeps receipt proportions on wide screens.
+                  Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 460),
+                      child: _ReceiptPaper(layout: ReceiptLayout.of(sale)),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -357,6 +213,151 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The receipt as printed: bilingual, in the app's receipt shape. Its content comes
+/// from [ReceiptLayout], the same source as the PDF and the WhatsApp text.
+class _ReceiptPaper extends StatelessWidget {
+  const _ReceiptPaper({required this.layout});
+
+  final ReceiptLayout layout;
+
+  Widget _row(ReceiptRow row, {double size = AppTypography.caption}) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text(
+            row.label,
+            style: TextStyle(
+              color: row.strong ? AppColors.text : AppColors.muted,
+              fontSize: size,
+              fontWeight: row.strong ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(
+            row.value,
+            textAlign: TextAlign.end,
+            style: TextStyle(
+              fontSize: row.strong ? size + 3 : size,
+              fontWeight: row.strong ? FontWeight.w700 : FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final sale = layout.sale;
+    final buyer = layout.buyer;
+    return ReceiptCard(
+      color: AppColors.surface,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            sale.storeName,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: AppTypography.headline, fontWeight: FontWeight.w700),
+          ),
+          for (final line in layout.storeLines)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                line,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
+              ),
+            ),
+          const SizedBox(height: 10),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.accentSoft,
+                borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
+              ),
+              child: Text(
+                layout.title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.primaryDark,
+                  fontWeight: FontWeight.w700,
+                  fontSize: AppTypography.caption,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          const ReceiptRule(color: AppColors.border),
+          const SizedBox(height: 8),
+          for (final row in layout.meta) _row(row),
+          if (buyer.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            const ReceiptRule(color: AppColors.border),
+            const SizedBox(height: 8),
+            for (final row in buyer) _row(row),
+          ],
+          const SizedBox(height: 8),
+          const ReceiptRule(color: AppColors.border),
+          const SizedBox(height: 8),
+          for (final line in sale.items)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(line.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        Text(
+                          '${line.quantity} × ${Money.format(line.price)}',
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: AppTypography.caption,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(
+                      Money.format(line.subtotal),
+                      textAlign: TextAlign.end,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 8),
+          const ReceiptRule(color: AppColors.border),
+          const SizedBox(height: 8),
+          for (final row in layout.totals) _row(row, size: AppTypography.body),
+          const SizedBox(height: 10),
+          const Text(
+            ReceiptLayout.thanks,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
+          ),
+        ],
       ),
     );
   }

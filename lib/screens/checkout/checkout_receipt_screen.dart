@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
@@ -14,6 +15,7 @@ import '../../models/sale_record.dart';
 import '../../services/sale_sync_service.dart';
 import '../../utils/active_offers.dart';
 import '../../utils/cart_manager.dart';
+import '../../utils/vat_invoice.dart';
 import '../../widgets/adaptive_layout.dart';
 import '../../widgets/receipt_card.dart';
 import '../../widgets/sale_receipt_view.dart';
@@ -88,10 +90,28 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     setState(() => _cashController.text = amount.toStringAsFixed(3));
   }
 
-  /// VAT contained in the VAT-inclusive total.
+  /// The store's VAT status; a store that is not registered collects no VAT.
+  StoreVat _storeVat = StoreVat.fromStore(null);
+
+  /// VAT contained in the VAT-inclusive total (0 when the store is not registered).
   double get _vat {
-    const rate = SaleRecord.bahrainVatRate;
-    return _fils(_total * rate / (100 + rate));
+    final rate = _storeVat.rate;
+    return rate <= 0 ? 0 : _fils(_total * rate / (100 + rate));
+  }
+
+  /// Customer details for a full tax invoice (registered stores, when asked for).
+  ({String name, String address, String vatNumber})? _buyer;
+
+  /// Taken once per checkout, so a retry never skips a number.
+  String? _invoiceNumber;
+
+  Future<void> _editBuyer() async {
+    final result = await showDialog<({String name, String address, String vatNumber})>(
+      context: context,
+      builder: (_) => _BuyerDialog(initial: _buyer, total: _total),
+    );
+    if (result == null || !mounted) return;
+    setState(() => _buyer = result.name.isEmpty ? null : result);
   }
 
   Future<void> _editDiscount() async {
@@ -196,6 +216,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       final fetchedStoreName = (storeData['storeName'] ?? userData['storeName'] ?? '').toString();
       final fetchedBenefitNumber = (storeData['benefitNumber'] ?? '').toString();
       final fetchedBenefitQrBase64 = (storeData['benefitQrBase64'] ?? '').toString();
+      final storeVat = StoreVat.fromStore(storeData);
       // Offers come from the offline catalogue; without them the sale simply has none.
       var offers = const <ActiveOffer>[];
       try {
@@ -212,6 +233,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         storeCode = fetchedStoreCode;
         benefitNumber = fetchedBenefitNumber;
         benefitQrBase64 = fetchedBenefitQrBase64;
+        _storeVat = storeVat;
         _offers = offers;
         isLoading = false;
       });
@@ -273,6 +295,16 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
           ),
         );
       }
+      // The counter lives on this device; if its storage is unavailable the sale still
+      // goes through, numbered from its own id instead of the sequence.
+      _invoiceNumber ??= await SharedPreferences.getInstance()
+          .then((prefs) => InvoiceNumbers(prefs).next(storeCode))
+          .timeout(const Duration(seconds: 3))
+          .catchError((Object e) {
+            debugPrint('Invoice counter unavailable: $e');
+            return 'INV-${_shortReceiptNumber.substring(1)}';
+          });
+      final buyer = _storeVat.issuesTaxInvoices ? _buyer : null;
       final sale = SaleRecord(
         id: _saleId,
         storeCode: storeCode,
@@ -284,7 +316,14 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         items: items,
         correctStockShortages: true,
         discount: _discountAmount,
-        vatRate: SaleRecord.bahrainVatRate,
+        vatRate: _storeVat.rate,
+        invoiceNumber: _invoiceNumber!,
+        invoiceKind: InvoiceKind.forSale(vat: _storeVat, buyerDetails: buyer != null),
+        storeVatNumber: _storeVat.issuesTaxInvoices ? _storeVat.number : '',
+        storeAddress: _storeVat.address,
+        buyerName: buyer?.name ?? '',
+        buyerAddress: buyer?.address ?? '',
+        buyerVatNumber: buyer?.vatNumber ?? '',
         offerDiscount: _offerAmount.clamp(0, _discountAmount).toDouble(),
         offerNames: [
           for (final applied in _appliedOffers)
@@ -723,6 +762,25 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                           : 'Add discount'.tr,
                                     ),
                                   ),
+                                  if (_storeVat.issuesTaxInvoices) ...[
+                                    const SizedBox(height: 10),
+                                    OutlinedButton.icon(
+                                      onPressed: isSavingSale ? null : _editBuyer,
+                                      icon: Icon(
+                                        _buyer == null
+                                            ? Icons.receipt_long_outlined
+                                            : Icons.edit_outlined,
+                                        size: 18,
+                                      ),
+                                      label: Text(
+                                        _buyer == null
+                                            ? 'Full tax invoice for the customer'.tr
+                                            : 'Tax invoice: {name} · Edit'.trArgs({
+                                                'name': _buyer!.name,
+                                              }),
+                                      ),
+                                    ),
+                                  ],
                                   if (selectedPaymentMethod == 'Cash') ...[
                                     const SizedBox(height: 14),
                                     _buildCashPanel(),
@@ -941,29 +999,31 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      // Long in Arabic: wraps instead of pushing the amount off screen.
-                                      Expanded(
-                                        child: Text(
-                                          'VAT {rate}% (included)'.trArgs({
-                                            'rate': SaleRecord.bahrainVatRate.toStringAsFixed(0),
-                                          }),
-                                          style: const TextStyle(
-                                            color: AppColors.muted,
-                                            fontWeight: FontWeight.w600,
+                                  if (_storeVat.rate > 0) ...[
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        // Long in Arabic: wraps instead of pushing the amount off screen.
+                                        Expanded(
+                                          child: Text(
+                                            'VAT {rate}% (included)'.trArgs({
+                                              'rate': _storeVat.rate.toStringAsFixed(0),
+                                            }),
+                                            style: const TextStyle(
+                                              color: AppColors.muted,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Text(
-                                        Money.format(_vat),
-                                        style: const TextStyle(fontWeight: FontWeight.w600),
-                                      ),
-                                    ],
-                                  ),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          Money.format(_vat),
+                                          style: const TextStyle(fontWeight: FontWeight.w600),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                   const SizedBox(height: 14),
                                   const ReceiptRule(color: AppColors.border),
                                   const SizedBox(height: 12),
@@ -1149,6 +1209,95 @@ class _DiscountDialogState extends State<_DiscountDialog> {
           onPressed: valid ? () => Navigator.pop(context, (value: value, percent: _percent)) : null,
           child: Text('Apply'.tr),
         ),
+      ],
+    );
+  }
+}
+
+/// Customer details for a full tax invoice (NBR): name and address, plus the
+/// customer's VAT account number when they are VAT-registered.
+class _BuyerDialog extends StatefulWidget {
+  const _BuyerDialog({required this.initial, required this.total});
+
+  final ({String name, String address, String vatNumber})? initial;
+  final double total;
+
+  @override
+  State<_BuyerDialog> createState() => _BuyerDialogState();
+}
+
+class _BuyerDialogState extends State<_BuyerDialog> {
+  final _form = GlobalKey<FormState>();
+  late final _name = TextEditingController(text: widget.initial?.name ?? '');
+  late final _address = TextEditingController(text: widget.initial?.address ?? '');
+  late final _vat = TextEditingController(text: widget.initial?.vatNumber ?? '');
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _address.dispose();
+    _vat.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    if (!_form.currentState!.validate()) return;
+    Navigator.pop(context, (
+      name: _name.text.trim(),
+      address: _address.text.trim(),
+      vatNumber: VatChecks.digits(_vat.text),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Full tax invoice'.tr),
+      content: Form(
+        key: _form,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                (widget.total > InvoiceKind.simplifiedLimit
+                        ? 'Above BD 500 a VAT-registered customer needs a full tax invoice.'
+                        : 'For customers who ask for a tax invoice with their details.')
+                    .tr,
+                style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _name,
+                decoration: InputDecoration(labelText: 'Customer name'.tr),
+                validator: (v) => (v ?? '').trim().isEmpty ? 'Enter the customer name'.tr : null,
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _address,
+                decoration: InputDecoration(labelText: 'Customer address'.tr),
+                validator: (v) => VatChecks.address(v ?? '', required: true)?.tr,
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _vat,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: 'Customer VAT number (if registered)'.tr),
+                validator: (v) => VatChecks.vatNumber(v ?? '', required: false)?.tr,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        if (widget.initial != null)
+          TextButton(
+            onPressed: () => Navigator.pop(context, (name: '', address: '', vatNumber: '')),
+            child: Text('Remove'.tr),
+          ),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel'.tr)),
+        FilledButton(onPressed: _save, child: Text('Save'.tr)),
       ],
     );
   }

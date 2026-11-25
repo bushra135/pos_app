@@ -87,7 +87,9 @@ Future<FakeFirebaseFirestore> _seed() async {
 }
 
 /// Latin words still on screen, after removing allowed names and short codes.
-List<String> _englishOnScreen(WidgetTester tester) {
+/// [bilingual]: the receipt prints Arabic and English side by side by design, so a
+/// line that carries Arabic as well is accepted there (and only there).
+List<String> _englishOnScreen(WidgetTester tester, {bool bilingual = false}) {
   final found = <String>[];
   for (final element in find.byType(Text).evaluate()) {
     final widget = element.widget as Text;
@@ -97,7 +99,8 @@ List<String> _englishOnScreen(WidgetTester tester) {
       rest = rest.replaceAll(word, '');
     }
     // Receipt codes such as #SZLXMV and barcodes are identifiers, not words.
-    rest = rest.replaceAll(RegExp(r'#[A-Z0-9]+|RCPT-\S+'), '');
+    rest = rest.replaceAll(RegExp(r'#[A-Z0-9]+|RCPT-\S+|INV-\S+'), '');
+    if (bilingual && RegExp(r'[؀-ۿ]').hasMatch(text)) continue;
     if (RegExp(r'[A-Za-z]{3,}').hasMatch(rest)) found.add(text);
   }
   return found;
@@ -205,7 +208,7 @@ void main() {
   for (final entry in screens.entries) {
     testWidgets('${entry.key} shows no untranslated English in Arabic', (tester) async {
       await show(tester, await entry.value());
-      expect(_englishOnScreen(tester), isEmpty);
+      expect(_englishOnScreen(tester, bilingual: entry.key == 'receipt after payment'), isEmpty);
     });
   }
 
