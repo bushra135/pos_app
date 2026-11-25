@@ -11,6 +11,7 @@ import '../../app/app_colors.dart';
 import '../../app/app_typography.dart';
 import '../../services/barcode_catalog_service.dart';
 import '../../services/browser_scanner.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/scanner_error_panel.dart';
 import '../../widgets/app_empty_state.dart';
@@ -1022,7 +1023,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                 shape: shape,
               ),
               icon: const Icon(Icons.shopping_cart_outlined, size: 20),
-              label: Text(
+              label: RollingText(
                 '$unitCount',
                 style: const TextStyle(
                   fontWeight: FontWeight.w800,
@@ -1053,7 +1054,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                   const SizedBox(width: 10),
                   Text('Pay'.tr),
                   const Spacer(),
-                  Text(Money.format(CartManager.total)),
+                  RollingText(Money.format(CartManager.total)),
                 ],
               ),
             ),

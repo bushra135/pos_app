@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../utils/vat_invoice.dart';
+import '../../widgets/motion.dart';
 import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
@@ -324,7 +325,11 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         children: [
           const SaleSyncPanel(),
           Expanded(
-            child: isLoading ? const Center(child: CircularProgressIndicator()) : currentScreen,
+            child: isLoading
+                ? const HomeSkeleton()
+                : FadeThroughSwitcher(
+                    child: KeyedSubtree(key: ValueKey(_selectedIndex), child: currentScreen),
+                  ),
           ),
         ],
       ),
@@ -341,9 +346,9 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(AppSpacing.page, 24, AppSpacing.page, 24),
         children: [
-          _buildHeader(),
+          FadeSlideIn(child: _buildHeader()),
           const SizedBox(height: 18),
-          _buildSalesCard(),
+          FadeSlideIn(index: 1, child: _buildSalesCard()),
           // Urgent alerts first, then the first-run checklist.
           if (stockCorrections.isNotEmpty) ...[
             const SizedBox(height: 14),
@@ -374,42 +379,54 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             children: [
-              _OverviewTile(
-                icon: Icons.warning_amber_rounded,
-                color: AppColors.warning,
-                label: 'Low stock'.tr,
-                value: '$lowStockCount',
-                caption: lowStockCount == 1
-                    ? 'item needs restocking'.tr
-                    : 'items need restocking'.tr,
-                onTap: () => setState(() => _selectedIndex = 1),
+              FadeSlideIn(
+                index: 2,
+                child: _OverviewTile(
+                  icon: Icons.warning_amber_rounded,
+                  color: AppColors.warning,
+                  label: 'Low stock'.tr,
+                  value: '$lowStockCount',
+                  caption: lowStockCount == 1
+                      ? 'item needs restocking'.tr
+                      : 'items need restocking'.tr,
+                  onTap: () => setState(() => _selectedIndex = 1),
+                ),
               ),
-              _OverviewTile(
-                icon: Icons.inventory_2_outlined,
-                color: AppColors.primaryDark,
-                label: 'Products'.tr,
-                value: '$totalProducts',
-                caption: 'in your catalogue'.tr,
-                onTap: () => setState(() => _selectedIndex = 1),
+              FadeSlideIn(
+                index: 3,
+                child: _OverviewTile(
+                  icon: Icons.inventory_2_outlined,
+                  color: AppColors.primaryDark,
+                  label: 'Products'.tr,
+                  value: '$totalProducts',
+                  caption: 'in your catalogue'.tr,
+                  onTap: () => setState(() => _selectedIndex = 1),
+                ),
               ),
-              _OverviewTile(
-                icon: Icons.local_fire_department_outlined,
-                color: AppColors.danger,
-                label: 'Best seller'.tr,
-                value: bestSellerName.isEmpty ? 'No sales yet'.tr : bestSellerName,
-                caption: bestSellerName.isEmpty
-                    ? 'record a sale to see it'.tr
-                    : '{n} sold today'.trArgs({'n': bestSellerSold}),
-                smallValue: true,
-                onTap: _openTopCashiers,
+              FadeSlideIn(
+                index: 4,
+                child: _OverviewTile(
+                  icon: Icons.local_fire_department_outlined,
+                  color: AppColors.danger,
+                  label: 'Best seller'.tr,
+                  value: bestSellerName.isEmpty ? 'No sales yet'.tr : bestSellerName,
+                  caption: bestSellerName.isEmpty
+                      ? 'record a sale to see it'.tr
+                      : '{n} sold today'.trArgs({'n': bestSellerSold}),
+                  smallValue: true,
+                  onTap: _openTopCashiers,
+                ),
               ),
-              _OverviewTile(
-                icon: Icons.people_alt_outlined,
-                color: AppColors.success,
-                label: 'Cashiers'.tr,
-                value: '$activeCashierCount/$cashierCount',
-                caption: 'active right now'.tr,
-                onTap: _openCashiersManagement,
+              FadeSlideIn(
+                index: 5,
+                child: _OverviewTile(
+                  icon: Icons.people_alt_outlined,
+                  color: AppColors.success,
+                  label: 'Cashiers'.tr,
+                  value: '$activeCashierCount/$cashierCount',
+                  caption: 'active right now'.tr,
+                  onTap: _openCashiersManagement,
+                ),
               ),
             ],
           ),
@@ -795,6 +812,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     }
 
     return ReceiptCard(
+      gradient: AppColors.heroGradient,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -833,8 +851,9 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              Money.format(todaySales),
+            child: CountUpText(
+              value: todaySales,
+              format: Money.format,
               style: const TextStyle(
                 color: AppColors.onHero,
                 fontSize: AppTypography.hero,
@@ -919,62 +938,76 @@ class _OverviewTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(AppSpacing.cardRadius);
-    return Material(
-      color: AppColors.surface,
-      borderRadius: radius,
-      child: InkWell(
-        onTap: onTap,
+    final number = int.tryParse(value);
+    final valueStyle = TextStyle(
+      color: AppColors.text,
+      fontSize: smallValue ? AppTypography.headline : AppTypography.title,
+      fontWeight: FontWeight.w800,
+      height: 1.2,
+    );
+    return PressableScale(
+      enabled: onTap != null,
+      child: Material(
+        color: AppColors.surface,
         borderRadius: radius,
-        child: Ink(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: radius,
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Icon(icon, color: color, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: color,
-                        fontSize: AppTypography.body,
-                        fontWeight: FontWeight.w700,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: Ink(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: color, size: 17),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: color,
+                          fontSize: AppTypography.body,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
+                  ],
+                ),
+                number != null
+                    ? CountUpText(
+                        value: number.toDouble(),
+                        format: (v) => v.round().toString(),
+                        style: valueStyle,
+                      )
+                    : Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: valueStyle),
+                Text(
+                  caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: AppTypography.caption,
+                    fontWeight: FontWeight.w600,
                   ),
-                ],
-              ),
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: AppColors.text,
-                  fontSize: smallValue ? AppTypography.headline : AppTypography.title,
-                  fontWeight: FontWeight.w800,
-                  height: 1.2,
                 ),
-              ),
-              Text(
-                caption,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.muted,
-                  fontSize: AppTypography.caption,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

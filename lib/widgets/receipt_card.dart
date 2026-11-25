@@ -13,11 +13,15 @@ class ReceiptCard extends StatelessWidget {
     super.key,
     required this.child,
     this.color = AppColors.hero,
+    this.gradient,
     this.padding = const EdgeInsets.fromLTRB(20, 18, 20, 16),
   });
 
   final Widget child;
   final Color color;
+
+  /// Optional soft gradient in place of [color] (the sales card).
+  final Gradient? gradient;
   final EdgeInsets padding;
 
   /// Height of one zig-zag tooth.
@@ -29,7 +33,7 @@ class ReceiptCard extends StatelessWidget {
       clipper: const _ReceiptEdge(),
       child: Container(
         width: double.infinity,
-        color: color,
+        decoration: BoxDecoration(color: gradient == null ? color : null, gradient: gradient),
         child: Padding(
           padding: padding.copyWith(bottom: padding.bottom + tooth),
           // Screen readers announce the label and amount together.

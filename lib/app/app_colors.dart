@@ -45,4 +45,18 @@ abstract final class AppColors {
 
   /// Dividers and outlines drawn on [hero].
   static const Color heroLine = Color(0xFFD9D8EE);
+
+  /// The one gradient on surfaces: a soft lavender sweep on the sales cards.
+  static const LinearGradient heroGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFFF1F0FA), Color(0xFFE4E2F6)],
+  );
+
+  /// Primary actions that deserve weight (Start sale): indigo to a lighter violet.
+  static const LinearGradient brandGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF3B35B5), Color(0xFF5A54D1)],
+  );
 }

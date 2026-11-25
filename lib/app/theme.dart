@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'app_colors.dart';
 import 'app_spacing.dart';
 import 'app_typography.dart';
+import '../widgets/motion.dart';
 
 /// Central Material component styles, typography, and shared colors.
 abstract final class AppTheme {
@@ -35,6 +36,16 @@ abstract final class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: CalmPageTransitionsBuilder(),
+          TargetPlatform.iOS: CalmPageTransitionsBuilder(),
+          TargetPlatform.windows: CalmPageTransitionsBuilder(),
+          TargetPlatform.macOS: CalmPageTransitionsBuilder(),
+          TargetPlatform.linux: CalmPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: CalmPageTransitionsBuilder(),
+        },
+      ),
       fontFamily: AppTypography.family,
       colorScheme: scheme,
       scaffoldBackgroundColor: AppColors.background,

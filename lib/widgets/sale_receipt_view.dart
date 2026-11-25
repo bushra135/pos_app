@@ -11,6 +11,7 @@ import '../app/app_typography.dart';
 import '../app/app_spacing.dart';
 import '../utils/receipt_layout.dart';
 import '../utils/receipt_text.dart';
+import 'motion.dart';
 import 'receipt_card.dart';
 
 /// Export failures stay on this screen and cannot submit the sale again.
@@ -135,16 +136,7 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
               child: ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: const BoxDecoration(
-                        color: AppColors.successSoft,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.check_rounded, color: AppColors.success, size: 36),
-                    ),
-                  ),
+                  const Center(child: _SuccessMark()),
                   const SizedBox(height: 12),
                   Text(
                     'Sale saved'.tr,
@@ -159,10 +151,14 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                   ),
                   const SizedBox(height: 24),
                   // A receipt keeps receipt proportions on wide screens.
-                  Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 460),
-                      child: _ReceiptPaper(layout: ReceiptLayout.of(sale)),
+                  FadeSlideIn(
+                    index: 2,
+                    offset: 24,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 460),
+                        child: _ReceiptPaper(layout: ReceiptLayout.of(sale)),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -359,6 +355,31 @@ class _ReceiptPaper extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The paid tick: pops in with a gentle overshoot (static with reduced motion).
+class _SuccessMark extends StatelessWidget {
+  const _SuccessMark();
+
+  @override
+  Widget build(BuildContext context) {
+    final mark = Container(
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(color: AppColors.successSoft, shape: BoxShape.circle),
+      child: const Icon(Icons.check_rounded, color: AppColors.success, size: 36),
+    );
+    if (Motion.reduced(context)) return mark;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.5, end: 1),
+      duration: const Duration(milliseconds: 650),
+      curve: Curves.elasticOut,
+      builder: (context, scale, child) => Transform.scale(
+        scale: scale,
+        child: Opacity(opacity: ((scale - 0.5) * 2).clamp(0.0, 1.0), child: child),
+      ),
+      child: mark,
     );
   }
 }

@@ -17,6 +17,9 @@ import '../closing/end_of_day_screen.dart';
 import 'sales_history_screen.dart';
 import '../../app/app_language.dart';
 import '../../app/money.dart';
+import '../../utils/insights_from_docs.dart';
+import '../../utils/store_insights.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/receipt_card.dart';
 
 /// Dashboard periods use local dates; history filters live on their separate route.
@@ -419,19 +422,27 @@ class _ReportsScreenState extends State<ReportsScreen> {
       );
     }
 
-    return Row(
+    void openInsights() => Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => OffersScreen(firestore: _firestore, currentUserId: widget.currentUserId),
+      ),
+    );
+    final recs = InsightsFromDocs.build(
+      products: [for (final d in _productDocuments) (id: d.id, data: d.data())],
+      sales: _salesDocuments.map((d) => d.data()),
+      costs: _costs,
+      now: DateTime.now(),
+      money: _money,
+    );
+    final top = recs.isEmpty ? null : recs.first;
+    final shortcuts = Row(
       children: [
         Expanded(
           child: card(
             icon: Icons.insights_rounded,
-            label: 'Insights & recommendations',
+            label: 'Insights',
             main: true,
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) =>
-                    OffersScreen(firestore: _firestore, currentUserId: widget.currentUserId),
-              ),
-            ),
+            onTap: openInsights,
           ),
         ),
         const SizedBox(width: 10),
@@ -451,6 +462,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ),
           ),
         ),
+      ],
+    );
+    if (top == null) return shortcuts;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FadeSlideIn(
+          child: _TopRecommendationCard(rec: top, onTap: openInsights),
+        ),
+        const SizedBox(height: 12),
+        shortcuts,
       ],
     );
   }
@@ -638,63 +660,74 @@ class _ReportsScreenState extends State<ReportsScreen> {
     return _SectionCard(
       title: 'Sales trend'.tr,
       subtitle: _periodSubtitle(_selectedPeriod),
-      child: SizedBox(
-        height: 250,
-        child: BarChart(
-          BarChartData(
-            maxY: maxY,
-            alignment: BarChartAlignment.spaceAround,
-            gridData: _gridData(maxY),
-            borderData: _chartBorder(),
-            titlesData: FlTitlesData(
-              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              leftTitles: _leftTitles(maxY),
-              bottomTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  reservedSize: 34,
-                  getTitlesWidget: (value, meta) {
-                    final index = value.toInt();
+      // Bars grow from zero when the period or data changes (instant with reduced motion).
+      child: TweenAnimationBuilder<double>(
+        key: ValueKey('${_selectedPeriod}_${data.chartValues.join(',')}'),
+        tween: Tween(begin: Motion.reduced(context) ? 1 : 0, end: 1),
+        duration: const Duration(milliseconds: 800),
+        curve: Curves.easeOutCubic,
+        builder: (context, grow, _) => SizedBox(
+          height: 250,
+          child: BarChart(
+            BarChartData(
+              maxY: maxY,
+              alignment: BarChartAlignment.spaceAround,
+              gridData: _gridData(maxY),
+              borderData: _chartBorder(),
+              titlesData: FlTitlesData(
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: _leftTitles(maxY),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 34,
+                    getTitlesWidget: (value, meta) {
+                      final index = value.toInt();
 
-                    if (index < 0 || index >= data.chartLabels.length) {
-                      return const SizedBox.shrink();
-                    }
+                      if (index < 0 || index >= data.chartLabels.length) {
+                        return const SizedBox.shrink();
+                      }
 
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      // Arabic day and month names are longer; shrink instead of overlapping.
-                      child: SizedBox(
-                        width: 34,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            data.chartLabels[index].tr,
-                            style: const TextStyle(
-                              color: AppColors.muted,
-                              fontSize: AppTypography.caption,
-                              fontWeight: FontWeight.w600,
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        // Arabic day and month names are longer; shrink instead of overlapping.
+                        child: SizedBox(
+                          width: 34,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              data.chartLabels[index].tr,
+                              style: const TextStyle(
+                                color: AppColors.muted,
+                                fontSize: AppTypography.caption,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
-            ),
-            barGroups: List.generate(
-              data.chartValues.length,
-              (index) => BarChartGroupData(
-                x: index,
-                barRods: [
-                  BarChartRodData(
-                    toY: math.max(0.0, data.chartValues[index]),
-                    width: _barWidth(_selectedPeriod),
-                    borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
-                    color: AppColors.primaryDark,
-                  ),
-                ],
+              barGroups: List.generate(
+                data.chartValues.length,
+                (index) => BarChartGroupData(
+                  x: index,
+                  barRods: [
+                    BarChartRodData(
+                      toY: math.max(0.0, data.chartValues[index]) * grow,
+                      width: _barWidth(_selectedPeriod),
+                      borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
+                      gradient: const LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [AppColors.primaryDark, AppColors.accent],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -730,6 +763,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
 
     return ReceiptCard(
+      gradient: AppColors.heroGradient,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -771,8 +805,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              _money(data.netSales),
+            child: CountUpText(
+              value: data.netSales,
+              format: _money,
               style: const TextStyle(
                 color: AppColors.onHero,
                 fontSize: AppTypography.display,
@@ -2009,3 +2044,104 @@ class _ProfitFigure extends StatelessWidget {
 
 /// Dashboard topics shown one at a time.
 enum _DashboardSection { sales, profit, products }
+
+/// The single most important recommendation, made to stand out on the dashboard.
+class _TopRecommendationCard extends StatelessWidget {
+  const _TopRecommendationCard({required this.rec, required this.onTap});
+
+  final Recommendation rec;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color, soft) = switch (rec.priority) {
+      0 => ('Urgent', AppColors.danger, AppColors.dangerSoft),
+      1 => ('Worth doing', AppColors.warning, AppColors.warningSoft),
+      _ => ('Good to know', AppColors.success, AppColors.successSoft),
+    };
+    final radius = BorderRadius.circular(AppSpacing.cardRadius);
+    return PressableScale(
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: radius,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: Ink(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(color: color.withValues(alpha: 0.45), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.10),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(color: soft, shape: BoxShape.circle),
+                  child: Icon(Icons.auto_awesome_rounded, color: color, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              'Most important now'.tr,
+                              style: const TextStyle(
+                                color: AppColors.muted,
+                                fontSize: AppTypography.caption,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: soft,
+                              borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
+                            ),
+                            child: Text(
+                              label.tr,
+                              style: TextStyle(
+                                color: color,
+                                fontSize: AppTypography.caption,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        rec.text.trArgs(rec.args),
+                        style: const TextStyle(
+                          fontSize: AppTypography.body,
+                          fontWeight: FontWeight.w600,
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

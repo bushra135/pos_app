@@ -357,7 +357,7 @@ void main() {
     expect(find.byType(ReportsScreen), findsOneWidget);
     // The dashboard itself offers both analysis shortcuts to the owner.
     expect(find.text('Top cashiers'), findsOneWidget);
-    expect(find.text('Insights & recommendations'), findsOneWidget);
+    expect(find.text('Insights'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });

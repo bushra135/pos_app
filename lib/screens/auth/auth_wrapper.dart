@@ -11,6 +11,7 @@ import 'login_screen.dart';
 import 'verify_email_screen.dart';
 import '../../app/app_language.dart';
 import '../../services/profile_edits.dart';
+import '../../widgets/welcome_overlay.dart';
 
 /// Selects the screen from the Firebase session, verification, and Firestore role.
 class AuthWrapper extends StatelessWidget {
@@ -135,11 +136,14 @@ class AuthWrapper extends StatelessWidget {
               );
             }
 
-            if (role == 'owner') {
-              return const OwnerHomeScreen();
-            }
-
-            return const CashierHomeScreen();
+            // A short welcome after signing in, then the home screen beneath it.
+            return WelcomeGate(
+              uid: user.uid,
+              name: (userData['fullName'] ?? '').toString(),
+              storeName: (userData['storeName'] ?? '').toString(),
+              isOwner: role == 'owner',
+              child: role == 'owner' ? const OwnerHomeScreen() : const CashierHomeScreen(),
+            );
           },
         );
       },

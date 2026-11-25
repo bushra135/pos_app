@@ -10,6 +10,7 @@ import '../../services/sale_sync_service.dart';
 import '../../services/sales_query.dart';
 import '../../utils/cart_manager.dart';
 import '../../widgets/adaptive_layout.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/receipt_card.dart';
 import '../../widgets/sale_sync_panel.dart';
 import '../cart/cart_screen.dart';
@@ -265,7 +266,11 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
             children: [
               const SaleSyncPanel(),
               Expanded(
-                child: isLoading ? const Center(child: CircularProgressIndicator()) : currentScreen,
+                child: isLoading
+                    ? const HomeSkeleton(tiles: 2)
+                    : FadeThroughSwitcher(
+                        child: KeyedSubtree(key: ValueKey(selectedIndex), child: currentScreen),
+                      ),
               ),
             ],
           ),
@@ -298,11 +303,11 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
 
   List<Widget> _homeChildren(int cartCount) {
     return [
-      _buildHeader(),
+      FadeSlideIn(child: _buildHeader()),
       const SizedBox(height: 18),
-      _buildStatsCard(),
+      FadeSlideIn(index: 1, child: _buildStatsCard()),
       const SizedBox(height: 14),
-      _buildStartSaleButton(),
+      FadeSlideIn(index: 2, child: _buildStartSaleButton()),
       const SizedBox(height: 12),
       Row(
         children: [
@@ -513,46 +518,60 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
   }
 
   Widget _buildStatsCard() {
-    Widget stat(String label, String value) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.onHeroMuted,
-            fontSize: AppTypography.body,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 4),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: AlignmentDirectional.centerStart,
-          child: Text(
-            value,
-            style: const TextStyle(
-              color: AppColors.onHero,
-              fontSize: AppTypography.display,
-              fontWeight: FontWeight.w800,
-              height: 1.2,
-            ),
-          ),
-        ),
-      ],
+    const valueStyle = TextStyle(
+      color: AppColors.onHero,
+      fontSize: AppTypography.display,
+      fontWeight: FontWeight.w800,
+      height: 1.2,
     );
+    Widget stat(String label, String value, {double? amount, String Function(double)? format}) =>
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.onHeroMuted,
+                fontSize: AppTypography.body,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: amount != null
+                  ? CountUpText(value: amount, format: format!, style: valueStyle)
+                  : Text(value, style: valueStyle),
+            ),
+          ],
+        );
 
     return ReceiptCard(
+      gradient: AppColors.heroGradient,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
       child: IntrinsicHeight(
         child: Row(
           children: [
-            Expanded(child: stat('My sales today'.tr, Money.format(todaySales))),
+            Expanded(
+              child: stat(
+                'My sales today'.tr,
+                Money.format(todaySales),
+                amount: todaySales,
+                format: Money.format,
+              ),
+            ),
             Container(
               width: 1,
               margin: const EdgeInsets.symmetric(horizontal: 16),
               color: AppColors.heroLine,
             ),
-            stat('Transactions'.tr, '$todayTransactions'),
+            stat(
+              'Transactions'.tr,
+              '$todayTransactions',
+              amount: todayTransactions.toDouble(),
+              format: (v) => v.round().toString(),
+            ),
           ],
         ),
       ),
@@ -562,47 +581,55 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
   /// The cashier's main action: a large indigo tile that opens the scanner.
   Widget _buildStartSaleButton() {
     final radius = BorderRadius.circular(AppSpacing.cardRadius);
-    return Material(
-      color: AppColors.primaryDark,
-      borderRadius: radius,
-      child: InkWell(
-        onTap: () => setState(() => selectedIndex = 1),
+    return PressableScale(
+      child: Material(
+        color: Colors.transparent,
         borderRadius: radius,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                ),
-                child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 28),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Start sale'.tr,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: AppTypography.headline,
-                        fontWeight: FontWeight.w800,
-                      ),
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: AppColors.brandGradient,
+            borderRadius: radius,
+          ),
+          child: InkWell(
+            onTap: () => setState(() => selectedIndex = 1),
+            borderRadius: radius,
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                     ),
-                    Text(
-                      'Scan a barcode to add items'.tr,
-                      style: TextStyle(color: Color(0xFFDCDAFB), fontSize: AppTypography.body),
+                    child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Start sale'.tr,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: AppTypography.headline,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          'Scan a barcode to add items'.tr,
+                          style: TextStyle(color: Color(0xFFDCDAFB), fontSize: AppTypography.body),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  const Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                ],
               ),
-              const Icon(Icons.arrow_forward_rounded, color: Colors.white),
-            ],
+            ),
           ),
         ),
       ),
