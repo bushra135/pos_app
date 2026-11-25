@@ -16,6 +16,7 @@ import '../../services/sale_sync_service.dart';
 import '../../utils/active_offers.dart';
 import '../../utils/cart_manager.dart';
 import '../../utils/vat_invoice.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/adaptive_layout.dart';
 import '../../widgets/receipt_card.dart';
 import '../../widgets/sale_receipt_view.dart';
@@ -547,6 +548,61 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   }
 
   /// Payment beside the receipt on wide screens; one column, at a readable width, on phones.
+  /// The amount to take, large and first: what the cashier says to the customer.
+  Widget _buildTotalHero() {
+    final units = CartManager.items.fold<int>(0, (n, item) => n + item.quantity);
+    final details = [
+      (units == 1 ? '1 item' : '{n} items').trArgs({'n': units}),
+      if (_storeVat.rate > 0)
+        'VAT {rate}% included: {amount}'.trArgs({
+          'rate': _storeVat.rate.toStringAsFixed(0),
+          'amount': Money.format(_vat),
+        }),
+      if (_discountAmount > 0) 'Saved {amount}'.trArgs({'amount': Money.format(_discountAmount)}),
+    ];
+    return FadeSlideIn(
+      child: ReceiptCard(
+        gradient: AppColors.heroGradient,
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Total to pay'.tr,
+              style: const TextStyle(
+                color: AppColors.onHeroMuted,
+                fontSize: AppTypography.body,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: CountUpText(
+                value: _total,
+                format: Money.format,
+                style: const TextStyle(
+                  color: AppColors.onHero,
+                  fontSize: AppTypography.hero + 6,
+                  fontWeight: FontWeight.w800,
+                  height: 1.15,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const ReceiptRule(),
+            const SizedBox(height: 8),
+            Text(
+              details.join('  ·  '),
+              style: const TextStyle(color: AppColors.onHeroMuted, fontSize: AppTypography.caption),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _checkoutBody({required Widget payment, required Widget receipt}) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -555,7 +611,10 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: ListView(padding: const EdgeInsets.all(16), children: [payment]),
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [_buildTotalHero(), const SizedBox(height: 16), payment],
+                ),
               ),
               Expanded(
                 child: ListView(padding: const EdgeInsets.all(16), children: [receipt]),
@@ -570,6 +629,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  _buildTotalHero(),
+                  const SizedBox(height: 16),
                   payment,
                   const SizedBox(height: 16),
                   receipt,

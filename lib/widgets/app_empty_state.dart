@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app/app_colors.dart';
 import '../app/app_typography.dart';
-import '../app/app_spacing.dart';
+import 'motion.dart';
 
 /// A scrollable empty state that also fits short screens and large text.
 class AppEmptyState extends StatelessWidget {
@@ -12,39 +12,42 @@ class AppEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-    child: SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.accentSoft,
-              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+    child: FadeSlideIn(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 76,
+              height: 76,
+              decoration: const BoxDecoration(
+                gradient: AppColors.heroGradient,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 34, color: AppColors.primaryDark),
             ),
-            child: Icon(icon, size: 30, color: AppColors.primaryDark),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: AppTypography.section,
-              fontWeight: FontWeight.w700,
-              color: AppColors.text,
-            ),
-          ),
-          const SizedBox(height: 6),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 320),
-            child: Text(
-              message,
+            const SizedBox(height: 16),
+            Text(
+              title,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.muted, height: 1.6),
+              style: const TextStyle(
+                fontSize: AppTypography.section,
+                fontWeight: FontWeight.w700,
+                color: AppColors.text,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.muted, height: 1.6),
+              ),
+            ),
+          ],
+        ),
       ),
     ),
   );

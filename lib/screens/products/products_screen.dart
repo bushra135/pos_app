@@ -16,6 +16,7 @@ import '../../services/barcode_catalog_service.dart';
 import '../../services/browser_scanner.dart';
 import '../../utils/product_category_suggestion.dart';
 import '../../utils/product_image_data.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/barcode_lookup_panel.dart';
 import '../../widgets/product_image.dart';
@@ -2174,7 +2175,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
             ),
       body: SafeArea(
         child: isLoadingStore
-            ? const Center(child: CircularProgressIndicator())
+            ? const ListSkeleton()
             : storeCode.isEmpty
             ? Center(child: Text('Store code not found'.tr))
             : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -2243,7 +2244,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       ),
                       Expanded(
                         child: waiting
-                            ? const Center(child: CircularProgressIndicator())
+                            ? const ListSkeleton()
                             : snapshot.hasError
                             ? Center(child: Text('Something went wrong'.tr))
                             : filteredDocs.isEmpty
@@ -2274,7 +2275,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                       232 * MediaQuery.textScalerOf(context).scale(14) / 14,
                                 ),
                                 itemCount: filteredDocs.length,
-                                itemBuilder: (context, i) => _productTile(filteredDocs[i]),
+                                itemBuilder: (context, i) => FadeSlideIn(
+                                  index: i,
+                                  child: PressableScale(child: _productTile(filteredDocs[i])),
+                                ),
                               )
                             : ListView(
                                 padding: const EdgeInsets.fromLTRB(
@@ -2296,7 +2300,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                         for (var i = 0; i < filteredDocs.length; i++) ...[
                                           if (i > 0)
                                             const Divider(height: 1, color: AppColors.soft),
-                                          _productRow(filteredDocs[i]),
+                                          FadeSlideIn(
+                                            index: i,
+                                            child: _productRow(filteredDocs[i]),
+                                          ),
                                         ],
                                       ],
                                     ),

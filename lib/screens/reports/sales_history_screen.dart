@@ -11,6 +11,8 @@ import '../../models/sale_record.dart';
 import '../../services/refund_service.dart';
 import '../../services/report_download.dart';
 import '../../utils/report_workbook.dart';
+import '../../widgets/app_empty_state.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/sale_receipt_view.dart';
 import '../../app/app_language.dart';
 import '../../app/money.dart';
@@ -512,7 +514,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       ],
     ),
     body: _loading
-        ? const Center(child: CircularProgressIndicator())
+        ? const ListSkeleton(leading: false)
         : _error != null
         ? Center(
             child: Padding(
@@ -642,63 +644,72 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
 
         Expanded(
           child: rows.isEmpty
-              ? Center(child: Text('No receipts match these filters.'.tr))
+              ? AppEmptyState(
+                  icon: Icons.receipt_long_outlined,
+                  title: 'No receipts found'.tr,
+                  message: 'No receipts match these filters.'.tr,
+                )
               : ListView.builder(
                   itemCount: rows.length,
-                  itemBuilder: (context, index) {
-                    final sale = rows[index];
-                    return Card(
-                      margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-                        title: Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                sale.receipt,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: AppTypography.button,
-                                ),
-                              ),
-                            ),
-                            if (_issues(sale).isNotEmpty) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.warningSoft,
-                                  borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
-                                ),
-                                child: Text(
-                                  'Review'.tr,
-                                  style: const TextStyle(
-                                    color: AppColors.warning,
-                                    fontSize: AppTypography.caption,
-                                    fontWeight: FontWeight.w800,
+                  itemBuilder: (context, index) => FadeSlideIn(
+                    index: index,
+                    child: Builder(
+                      builder: (context) {
+                        final sale = rows[index];
+                        return Card(
+                          margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+                            title: Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    sale.receipt,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: AppTypography.button,
+                                    ),
                                   ),
                                 ),
+                                if (_issues(sale).isNotEmpty) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.warningSoft,
+                                      borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
+                                    ),
+                                    child: Text(
+                                      'Review'.tr,
+                                      style: const TextStyle(
+                                        color: AppColors.warning,
+                                        fontSize: AppTypography.caption,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            subtitle: Text(
+                              '${sale.cashierName} · ${_dateLabel(sale.date)}\n${sale.method.tr} · ${sale.refund ? 'Refund · '.tr : ''}${sale.status.tr}',
+                            ),
+                            isThreeLine: true,
+                            trailing: Text(
+                              Money.format(sale.total),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: AppTypography.subtitle,
+                                color: sale.refund ? AppColors.danger : AppColors.text,
                               ),
-                            ],
-                          ],
-                        ),
-                        subtitle: Text(
-                          '${sale.cashierName} · ${_dateLabel(sale.date)}\n${sale.method.tr} · ${sale.refund ? 'Refund · '.tr : ''}${sale.status.tr}',
-                        ),
-                        isThreeLine: true,
-                        trailing: Text(
-                          Money.format(sale.total),
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: AppTypography.subtitle,
-                            color: sale.refund ? AppColors.danger : AppColors.text,
+                            ),
+                            onTap: () => _details(sale),
                           ),
-                        ),
-                        onTap: () => _details(sale),
-                      ),
-                    );
-                  },
+                        );
+                      },
+                    ),
+                  ),
                 ),
         ),
         Padding(

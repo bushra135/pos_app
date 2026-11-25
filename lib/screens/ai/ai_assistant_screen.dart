@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../widgets/motion.dart';
 import '../../services/sales_query.dart';
 import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
@@ -893,13 +894,17 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
                     children: [
                       if (isNewConversation) ...[
-                        _buildWelcome(),
-                        _buildSuggestions(),
+                        FadeSlideIn(child: _buildWelcome()),
+                        FadeSlideIn(index: 1, child: _buildSuggestions()),
                       ] else ...[
+                        // Each message eases in once, when it arrives.
                         for (final message in messages.skip(1))
-                          _MessageBubble(message: message, onOpenReports: _openReports),
+                          FadeSlideIn(
+                            key: ObjectKey(message),
+                            child: _MessageBubble(message: message, onOpenReports: _openReports),
+                          ),
                       ],
-                      if (_isThinking) const _TypingBubble(),
+                      if (_isThinking) const FadeSlideIn(child: _TypingBubble()),
                     ],
                   ),
                 ),

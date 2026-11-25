@@ -300,3 +300,47 @@ class CalmPageTransitionsBuilder extends PageTransitionsBuilder {
     );
   }
 }
+
+/// Loading layout for a list screen: a few rows shaped like the real ones.
+class ListSkeleton extends StatelessWidget {
+  const ListSkeleton({super.key, this.rows = 6, this.leading = true});
+
+  final int rows;
+  final bool leading;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Loading'.tr,
+      child: ListView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(AppSpacing.page, 8, AppSpacing.page, 24),
+        children: [
+          for (var i = 0; i < rows; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Row(
+                children: [
+                  if (leading) ...[
+                    const SkeletonBox(height: 48, width: 48),
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SkeletonBox(height: 14, width: i.isEven ? 160 : 120),
+                        const SizedBox(height: 8),
+                        const SkeletonBox(height: 11, width: 90),
+                      ],
+                    ),
+                  ),
+                  const SkeletonBox(height: 14, width: 56),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
