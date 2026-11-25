@@ -13,6 +13,8 @@ import '../../services/report_download.dart';
 import '../../utils/report_workbook.dart';
 import '../../widgets/sale_receipt_view.dart';
 import '../../app/app_language.dart';
+import '../../app/money.dart';
+import '../../app/app_typography.dart';
 
 /// Owner-only, store-scoped history and a transparent cashier leaderboard.
 class SalesHistoryScreen extends StatefulWidget {
@@ -309,7 +311,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
               children: [
                 Text(
                   'Report filters'.tr,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: AppTypography.headline),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
@@ -482,7 +484,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: AppColors.background,
     appBar: AppBar(
-      title: Text(widget.showTopCashiers ? 'Top cashiers' : 'Sales history'),
+      title: Text((widget.showTopCashiers ? 'Top cashiers' : 'Sales history').tr),
       actions: [
         IconButton(
           tooltip: 'Refresh history'.tr,
@@ -515,13 +517,9 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                   initialValue: _period,
                   decoration: InputDecoration(labelText: 'Period'.tr),
                   isExpanded: true,
-                  items: [
-                    'All time',
-                    'Today',
-                    'Last 7 days',
-                    'This month',
-                    'Custom range',
-                  ].map((period) => DropdownMenuItem(value: period, child: Text(period))).toList(),
+                  items: ['All time', 'Today', 'Last 7 days', 'This month', 'Custom range']
+                      .map((period) => DropdownMenuItem(value: period, child: Text(period.tr)))
+                      .toList(),
                   onChanged: (value) => _changePeriod(value!),
                 ),
               ),
@@ -579,7 +577,11 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
               OutlinedButton.icon(
                 onPressed: _showFilters,
                 icon: const Icon(Icons.filter_alt_outlined),
-                label: Text('Filters${_extraFilterCount == 0 ? '' : ' ($_extraFilterCount)'}'),
+                label: Text(
+                  _extraFilterCount == 0
+                      ? 'Filters'.tr
+                      : 'Filters ({n})'.trArgs({'n': _extraFilterCount}),
+                ),
               ),
               if (supportsReportDownload || widget.exportReport != null)
                 OutlinedButton.icon(
@@ -598,7 +600,12 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Text(
-            '${rows.length} receipts · Net receipt total: BD ${rows.fold<double>(0, (total, sale) => total + _netReceipt(sale)).toStringAsFixed(3)}',
+            '{n} receipts · Net receipt total: {total}'.trArgs({
+              'n': rows.length,
+              'total': Money.format(
+                rows.fold<double>(0, (total, sale) => total + _netReceipt(sale)),
+              ),
+            }),
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
         ),
@@ -606,8 +613,12 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              'Selected product: ${_matchingSoldUnits(rows).toStringAsFixed(0)} units · BD ${_matchingSoldValue(rows).toStringAsFixed(3)} before receipt discounts/tax. Net receipt total includes other items.',
-              style: const TextStyle(fontSize: 11, color: AppColors.muted),
+              'Selected product: {units} units · {value} before receipt discounts/tax. Net receipt total includes other items.'
+                  .trArgs({
+                    'units': _matchingSoldUnits(rows).toStringAsFixed(0),
+                    'value': Money.format(_matchingSoldValue(rows)),
+                  }),
+              style: const TextStyle(fontSize: AppTypography.caption, color: AppColors.muted),
             ),
           ),
 
@@ -625,17 +636,20 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                         title: Text(
                           sale.receipt,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: AppTypography.button,
+                          ),
                         ),
                         subtitle: Text(
-                          '${sale.cashierName} · ${_dateLabel(sale.date)}\n${sale.method} · ${sale.refund ? 'Refund · ' : ''}${sale.status}',
+                          '${sale.cashierName} · ${_dateLabel(sale.date)}\n${sale.method.tr} · ${sale.refund ? 'Refund · '.tr : ''}${sale.status.tr}',
                         ),
                         isThreeLine: true,
                         trailing: Text(
-                          'BD ${sale.total.toStringAsFixed(3)}',
+                          Money.format(sale.total),
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
-                            fontSize: 16,
+                            fontSize: AppTypography.subtitle,
                             color: sale.refund ? AppColors.danger : AppColors.text,
                           ),
                         ),
@@ -649,7 +663,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
           padding: EdgeInsets.all(8),
           child: Text(
             'Device-only receipts appear here after synchronization.'.tr,
-            style: TextStyle(fontSize: 11, color: AppColors.muted),
+            style: TextStyle(fontSize: AppTypography.caption, color: AppColors.muted),
           ),
         ),
       ],
@@ -693,11 +707,11 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                   ? const Icon(Icons.emoji_events_outlined, color: AppColors.primaryDark)
                   : Text('${entry.key + 1}'),
               title: Text(
-                '${best ? (tied ? 'Joint top cashier · ' : 'Best cashier · ') : ''}$displayName',
+                '${best ? (tied ? 'Joint top cashier · ' : 'Best cashier · ').tr : ''}$displayName',
               ),
-              subtitle: Text('${row.orders} completed receipts'),
+              subtitle: Text('{n} completed receipts'.trArgs({'n': row.orders})),
               trailing: Text(
-                'BD ${(row.fils / 1000).toStringAsFixed(3)}',
+                Money.format((row.fils / 1000)),
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               onTap: () => Navigator.of(context).push(
@@ -785,7 +799,11 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
         ownerName: (_profiles[uid]?['fullName'] ?? 'Owner').toString(),
       );
       messenger.showSnackBar(
-        SnackBar(content: Text('Refunded BD ${amount.toStringAsFixed(3)} · stock updated')),
+        SnackBar(
+          content: Text(
+            'Refunded {amount} · stock updated'.trArgs({'amount': Money.format(amount)}),
+          ),
+        ),
       );
     } catch (e) {
       messenger.showSnackBar(
@@ -816,14 +834,16 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
-                    Text('Date: ${_dateLabel(sale.date)}'),
-                    Text('Cashier: ${sale.cashierName}'),
+                    Text('Date: {date}'.trArgs({'date': _dateLabel(sale.date)})),
+                    Text('Cashier: {name}'.trArgs({'name': sale.cashierName})),
                     Text(
-                      'Cashier ID: ${sale.cashierUid.isEmpty ? 'Not recorded' : sale.cashierUid}',
+                      'Cashier ID: {id}'.trArgs({
+                        'id': sale.cashierUid.isEmpty ? 'Not recorded'.tr : sale.cashierUid,
+                      }),
                     ),
-                    Text('Payment: ${sale.method}'),
-                    Text('Type: ${sale.refund ? 'Refund' : 'Sale'}'),
-                    Text('Status: ${sale.status}'),
+                    Text('Payment: {method}'.trArgs({'method': sale.method.tr})),
+                    Text('Type: {type}'.trArgs({'type': (sale.refund ? 'Refund' : 'Sale').tr})),
+                    Text('Status: {status}'.trArgs({'status': sale.status.tr})),
                     const Divider(),
                     ...sale.items.map((item) {
                       final quantity = _number(item['quantity'] ?? item['qty']);
@@ -832,20 +852,39 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                         contentPadding: EdgeInsets.zero,
                         title: Text((item['name'] ?? item['productName'] ?? 'Item').toString()),
                         subtitle: Text(
-                          'Barcode: ${item['barcode'] ?? 'Not recorded'}\n${quantity.toStringAsFixed(0)} × BD ${price.toStringAsFixed(3)}',
+                          '{barcode}\n{qty} × {price}'.trArgs({
+                            'barcode': 'Barcode: {code}'.trArgs({
+                              'code': item['barcode'] ?? 'Not recorded'.tr,
+                            }),
+                            'qty': quantity.toStringAsFixed(0),
+                            'price': Money.format(price),
+                          }),
                         ),
-                        trailing: Text('BD ${(quantity * price).toStringAsFixed(3)}'),
+                        trailing: Text(Money.format((quantity * price))),
                       );
                     }),
                     const Divider(),
-                    Text('Discount: BD ${_number(sale.data['discount']).toStringAsFixed(3)}'),
-                    Text('Tax: BD ${_number(sale.data['tax']).toStringAsFixed(3)}'),
                     Text(
-                      'Refund: BD ${_number(sale.data['refund'] ?? sale.data['refundAmount']).abs().toStringAsFixed(3)}',
+                      'Discount: {amount}'.trArgs({
+                        'amount': Money.format(_number(sale.data['discount'])),
+                      }),
                     ),
                     Text(
-                      'Total: BD ${sale.total.toStringAsFixed(3)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                      'Tax: {amount}'.trArgs({'amount': Money.format(_number(sale.data['tax']))}),
+                    ),
+                    Text(
+                      'Refund: {amount}'.trArgs({
+                        'amount': Money.format(
+                          _number(sale.data['refund'] ?? sale.data['refundAmount']).abs(),
+                        ),
+                      }),
+                    ),
+                    Text(
+                      'Total: {amount}'.trArgs({'amount': Money.format(sale.total)}),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: AppTypography.headline,
+                      ),
                     ),
                     if (sale.data['stockCorrections'] is List) ...[
                       const Divider(),
@@ -1030,7 +1069,7 @@ class _RefundDialogState extends State<_RefundDialog> {
       (running, entry) => running + entry.value.price * (_qty[entry.key] ?? 0) * widget.paidShare,
     );
     return AlertDialog(
-      title: Text('Refund · ${widget.receipt}'),
+      title: Text('Refund · {receipt}'.trArgs({'receipt': widget.receipt})),
       content: SizedBox(
         width: 380,
         child: SingleChildScrollView(
@@ -1051,14 +1090,20 @@ class _RefundDialogState extends State<_RefundDialog> {
                               style: const TextStyle(fontWeight: FontWeight.w700),
                             ),
                             Text(
-                              'Up to ${entry.value.left} · BD ${entry.value.price.toStringAsFixed(3)} each',
-                              style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                              'Up to {n} · {price} each'.trArgs({
+                                'n': entry.value.left,
+                                'price': Money.format(entry.value.price),
+                              }),
+                              style: const TextStyle(
+                                color: AppColors.muted,
+                                fontSize: AppTypography.caption,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       IconButton(
-                        tooltip: 'One less ${entry.value.name}',
+                        tooltip: 'One less {name}'.trArgs({'name': entry.value.name}),
                         onPressed: (_qty[entry.key] ?? 0) > 0
                             ? () => setState(() => _qty[entry.key] = _qty[entry.key]! - 1)
                             : null,
@@ -1069,7 +1114,7 @@ class _RefundDialogState extends State<_RefundDialog> {
                         style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                       IconButton(
-                        tooltip: 'Return one ${entry.value.name}',
+                        tooltip: 'Return one {name}'.trArgs({'name': entry.value.name}),
                         onPressed: (_qty[entry.key] ?? 0) < entry.value.left
                             ? () => setState(() => _qty[entry.key] = _qty[entry.key]! + 1)
                             : null,
@@ -1080,7 +1125,7 @@ class _RefundDialogState extends State<_RefundDialog> {
                 ),
               const Divider(),
               Text(
-                'Refund to customer: BD ${amount.toStringAsFixed(3)}',
+                'Refund to customer: ${Money.format(amount)}',
                 style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.danger),
               ),
             ],

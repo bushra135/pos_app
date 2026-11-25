@@ -7,10 +7,13 @@ import 'package:flutter/services.dart';
 
 import '../../services/sales_query.dart';
 import '../../app/app_colors.dart';
+import '../../app/app_spacing.dart';
+import '../../app/app_typography.dart';
 import '../../models/report_sale.dart';
 import '../../utils/bundle_offer_planner.dart';
 import '../reports/reports_screen.dart';
 import '../../app/app_language.dart';
+import '../../app/money.dart';
 
 /// Calculates store insights locally using keyword rules and store records.
 class AiAssistantScreen extends StatefulWidget {
@@ -697,7 +700,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   }
 
   String _money(double value) {
-    return 'BD ${value.toStringAsFixed(3)}';
+    return Money.format(value);
   }
 
   void _startNewConversation() {
@@ -770,7 +773,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             height: 46,
             decoration: BoxDecoration(
               color: AppColors.primaryDark,
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
             ),
             child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
           ),
@@ -783,7 +786,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   'ShopPad Assistant'.tr,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 20,
+                    fontSize: AppTypography.headline,
                     fontWeight: FontWeight.w800,
                     color: AppColors.text,
                   ),
@@ -796,7 +799,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                       child: Text(
                         'Local analysis'.tr,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: AppColors.muted),
+                        style: const TextStyle(
+                          fontSize: AppTypography.caption,
+                          color: AppColors.muted,
+                        ),
                       ),
                     ),
                   ],
@@ -835,7 +841,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   Widget _buildWelcome() {
     Widget pill(IconData icon, String label) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(30)),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -844,7 +853,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           Text(
             label.tr,
             style: const TextStyle(
-              fontSize: 11,
+              fontSize: AppTypography.caption,
               color: AppColors.onHero,
               fontWeight: FontWeight.w600,
             ),
@@ -855,14 +864,17 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(24)),
+      decoration: BoxDecoration(
+        color: AppColors.hero,
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Your store.\nA clearer picture.'.tr,
             style: const TextStyle(
-              fontSize: 26,
+              fontSize: AppTypography.display,
               height: 1.25,
               fontWeight: FontWeight.w800,
               color: AppColors.onHero,
@@ -871,7 +883,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           const SizedBox(height: 10),
           Text(
             'Tap a question, or ask about sales, stock and offers.'.tr,
-            style: const TextStyle(fontSize: 14, height: 1.5, color: AppColors.onHeroMuted),
+            style: const TextStyle(
+              fontSize: AppTypography.body,
+              height: 1.5,
+              color: AppColors.onHeroMuted,
+            ),
           ),
           const SizedBox(height: 14),
           Wrap(
@@ -929,76 +945,71 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           padding: EdgeInsets.only(left: 4, bottom: 12),
           child: Text(
             'A good place to start'.tr,
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: AppTypography.button, fontWeight: FontWeight.w700),
           ),
         ),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final columns = constraints.maxWidth >= 480 ? 2 : 1;
-            final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
-            return Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                for (final prompt in prompts)
-                  SizedBox(
-                    width: width,
-                    child: Material(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(18),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(18),
-                        onTap: _isThinking ? null : () => _sendMessage(prompt.$3),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(9),
-                                decoration: BoxDecoration(
-                                  color: AppColors.accentSoft,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Icon(prompt.$1, color: AppColors.primaryDark, size: 21),
+        // One light list instead of seven separate cards.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+            child: Material(
+              color: Colors.transparent,
+              child: Column(
+                children: [
+                  for (var i = 0; i < prompts.length; i++) ...[
+                    if (i > 0) const Divider(height: 1, indent: 64),
+                    InkWell(
+                      onTap: _isThinking ? null : () => _sendMessage(prompts[i].$3),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.accentSoft,
+                                borderRadius: BorderRadius.circular(AppSpacing.controlRadius - 2),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      prompt.$2.tr,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 14,
-                                      ),
+                              child: Icon(prompts[i].$1, color: AppColors.primaryDark, size: 20),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    prompts[i].$2.tr,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: AppTypography.body,
                                     ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      prompt.$4.tr,
-                                      style: const TextStyle(color: AppColors.muted, fontSize: 12),
+                                  ),
+                                  Text(
+                                    prompts[i].$4.tr,
+                                    style: const TextStyle(
+                                      color: AppColors.muted,
+                                      fontSize: AppTypography.caption,
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                              const Icon(
-                                Icons.north_east_rounded,
-                                size: 17,
-                                color: AppColors.primaryDark,
-                              ),
-                            ],
-                          ),
+                            ),
+                            // Points forward in both reading directions.
+                            const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
+                          ],
                         ),
                       ),
                     ),
-                  ),
-              ],
-            );
-          },
+                  ],
+                ],
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -1032,15 +1043,15 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     fillColor: AppColors.background,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(26),
+                      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                       borderSide: const BorderSide(color: AppColors.border),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(26),
+                      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                       borderSide: const BorderSide(color: AppColors.border),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(26),
+                      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                       borderSide: const BorderSide(color: AppColors.primaryDark, width: 1.4),
                     ),
                   ),
@@ -1089,7 +1100,7 @@ class _MessageBubble extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isUser ? AppColors.primary : AppColors.surface,
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
             border: Border.all(color: isUser ? AppColors.primary : AppColors.border),
           ),
           child: Column(
@@ -1107,7 +1118,7 @@ class _MessageBubble extends StatelessWidget {
                     child: Text(
                       isUser ? 'You' : 'Local analysis',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: AppTypography.caption,
                         fontWeight: FontWeight.w700,
                         color: isUser ? AppColors.onBrandMuted : AppColors.primaryDark,
                       ),
@@ -1137,7 +1148,7 @@ class _MessageBubble extends StatelessWidget {
                     : TextDirection.ltr,
                 style: TextStyle(
                   color: isUser ? AppColors.onBrand : AppColors.text,
-                  fontSize: 14,
+                  fontSize: AppTypography.body,
                   height: 1.65,
                 ),
               ),
@@ -1170,7 +1181,7 @@ class _TypingBubble extends StatelessWidget {
         Expanded(
           child: Text(
             'Looking at your store data…'.tr,
-            style: TextStyle(color: AppColors.muted, fontSize: 13),
+            style: TextStyle(color: AppColors.muted, fontSize: AppTypography.body),
           ),
         ),
       ],

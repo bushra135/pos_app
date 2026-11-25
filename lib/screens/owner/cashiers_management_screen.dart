@@ -6,6 +6,7 @@ import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 import '../../app/app_language.dart';
+import '../../widgets/adaptive_layout.dart';
 
 /// Manages store cashier profiles; account access and on-duty availability are separate.
 class CashiersManagementScreen extends StatefulWidget {
@@ -90,9 +91,9 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(isActive ? 'Cashier enabled' : 'Cashier disabled')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text((isActive ? 'Cashier enabled' : 'Cashier disabled').tr)),
+      );
     } catch (e) {
       debugPrint('Error updating cashier status: $e');
 
@@ -110,7 +111,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
       builder: (context) {
         return AlertDialog(
           title: Text('Delete cashier'.tr),
-          content: Text('Are you sure you want to delete "$name"?'),
+          content: Text('Are you sure you want to delete "{name}"?'.trArgs({'name': name})),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context, false), child: Text('Cancel'.tr)),
             TextButton(
@@ -281,7 +282,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
                                   padding: const EdgeInsets.symmetric(vertical: 14),
                                   side: BorderSide(color: AppColors.border),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                                   ),
                                 ),
                                 child: Text(
@@ -302,7 +303,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
                                   backgroundColor: AppColors.primary,
                                   padding: const EdgeInsets.symmetric(vertical: 14),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                                   ),
                                 ),
                                 child: isSaving
@@ -345,7 +346,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
       filled: true,
       fillColor: AppColors.background,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
         borderSide: BorderSide.none,
       ),
     );
@@ -425,7 +426,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
                   'Cashiers'.tr,
                   style: TextStyle(
                     color: AppColors.text,
-                    fontSize: 22,
+                    fontSize: AppTypography.metric,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -492,7 +493,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
@@ -538,7 +539,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         color: status.bgColor,
-                        borderRadius: BorderRadius.circular(99),
+                        borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
                       ),
                       child: Text(
                         status.label,
@@ -642,7 +643,9 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
                 backgroundColor: AppColors.primary,
                 foregroundColor: AppColors.onBrand,
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+                ),
               ),
               icon: const Icon(Icons.person_add_alt_1_rounded),
               label: Text(
@@ -675,51 +678,54 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
         ),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                stream: _cashiersStream(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Failed to load cashiers'.tr));
-                  }
+        child: ContentWidth(
+          maxWidth: 720,
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: _cashiersStream(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Failed to load cashiers'.tr));
+                    }
 
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                  final docs = _sortedDocs(snapshot.data?.docs ?? []);
+                    final docs = _sortedDocs(snapshot.data?.docs ?? []);
 
-                  if (docs.isEmpty) {
-                    return _buildEmptyState();
-                  }
+                    if (docs.isEmpty) {
+                      return _buildEmptyState();
+                    }
 
-                  return Column(
-                    children: [
-                      _buildSummary(docs),
-                      Expanded(
-                        child: ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(
-                            AppSpacing.page,
-                            8,
-                            AppSpacing.page,
-                            96,
+                    return Column(
+                      children: [
+                        _buildSummary(docs),
+                        Expanded(
+                          child: ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.page,
+                              8,
+                              AppSpacing.page,
+                              96,
+                            ),
+                            itemCount: docs.length,
+                            separatorBuilder: (_, _) => const SizedBox(height: 12),
+                            itemBuilder: (context, index) {
+                              return _buildCashierCard(docs[index]);
+                            },
                           ),
-                          itemCount: docs.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 12),
-                          itemBuilder: (context, index) {
-                            return _buildCashierCard(docs[index]);
-                          },
                         ),
-                      ),
-                    ],
-                  );
-                },
+                      ],
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -318,6 +318,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      // Product insights live in the dashboard's Products tab.
+      await tester.tap(find.byKey(const ValueKey('dashboard-tab-products')));
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Top sellers'));
       await tester.pumpAndSettle();
       final top = tester.getTopLeft(find.text('Top sellers'));

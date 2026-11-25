@@ -6,6 +6,8 @@ import '../../services/backup_service.dart';
 import '../../services/sale_sync_service.dart';
 import '../../utils/cart_manager.dart';
 import '../../app/app_language.dart';
+import '../../app/app_typography.dart';
+import '../../widgets/adaptive_layout.dart';
 
 /// Owner-only workflow: load copies, preview recovery, then call BackupService.
 class BackupScreen extends StatefulWidget {
@@ -152,43 +154,49 @@ class _BackupScreenState extends State<BackupScreen> {
     canPop: !_isBusy,
     child: Scaffold(
       appBar: AppBar(title: Text('Backup & recovery'.tr)),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text('Cloud backups'.tr, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          Text(
-            'Linked to this store account on Firebase. These are manual recovery copies, not iCloud backups or a full database rollback.'
-                .tr,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            _backups.isEmpty
-                ? 'No completed backup loaded'
-                : 'Last successful backup: ${_backups.first.createdAt.toLocal()}',
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: _isBusy ? null : _createBackup,
-            icon: const Icon(Icons.backup_outlined),
-            label: Text('Create backup'.tr),
-          ),
-          TextButton(onPressed: _isBusy ? null : _loadBackups, child: Text('Refresh'.tr)),
-          if (_isBusy) const LinearProgressIndicator(),
-          if (_errorMessage != null)
-            SelectableText(_errorMessage!, style: const TextStyle(color: Colors.red)),
-          for (final backup in _backups)
-            Card(
-              child: ListTile(
-                title: Text(backup.createdAt.toLocal().toString().split('.').first),
-                subtitle: Text('${backup.products} products Ã‚| ${backup.sales} sales'),
-                trailing: IconButton(
-                  tooltip: 'Preview recovery'.tr,
-                  onPressed: _isBusy ? null : () => _restoreBackup(backup),
-                  icon: const Icon(Icons.restore),
+      body: ContentWidth(
+        maxWidth: 720,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              'Cloud backups'.tr,
+              style: TextStyle(fontSize: AppTypography.title, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              'Linked to this store account on Firebase. These are manual recovery copies, not iCloud backups or a full database rollback.'
+                  .tr,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _backups.isEmpty
+                  ? 'No completed backup loaded'
+                  : 'Last successful backup: ${_backups.first.createdAt.toLocal()}',
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _isBusy ? null : _createBackup,
+              icon: const Icon(Icons.backup_outlined),
+              label: Text('Create backup'.tr),
+            ),
+            TextButton(onPressed: _isBusy ? null : _loadBackups, child: Text('Refresh'.tr)),
+            if (_isBusy) const LinearProgressIndicator(),
+            if (_errorMessage != null)
+              SelectableText(_errorMessage!, style: const TextStyle(color: Colors.red)),
+            for (final backup in _backups)
+              Card(
+                child: ListTile(
+                  title: Text(backup.createdAt.toLocal().toString().split('.').first),
+                  subtitle: Text('${backup.products} products Ã‚| ${backup.sales} sales'),
+                  trailing: IconButton(
+                    tooltip: 'Preview recovery'.tr,
+                    onPressed: _isBusy ? null : () => _restoreBackup(backup),
+                    icon: const Icon(Icons.restore),
+                  ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     ),
   );

@@ -12,6 +12,7 @@ import '../../app/app_typography.dart';
 import '../../models/report_sale.dart';
 import '../../services/sales_query.dart';
 import '../../app/app_language.dart';
+import '../../app/money.dart';
 
 /// Totals for one business day: what was sold, how it was paid, and the VAT inside it.
 class DaySummary {
@@ -151,7 +152,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
 
   double _amount(TextEditingController controller) => double.tryParse(controller.text.trim()) ?? 0;
 
-  String _money(double value) => 'BD ${value.toStringAsFixed(3)}';
+  String _money(double value) => Money.format(value);
 
   String get _dateLabel =>
       '${_day.day.toString().padLeft(2, '0')}/${_day.month.toString().padLeft(2, '0')}/${_day.year}';
@@ -186,11 +187,11 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
             children: [
               pw.Text(
                 _storeName.isEmpty ? 'ShopPad' : _storeName,
-                style: const pw.TextStyle(fontSize: 20),
+                style: const pw.TextStyle(fontSize: AppTypography.headline),
               ),
               pw.Text(
                 'End of day report (Z-report) · $_dateLabel',
-                style: const pw.TextStyle(fontSize: 13),
+                style: const pw.TextStyle(fontSize: AppTypography.body),
               ),
               pw.Text(_storeWide ? 'Whole store'.tr : 'Cashier: $_personName'),
               pw.Divider(),
@@ -291,7 +292,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
@@ -312,7 +313,10 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
       children: [
         Container(
           padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(22)),
+          decoration: BoxDecoration(
+            color: AppColors.hero,
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -360,7 +364,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
         card('Cash drawer', [
           Text(
             'Count the cash in the drawer and enter it below.'.tr,
-            style: TextStyle(color: AppColors.muted, fontSize: AppTypography.caption + 1),
+            style: TextStyle(color: AppColors.muted, fontSize: AppTypography.body),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -369,7 +373,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               labelText: 'Opening float (cash at start of day)'.tr,
-              suffixText: 'BD',
+              suffixText: Money.symbol,
             ),
           ),
           const SizedBox(height: 12),
@@ -377,7 +381,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
             controller: _countedController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(labelText: 'Counted cash'.tr, suffixText: 'BD'),
+            decoration: InputDecoration(labelText: 'Counted cash'.tr, suffixText: Money.symbol),
           ),
           const SizedBox(height: 10),
           row('Expected in drawer', _money(expected), bold: true),
@@ -391,7 +395,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
                     : difference > 0
                     ? AppColors.warningSoft
                     : AppColors.dangerSoft,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
               ),
               child: Row(
                 children: [

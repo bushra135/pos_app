@@ -17,6 +17,10 @@ import '../reports/reports_screen.dart';
 import '../reports/sales_history_screen.dart';
 import 'cashiers_management_screen.dart';
 import '../../app/app_language.dart';
+import '../../app/money.dart';
+import '../../utils/today_summary.dart';
+import '../../widgets/adaptive_layout.dart';
+import '../../widgets/receipt_card.dart';
 
 /// Hosts management pages; cashier mode changes the workspace, not stored permissions.
 class OwnerHomeScreen extends StatefulWidget {
@@ -138,8 +142,6 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
       int lowStock = 0;
       final total = productsSnapshot.docs.length;
-      String topProduct = '';
-      int topSold = 0;
       final corrections =
           <({DocumentReference<Map<String, dynamic>> ref, String name, int recorded, int sold})>[];
 
@@ -160,21 +162,13 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         // Products are saved with `stock`/`minStock`; older records used `quantity`/`minQuantity`.
         final quantity = ((data['stock'] ?? data['quantity'] ?? 0) as num).toInt();
         final minQty = ((data['minStock'] ?? data['minQuantity'] ?? 5) as num).toInt();
-        final sold = ((data['soldCount'] ?? 0) as num).toInt();
 
         if (quantity <= minQty) lowStock++;
-
-        if (sold > topSold) {
-          topSold = sold;
-          topProduct = data['name'] ?? '';
-        }
       }
 
       // Use the device's local day, excluding the start of tomorrow.
       final now = DateTime.now();
-      final startOfDay = DateTime(now.year, now.month, now.day);
-      final endOfDay = startOfDay.add(const Duration(days: 1));
-      final startOfYesterday = startOfDay.subtract(const Duration(days: 1));
+      final startOfYesterday = DateTime(now.year, now.month, now.day - 1);
 
       // Today and yesterday are all this screen needs.
       final salesDocs = await SalesQuery.since(
@@ -184,36 +178,23 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         options: options,
       );
 
-      double totalSales = 0.0;
-      int orders = 0;
-      double yesterdayTotal = 0.0;
-
-      for (final sale in salesDocs) {
-        final data = sale.data();
-        final createdAt = data['createdAt'];
-
-        if (createdAt is Timestamp) {
-          final date = createdAt.toDate();
-
-          final amount = ((data['total'] ?? 0) as num).toDouble();
-          if (!date.isBefore(startOfDay) && date.isBefore(endOfDay)) {
-            totalSales += amount;
-            orders++;
-          } else if (!date.isBefore(startOfYesterday) && date.isBefore(startOfDay)) {
-            yesterdayTotal += amount;
-          }
-        }
-      }
+      // Orders exclude refund receipts; the best seller comes from today's receipts
+      // (after refunds), the same data the sales card uses.
+      final today = TodaySummary.fromReceipts([
+        for (final sale in salesDocs)
+          if (sale.data()['createdAt'] is Timestamp)
+            (date: (sale.data()['createdAt'] as Timestamp).toDate(), data: sale.data()),
+      ], now);
 
       if (!mounted) return;
 
       setState(() {
-        todaySales = totalSales;
-        todayOrders = orders;
-        yesterdaySales = yesterdayTotal;
+        todaySales = today.sales;
+        todayOrders = today.orders;
+        yesterdaySales = today.yesterdaySales;
         lowStockCount = lowStock;
-        bestSellerName = topProduct;
-        bestSellerSold = topSold;
+        bestSellerName = today.bestSeller;
+        bestSellerSold = today.bestSellerUnits;
         totalProducts = total;
         cashierCount = totalCashiers;
         activeCashierCount = activeCashiers;
@@ -275,53 +256,35 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       _ => _buildHomeContent(),
     };
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SaleSyncPanel(),
-            Expanded(
-              child: isLoading ? const Center(child: CircularProgressIndicator()) : currentScreen,
-            ),
-          ],
+    return AdaptiveNavScaffold(
+      selectedIndex: _selectedIndex,
+      onSelected: (index) => setState(() => _selectedIndex = index),
+      items: [
+        (icon: Icons.home_outlined, selectedIcon: Icons.home_rounded, label: 'Home'.tr),
+        (
+          icon: Icons.inventory_2_outlined,
+          selectedIcon: Icons.inventory_2_rounded,
+          label: 'Products'.tr,
         ),
-      ),
-      bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: AppColors.border)),
+        (
+          icon: Icons.space_dashboard_outlined,
+          selectedIcon: Icons.space_dashboard_rounded,
+          label: 'Dashboard'.tr,
         ),
-        child: NavigationBar(
-          selectedIndex: _selectedIndex,
-          onDestinationSelected: (index) => setState(() => _selectedIndex = index),
-          destinations: [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: 'Home'.tr,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.inventory_2_outlined),
-              selectedIcon: Icon(Icons.inventory_2_rounded),
-              label: 'Products'.tr,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.space_dashboard_outlined),
-              selectedIcon: Icon(Icons.space_dashboard_rounded),
-              label: 'Dashboard'.tr,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.auto_awesome_outlined),
-              selectedIcon: Icon(Icons.auto_awesome),
-              label: 'AI'.tr,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded),
-              selectedIcon: Icon(Icons.person_rounded),
-              label: 'Profile'.tr,
-            ),
-          ],
+        (icon: Icons.auto_awesome_outlined, selectedIcon: Icons.auto_awesome, label: 'AI'.tr),
+        (
+          icon: Icons.person_outline_rounded,
+          selectedIcon: Icons.person_rounded,
+          label: 'Profile'.tr,
         ),
+      ],
+      body: Column(
+        children: [
+          const SaleSyncPanel(),
+          Expanded(
+            child: isLoading ? const Center(child: CircularProgressIndicator()) : currentScreen,
+          ),
+        ],
       ),
     );
   }
@@ -387,7 +350,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                 value: bestSellerName.isEmpty ? 'No sales yet'.tr : bestSellerName,
                 caption: bestSellerName.isEmpty
                     ? 'record a sale to see it'.tr
-                    : '{n} sold'.trArgs({'n': bestSellerSold}),
+                    : '{n} sold today'.trArgs({'n': bestSellerSold}),
                 smallValue: true,
                 onTap: _openTopCashiers,
               ),
@@ -504,7 +467,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
       decoration: BoxDecoration(
         color: AppColors.warningSoft,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         border: Border.all(color: const Color(0xFFF3D9B4)),
       ),
       child: Column(
@@ -538,7 +501,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                   'recorded': item.recorded,
                   'sold': item.sold,
                 }),
-                style: const TextStyle(color: AppColors.text, fontSize: AppTypography.caption + 1),
+                style: const TextStyle(color: AppColors.text, fontSize: AppTypography.body),
               ),
             ),
           if (more > 0)
@@ -574,9 +537,8 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       changeColor = AppColors.onHeroMuted;
     }
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(24)),
+    return ReceiptCard(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -597,7 +559,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
                   ),
                   child: Text(
                     change,
@@ -615,16 +577,18 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             fit: BoxFit.scaleDown,
             alignment: AlignmentDirectional.centerStart,
             child: Text(
-              'BD ${todaySales.toStringAsFixed(3)}',
+              Money.format(todaySales),
               style: const TextStyle(
                 color: AppColors.onHero,
-                fontSize: 36,
+                fontSize: AppTypography.hero,
                 fontWeight: FontWeight.w800,
                 height: 1.2,
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
+          const ReceiptRule(),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -635,7 +599,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                             .trArgs({'n': todayOrders, 'avg': average.toStringAsFixed(3)}),
                   style: const TextStyle(
                     color: AppColors.onHeroMuted,
-                    fontSize: AppTypography.caption + 1,
+                    fontSize: AppTypography.body,
                   ),
                 ),
               ),
@@ -657,7 +621,12 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                     ),
                   ),
                   icon: const Icon(Icons.copy_rounded, size: 14),
-                  label: Text(storeCode.isEmpty ? 'No code'.tr : storeCode),
+                  // Says what the code is, so the owner knows to share it with cashiers.
+                  label: Text(
+                    storeCode.isEmpty
+                        ? 'No code'.tr
+                        : 'Store code {code}'.trArgs({'code': storeCode}),
+                  ),
                 ),
               ),
             ],
@@ -692,7 +661,7 @@ class _OverviewTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(18);
+    final radius = BorderRadius.circular(AppSpacing.cardRadius);
     return Material(
       color: AppColors.surface,
       borderRadius: radius,
@@ -720,7 +689,7 @@ class _OverviewTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: color,
-                        fontSize: AppTypography.caption + 1,
+                        fontSize: AppTypography.body,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -733,7 +702,7 @@ class _OverviewTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: AppColors.text,
-                  fontSize: smallValue ? 20 : 26,
+                  fontSize: smallValue ? AppTypography.headline : AppTypography.title,
                   fontWeight: FontWeight.w800,
                   height: 1.2,
                 ),

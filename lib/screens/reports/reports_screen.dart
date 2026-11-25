@@ -14,6 +14,8 @@ import '../../models/sale_record.dart';
 import '../closing/end_of_day_screen.dart';
 import 'sales_history_screen.dart';
 import '../../app/app_language.dart';
+import '../../app/money.dart';
+import '../../widgets/receipt_card.dart';
 
 /// Dashboard periods use local dates; history filters live on their separate route.
 enum ReportPeriod { today, week, month, year }
@@ -42,14 +44,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   ReportPeriod _selectedPeriod = ReportPeriod.week;
 
+  _DashboardSection _section = _DashboardSection.sales;
+
   bool _isLoading = true;
   bool _canOpenSalesHistory = false;
   String? _errorMessage;
 
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _salesDocuments = [];
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _productDocuments = [];
-
-  static const String currency = 'BD';
 
   @override
   void initState() {
@@ -318,24 +320,33 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       _buildPeriodSelector(),
                       const SizedBox(height: 16),
                       _buildHeroCard(data),
+                      const SizedBox(height: 18),
+                      _buildSectionTabs(),
                       const SizedBox(height: 16),
-                      _buildTrendChart(data),
-                      const SizedBox(height: 16),
-                      _buildProfitSection(data),
-                      const SizedBox(height: 16),
-                      _buildSummaryCards(data),
-                      const SizedBox(height: 16),
-                      _buildProductCards(data),
-                      const SizedBox(height: 16),
-                      _buildCategorySection(data),
-                      const SizedBox(height: 16),
-                      _buildPeakTimesSection(data),
-                      const SizedBox(height: 16),
-                      _buildVatSection(data),
-                      const SizedBox(height: 16),
-                      _buildNetSalesSection(data),
-                      const SizedBox(height: 16),
-                      _buildPaymentMethodsSection(data),
+                      // One topic at a time instead of every report stacked in one long page.
+                      ...switch (_section) {
+                        _DashboardSection.sales => [
+                          _buildTrendChart(data),
+                          const SizedBox(height: 16),
+                          _buildSummaryCards(data),
+                          const SizedBox(height: 16),
+                          _buildPeakTimesSection(data),
+                          const SizedBox(height: 16),
+                          _buildPaymentMethodsSection(data),
+                        ],
+                        _DashboardSection.profit => [
+                          _buildProfitSection(data),
+                          const SizedBox(height: 16),
+                          _buildNetSalesSection(data),
+                          const SizedBox(height: 16),
+                          _buildVatSection(data),
+                        ],
+                        _DashboardSection.products => [
+                          _buildProductCards(data),
+                          const SizedBox(height: 16),
+                          _buildCategorySection(data),
+                        ],
+                      },
                     ],
                   ),
                 ),
@@ -354,7 +365,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
             children: [
               Text(
                 'Dashboard'.tr,
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: AppColors.text),
+                style: TextStyle(
+                  fontSize: AppTypography.display,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.text,
+                ),
               ),
               SizedBox(height: 4),
               Text(
@@ -410,12 +425,65 @@ class _ReportsScreenState extends State<ReportsScreen> {
     side: const BorderSide(color: AppColors.border),
   );
 
+  /// Topic tabs under the period: underlined text, so they read differently from the
+  /// period selector above them.
+  Widget _buildSectionTabs() {
+    Widget tab(String label, _DashboardSection section) {
+      final selected = _section == section;
+      return InkWell(
+        key: ValueKey('dashboard-tab-${section.name}'),
+        onTap: () => setState(() => _section = section),
+        borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 44),
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: selected ? AppColors.primaryDark : Colors.transparent,
+                width: 2.5,
+              ),
+            ),
+          ),
+          child: Text(
+            label.tr,
+            style: TextStyle(
+              fontSize: AppTypography.button,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+              color: selected ? AppColors.text : AppColors.muted,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      // Scrolls sideways instead of clipping when the labels are long or the text is large.
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            tab('Sales', _DashboardSection.sales),
+            const SizedBox(width: 22),
+            tab('Profit & VAT', _DashboardSection.profit),
+            const SizedBox(width: 22),
+            tab('Products', _DashboardSection.products),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildPeriodSelector() {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFECECE7),
-        borderRadius: BorderRadius.circular(14),
+        color: AppColors.soft,
+        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
       ),
       child: Row(
         children: [
@@ -439,7 +507,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           padding: const EdgeInsets.symmetric(vertical: 9),
           decoration: BoxDecoration(
             color: isSelected ? AppColors.surface : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
@@ -456,7 +524,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             style: TextStyle(
               color: isSelected ? AppColors.text : AppColors.muted,
               fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
-              fontSize: AppTypography.caption + 1,
+              fontSize: AppTypography.body,
             ),
           ),
         ),
@@ -523,7 +591,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   BarChartRodData(
                     toY: math.max(0.0, data.chartValues[index]),
                     width: _barWidth(_selectedPeriod),
-                    borderRadius: BorderRadius.circular(7),
+                    borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
                     color: AppColors.primaryDark,
                   ),
                 ],
@@ -552,7 +620,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               value,
               style: const TextStyle(
                 color: AppColors.onHero,
-                fontSize: 17,
+                fontSize: AppTypography.subtitle,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -561,10 +629,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
       ),
     );
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(22)),
+    return ReceiptCard(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -575,7 +641,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   'Net sales · {period}'.trArgs({'period': _periodLabel(_selectedPeriod)}),
                   style: const TextStyle(
                     color: AppColors.onHeroMuted,
-                    fontSize: AppTypography.caption + 1,
+                    fontSize: AppTypography.body,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -585,7 +651,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
                   ),
                   child: Text(
                     '{change}% vs {previous}'.trArgs({
@@ -609,7 +675,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               _money(data.netSales),
               style: const TextStyle(
                 color: AppColors.onHero,
-                fontSize: 30,
+                fontSize: AppTypography.display,
                 fontWeight: FontWeight.w800,
                 height: 1.25,
               ),
@@ -848,13 +914,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
     final bestHour = data.hourly.indexOf(hourMax);
     final bestDay = data.weekday.indexOf(dayMax);
-    String hourLabel(int h) => h == 0
-        ? '12 AM'
-        : h < 12
-        ? '$h AM'
-        : h == 12
-        ? '12 PM'
-        : '${h - 12} PM';
+    String hourLabel(int h) {
+      final hour = h % 12 == 0 ? 12 : h % 12;
+      final morning = h < 12;
+      if (AppLanguage.isArabic) return '$hour ${morning ? 'ص' : 'م'}';
+      return '$hour ${morning ? 'AM' : 'PM'}';
+    }
 
     Widget bars(List<double> values, double max, int best, String Function(int) label, int every) =>
         SizedBox(
@@ -872,7 +937,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         Container(
                           height: max <= 0 ? 0 : 64 * values[i] / max,
                           decoration: BoxDecoration(
-                            color: i == best ? AppColors.primaryDark : AppColors.hero,
+                            // Other hours stay readable next to the busiest one.
+                            color: i == best ? AppColors.primaryDark : AppColors.heroLine,
                             borderRadius: BorderRadius.circular(4),
                           ),
                         ),
@@ -884,9 +950,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                   child: Text(
                                     label(i),
                                     style: TextStyle(
-                                      fontSize: 10,
+                                      fontSize: AppTypography.micro,
                                       color: i == best ? AppColors.primaryDark : AppColors.muted,
-                                      fontWeight: i == best ? FontWeight.w800 : FontWeight.w500,
+                                      fontWeight: i == best ? FontWeight.w800 : FontWeight.w600,
                                     ),
                                   ),
                                 )
@@ -925,9 +991,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget _buildVatSection(_ReportsData data) {
     final excluding = data.netSales - data.vatCollected;
     return _SectionCard(
-      title: 'VAT',
-      subtitle:
-          'Prices include ${SaleRecord.bahrainVatRate.toStringAsFixed(0)}% VAT · for your NBR return',
+      title: 'VAT'.tr,
+      subtitle: 'Prices include {rate}% VAT · for your NBR return'.trArgs({
+        'rate': SaleRecord.bahrainVatRate.toStringAsFixed(0),
+      }),
       child: Column(
         children: [
           _AmountRow('Sales including VAT', _money(data.netSales)),
@@ -973,7 +1040,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 14),
                   child: _ProgressRow(
-                    title: method.name,
+                    title: method.name.tr,
                     trailing: _money(method.amount),
                     progress: progress,
                     color: AppColors.accent,
@@ -1014,7 +1081,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     height: 5,
                     decoration: BoxDecoration(
                       color: AppColors.border,
-                      borderRadius: BorderRadius.circular(99),
+                      borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1070,7 +1137,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   String _money(double value) {
-    return '$currency ${value.toStringAsFixed(3)}';
+    return Money.format(value);
   }
 }
 
@@ -1161,10 +1228,10 @@ class _InsightCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.surface,
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: _cardDecoration(),
@@ -1362,7 +1429,7 @@ class _ProgressRow extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
           child: LinearProgressIndicator(
             value: safeProgress,
             minHeight: 8,
@@ -1401,7 +1468,7 @@ class _RankedProductTile extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: rank == 1 ? AppColors.primary : AppColors.soft,
-              borderRadius: BorderRadius.circular(17),
+              borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
             ),
             child: Text(
               '$rank',
@@ -1614,7 +1681,7 @@ enum _ProductSheetMode { quantity, revenue }
 BoxDecoration _cardDecoration() {
   return BoxDecoration(
     color: AppColors.surface,
-    borderRadius: BorderRadius.circular(20),
+    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
     border: Border.all(color: AppColors.border),
   );
 }
@@ -1813,7 +1880,7 @@ class _ProfitFigure extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.background,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1827,7 +1894,11 @@ class _ProfitFigure extends StatelessWidget {
             alignment: AlignmentDirectional.centerStart,
             child: Text(
               value,
-              style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.w800),
+              style: TextStyle(
+                color: color,
+                fontSize: AppTypography.headline,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
         ],
@@ -1835,3 +1906,6 @@ class _ProfitFigure extends StatelessWidget {
     );
   }
 }
+
+/// Dashboard topics shown one at a time.
+enum _DashboardSection { sales, profit, products }

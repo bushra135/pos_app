@@ -13,6 +13,7 @@ import '../../widgets/sale_sync_panel.dart';
 import '../../utils/cart_manager.dart';
 import '../backup/backup_screen.dart';
 import '../../app/app_language.dart';
+import '../../widgets/adaptive_layout.dart';
 
 /// Shows user details and payment settings shared by store employees.
 /// Shows account details, payment settings, sync status and owner recovery access.
@@ -270,379 +271,390 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.page, 0, AppSpacing.page, 24),
-          child: Column(
-            children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(0, 24, 0, 16),
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(
-                    'Profile'.tr,
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.text,
+        child: ContentWidth(
+          maxWidth: 720,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.page, 0, AppSpacing.page, 24),
+            child: Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(0, 24, 0, 16),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      'Profile'.tr,
+                      style: TextStyle(
+                        fontSize: AppTypography.display,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.text,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: AppColors.hero,
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: AppColors.primaryDark,
-                      child: Text(
-                        name.trim().isEmpty ? 'U' : name.trim()[0].toUpperCase(),
-                        style: const TextStyle(
-                          color: AppColors.onBrand,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: AppColors.hero,
+                    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                  ),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: AppColors.primaryDark,
+                        child: Text(
+                          name.trim().isEmpty ? 'U' : name.trim()[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: AppColors.onBrand,
+                            fontSize: AppTypography.metric,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            name.isEmpty ? 'User' : name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.onHero,
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name.isEmpty ? 'User' : name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: AppTypography.section,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.onHero,
+                              ),
                             ),
-                          ),
-                          Text(
-                            role.isEmpty ? 'User' : role,
-                            style: const TextStyle(
-                              fontSize: AppTypography.caption + 1,
-                              color: AppColors.onHeroMuted,
+                            Text(
+                              role.isEmpty ? 'User' : role,
+                              style: const TextStyle(
+                                fontSize: AppTypography.body,
+                                color: AppColors.onHeroMuted,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Transform.translate(
-                offset: Offset.zero,
-                child: Container(
+                const SizedBox(height: 16),
+                Transform.translate(
+                  offset: Offset.zero,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      children: [
+                        _InfoRow(
+                          icon: Icons.storefront_outlined,
+                          iconBg: AppColors.soft,
+                          iconColor: AppColors.primaryDark,
+                          title: 'Store name'.tr,
+                          value: storeName.isEmpty ? 'No store' : storeName,
+                        ),
+                        const SizedBox(height: 16),
+                        _InfoRow(
+                          icon: Icons.tag_outlined,
+                          iconBg: AppColors.warningSoft,
+                          iconColor: AppColors.warning,
+                          title: 'Store code'.tr,
+                          value: storeCode.isEmpty ? '-' : storeCode,
+                        ),
+                        const SizedBox(height: 16),
+                        _InfoRow(
+                          icon: Icons.email_outlined,
+                          iconBg: AppColors.accentSoft,
+                          iconColor: AppColors.primaryDark,
+                          title: 'Email'.tr,
+                          value: email.isEmpty ? '-' : email,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (isOwner && widget.onSwitchMode != null) ...[
+                  Card(
+                    child: ListTile(
+                      leading: Icon(
+                        widget.cashierMode ? Icons.manage_accounts_outlined : Icons.point_of_sale,
+                        color: AppColors.primaryDark,
+                      ),
+                      title: Text(
+                        (widget.cashierMode ? 'Switch to owner' : 'Switch to cashier').tr,
+                      ),
+                      subtitle: Text(
+                        (widget.cashierMode
+                                ? 'Return to store management'
+                                : 'Scan products and complete sales')
+                            .tr,
+                      ),
+                      trailing: const Icon(Icons.swap_horiz),
+                      onTap: widget.onSwitchMode,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                const SaleSyncPanel(inProfile: true),
+                const SizedBox(height: 16),
+                Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.border),
+                    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.text.withValues(alpha: 0.04),
+                        blurRadius: 12,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
                   child: Column(
                     children: [
-                      _InfoRow(
-                        icon: Icons.storefront_outlined,
-                        iconBg: AppColors.soft,
-                        iconColor: AppColors.primaryDark,
-                        title: 'Store name'.tr,
-                        value: storeName.isEmpty ? 'No store' : storeName,
-                      ),
-                      const SizedBox(height: 16),
-                      _InfoRow(
-                        icon: Icons.tag_outlined,
-                        iconBg: AppColors.warningSoft,
-                        iconColor: AppColors.warning,
-                        title: 'Store code'.tr,
-                        value: storeCode.isEmpty ? '-' : storeCode,
-                      ),
-                      const SizedBox(height: 16),
-                      _InfoRow(
-                        icon: Icons.email_outlined,
-                        iconBg: AppColors.accentSoft,
-                        iconColor: AppColors.primaryDark,
-                        title: 'Email'.tr,
-                        value: email.isEmpty ? '-' : email,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (isOwner && widget.onSwitchMode != null) ...[
-                Card(
-                  child: ListTile(
-                    leading: Icon(
-                      widget.cashierMode ? Icons.manage_accounts_outlined : Icons.point_of_sale,
-                      color: AppColors.primaryDark,
-                    ),
-                    title: Text(widget.cashierMode ? 'Switch to owner' : 'Switch to cashier'),
-                    subtitle: Text(
-                      widget.cashierMode
-                          ? 'Return to store management'
-                          : 'Scan products and complete sales',
-                    ),
-                    trailing: const Icon(Icons.swap_horiz),
-                    onTap: widget.onSwitchMode,
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-              const SaleSyncPanel(inProfile: true),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.text.withValues(alpha: 0.04),
-                      blurRadius: 12,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    InkWell(
-                      borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                      onTap: () {
-                        setState(() {
-                          isPaymentExpanded = !isPaymentExpanded;
-                        });
-                      },
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 46,
-                            height: 46,
-                            decoration: BoxDecoration(
-                              color: AppColors.soft,
-                              borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                            ),
-                            child: const Icon(
-                              Icons.payments_outlined,
-                              color: AppColors.primaryDark,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Payment settings'.tr,
-                                  style: TextStyle(
-                                    fontSize: AppTypography.section,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.text,
-                                  ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Manage Benefit payment information'.tr,
-                                  style: TextStyle(
-                                    fontSize: AppTypography.caption,
-                                    color: AppColors.muted,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Icon(
-                            isPaymentExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                            color: AppColors.muted,
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (isPaymentExpanded) ...[
-                      const SizedBox(height: 18),
-                      TextField(
-                        controller: benefitNumberController,
-                        enabled: isOwner,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'Benefit number'.tr,
-                          hintText: 'Enter your Benefit number'.tr,
-                          filled: true,
-                          fillColor: AppColors.background,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppColors.background,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
+                      InkWell(
+                        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+                        onTap: () {
+                          setState(() {
+                            isPaymentExpanded = !isPaymentExpanded;
+                          });
+                        },
+                        child: Row(
                           children: [
-                            Text(
-                              'Benefit QR'.tr,
-                              style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.text),
-                            ),
-                            const SizedBox(height: 12),
-                            _buildQrPreview(),
-                            if (isOwner) ...[
-                              const SizedBox(height: 14),
-                              OutlinedButton.icon(
-                                onPressed: isSaving ? null : _pickQrImage,
-                                icon: const Icon(Icons.upload_outlined),
-                                label: Text('Upload QR'.tr),
-                                style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: AppColors.primaryDark),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
+                            Container(
+                              width: 46,
+                              height: 46,
+                              decoration: BoxDecoration(
+                                color: AppColors.soft,
+                                borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                               ),
-                            ],
+                              child: const Icon(
+                                Icons.payments_outlined,
+                                color: AppColors.primaryDark,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Payment settings'.tr,
+                                    style: TextStyle(
+                                      fontSize: AppTypography.section,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.text,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Manage Benefit payment information'.tr,
+                                    style: TextStyle(
+                                      fontSize: AppTypography.caption,
+                                      color: AppColors.muted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              isPaymentExpanded
+                                  ? Icons.keyboard_arrow_up
+                                  : Icons.keyboard_arrow_down,
+                              color: AppColors.muted,
+                            ),
                           ],
                         ),
                       ),
-                      if (isOwner) ...[
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: isSaving ? null : _savePaymentData,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                              ),
+                      if (isPaymentExpanded) ...[
+                        const SizedBox(height: 18),
+                        TextField(
+                          controller: benefitNumberController,
+                          enabled: isOwner,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Benefit number'.tr,
+                            hintText: 'Enter your Benefit number'.tr,
+                            filled: true,
+                            fillColor: AppColors.background,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+                              borderSide: BorderSide.none,
                             ),
-                            child: isSaving
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      color: AppColors.onBrand,
-                                      strokeWidth: 2.5,
-                                    ),
-                                  )
-                                : Text(
-                                    'Save payment settings'.tr,
-                                    style: TextStyle(
-                                      color: AppColors.onBrand,
-                                      fontSize: AppTypography.button,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.background,
+                            borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                'Benefit QR'.tr,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.text,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildQrPreview(),
+                              if (isOwner) ...[
+                                const SizedBox(height: 14),
+                                OutlinedButton.icon(
+                                  onPressed: isSaving ? null : _pickQrImage,
+                                  icon: const Icon(Icons.upload_outlined),
+                                  label: Text('Upload QR'.tr),
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: AppColors.primaryDark),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (isOwner) ...[
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: isSaving ? null : _savePaymentData,
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+                                ),
+                              ),
+                              child: isSaving
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        color: AppColors.onBrand,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
+                                  : Text(
+                                      'Save payment settings'.tr,
+                                      style: TextStyle(
+                                        color: AppColors.onBrand,
+                                        fontSize: AppTypography.button,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ],
                       ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              if (isOwner && storeCode.isNotEmpty) ...[
+                if (isOwner && storeCode.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.backup_outlined),
+                      title: Text('Backup & recovery'.tr),
+                      subtitle: Text('Create a cloud copy or recover missing records'.tr),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => BackupScreen(storeCode: storeCode)),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
-                Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.backup_outlined),
-                    title: Text('Backup & recovery'.tr),
-                    subtitle: Text('Create a cloud copy or recover missing records'.tr),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => BackupScreen(storeCode: storeCode)),
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 22),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.text.withValues(alpha: 0.04),
-                      blurRadius: 12,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'AI Assisted Pocket Register'.tr,
-                      style: TextStyle(fontSize: AppTypography.caption, color: AppColors.muted),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      'Version 1.0.0'.tr,
-                      style: TextStyle(fontSize: AppTypography.caption, color: AppColors.muted),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Language: the whole app switches text and direction at once.
-              OutlinedButton.icon(
-                onPressed: AppLanguage.toggle,
-                style: OutlinedButton.styleFrom(
-                  backgroundColor: AppColors.surface,
-                  foregroundColor: AppColors.text,
-                  side: const BorderSide(color: AppColors.border),
-                  minimumSize: const Size.fromHeight(54),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                  ),
-                ),
-                icon: const Icon(Icons.translate_rounded, color: AppColors.primaryDark),
-                label: Text(
-                  '${'Language'.tr}: ${AppLanguage.isArabic ? 'العربية' : 'English'}  ·  ${AppLanguage.isArabic ? 'English' : 'العربية'}',
-                ),
-              ),
-              const SizedBox(height: 12),
-              GestureDetector(
-                onTap: _loggingOut ? null : _logout,
-                child: Container(
+                Container(
                   width: double.infinity,
-                  height: 58,
+                  padding: const EdgeInsets.symmetric(vertical: 22),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                    border: Border.all(color: AppColors.danger, width: 1.6),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.text.withValues(alpha: 0.04),
+                        blurRadius: 12,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Column(
                     children: [
-                      const Icon(Icons.logout, color: AppColors.danger),
-                      const SizedBox(width: 10),
                       Text(
-                        _loggingOut ? 'Signing out...'.tr : 'Logout'.tr,
-                        style: const TextStyle(
-                          color: AppColors.danger,
-                          fontWeight: FontWeight.w700,
-                          fontSize: AppTypography.button,
-                        ),
+                        'AI Assisted Pocket Register'.tr,
+                        style: TextStyle(fontSize: AppTypography.caption, color: AppColors.muted),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'Version 1.0.0'.tr,
+                        style: TextStyle(fontSize: AppTypography.caption, color: AppColors.muted),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 20),
+                // Language: the whole app switches text and direction at once.
+                OutlinedButton.icon(
+                  onPressed: AppLanguage.toggle,
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: AppColors.surface,
+                    foregroundColor: AppColors.text,
+                    side: const BorderSide(color: AppColors.border),
+                    minimumSize: const Size.fromHeight(54),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                    ),
+                  ),
+                  icon: const Icon(Icons.translate_rounded, color: AppColors.primaryDark),
+                  label: Text(
+                    '${'Language'.tr}: ${AppLanguage.isArabic ? 'العربية' : 'English'}  ·  ${AppLanguage.isArabic ? 'English' : 'العربية'}',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: _loggingOut ? null : _logout,
+                  child: Container(
+                    width: double.infinity,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                      border: Border.all(color: AppColors.danger, width: 1.6),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.logout, color: AppColors.danger),
+                        const SizedBox(width: 10),
+                        Text(
+                          _loggingOut ? 'Signing out...'.tr : 'Logout'.tr,
+                          style: const TextStyle(
+                            color: AppColors.danger,
+                            fontWeight: FontWeight.w700,
+                            fontSize: AppTypography.button,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -672,7 +684,10 @@ class _InfoRow extends StatelessWidget {
         Container(
           width: 52,
           height: 52,
-          decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(
+            color: iconBg,
+            borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+          ),
           child: Icon(icon, color: iconColor, size: 26),
         ),
         const SizedBox(width: 14),
