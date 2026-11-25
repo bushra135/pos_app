@@ -14,6 +14,7 @@ import '../../utils/cart_manager.dart';
 import '../backup/backup_screen.dart';
 import '../../app/app_language.dart';
 import '../../widgets/adaptive_layout.dart';
+import '../../services/profile_edits.dart';
 
 /// Shows user details and payment settings shared by store employees.
 /// Shows account details, payment settings, sync status and owner recovery access.
@@ -223,6 +224,156 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  /// Edit your name (everyone), the store name (owner), or get a password reset link.
+  Future<void> _openEditor() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final nameController = TextEditingController(text: name);
+    final storeController = TextEditingController(text: storeName);
+    final formKey = GlobalKey<FormState>();
+    var saving = false;
+    String? error;
+
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: AppColors.surface,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) {
+          Future<void> save() async {
+            if (!formKey.currentState!.validate()) return;
+            setSheet(() {
+              saving = true;
+              error = null;
+            });
+            try {
+              await ProfileEdits.save(
+                FirebaseFirestore.instance,
+                uid: user.uid,
+                storeCode: storeCode,
+                isOwner: isOwner,
+                oldName: name,
+                newName: nameController.text,
+                oldStoreName: storeName,
+                newStoreName: storeController.text,
+              ).timeout(const Duration(seconds: 15));
+              if (sheetContext.mounted) Navigator.pop(sheetContext, true);
+            } catch (e) {
+              debugPrint('Profile save failed: $e');
+              setSheet(() {
+                saving = false;
+                error = 'Could not save your changes. Check your connection and try again.';
+              });
+            }
+          }
+
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.page,
+              0,
+              AppSpacing.page,
+              MediaQuery.viewInsetsOf(sheetContext).bottom + 24,
+            ),
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Edit profile'.tr,
+                    style: const TextStyle(
+                      fontSize: AppTypography.section,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.text,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: nameController,
+                    enabled: !saving,
+                    textInputAction: isOwner ? TextInputAction.next : TextInputAction.done,
+                    maxLength: ProfileEdits.maxLength,
+                    decoration: InputDecoration(
+                      labelText: 'Full name'.tr,
+                      prefixIcon: const Icon(Icons.person_outline_rounded),
+                    ),
+                    validator: (value) => ProfileEdits.checkName(value ?? '')?.tr,
+                    onFieldSubmitted: isOwner ? null : (_) => save(),
+                  ),
+                  if (isOwner) ...[
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: storeController,
+                      enabled: !saving,
+                      textInputAction: TextInputAction.done,
+                      maxLength: ProfileEdits.maxLength,
+                      decoration: InputDecoration(
+                        labelText: 'Store name'.tr,
+                        helperText: 'Shown to your cashiers and on new receipts'.tr,
+                        prefixIcon: const Icon(Icons.storefront_outlined),
+                      ),
+                      validator: (value) => ProfileEdits.checkStoreName(value ?? '')?.tr,
+                      onFieldSubmitted: (_) => save(),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.lock_reset_rounded, color: AppColors.primaryDark),
+                    title: Text('Change password'.tr),
+                    subtitle: Text('We will email you a link to set a new one'.tr),
+                    onTap: saving ? null : () => _sendPasswordReset(sheetContext),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(error!.tr, style: const TextStyle(color: AppColors.danger)),
+                  ],
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: saving ? null : save,
+                    child: Text(saving ? 'Saving...'.tr : 'Save'.tr),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    nameController.dispose();
+    storeController.dispose();
+    if (saved == true) {
+      await _loadUserData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Profile updated'.tr)));
+      }
+    }
+  }
+
+  Future<void> _sendPasswordReset(BuildContext sheetContext) async {
+    final address = FirebaseAuth.instance.currentUser?.email ?? email;
+    if (address.isEmpty) return;
+    var message = 'Password reset link sent to {email}';
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: address,
+        actionCodeSettings: ActionCodeSettings(
+          url: 'https://shoppad-f3d43.firebaseapp.com',
+          handleCodeInApp: false,
+        ),
+      );
+    } catch (e) {
+      debugPrint('Password reset email failed: $e');
+      message = 'Could not send the link. Try again later.';
+    }
+    if (!sheetContext.mounted) return;
+    ScaffoldMessenger.of(
+      sheetContext,
+    ).showSnackBar(SnackBar(content: Text(message.trArgs({'email': address}))));
+  }
+
   Widget _buildQrPlaceholder() {
     return Container(
       height: 160,
@@ -318,7 +469,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              name.isEmpty ? 'User' : name,
+                              name.isEmpty ? 'User'.tr : name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -328,7 +479,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ),
                             Text(
-                              role.isEmpty ? 'User' : role,
+                              isOwner
+                                  ? 'Owner'.tr
+                                  : role.toLowerCase() == 'cashier'
+                                  ? 'Cashier'.tr
+                                  : 'User'.tr,
                               style: const TextStyle(
                                 fontSize: AppTypography.body,
                                 color: AppColors.onHeroMuted,
@@ -336,6 +491,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ],
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: _openEditor,
+                        icon: const Icon(Icons.edit_outlined, size: 18),
+                        label: Text('Edit'.tr),
                       ),
                     ],
                   ),
@@ -358,7 +519,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           iconBg: AppColors.soft,
                           iconColor: AppColors.primaryDark,
                           title: 'Store name'.tr,
-                          value: storeName.isEmpty ? 'No store' : storeName,
+                          value: storeName.isEmpty ? 'No store'.tr : storeName,
                         ),
                         const SizedBox(height: 16),
                         _InfoRow(
