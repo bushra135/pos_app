@@ -18,7 +18,7 @@ abstract final class AppColors {
   /// Text and icons placed on [primary] surfaces.
   static const Color onBrand = Color(0xFFFFFFFF);
 
-  static const Color background = Color(0xFFF4F4EF);
+  static const Color background = Color(0xFFF6F6F3);
   static const Color surface = Color(0xFFFFFFFF);
   static const Color text = Color(0xFF16181D);
   static const Color muted = Color(0xFF5A5C63);
