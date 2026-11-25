@@ -158,8 +158,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _brand() => Column(
     children: [
-      const BrandLogo(),
-      const SizedBox(height: 8),
+      // The scanner frame is the screen's one motion moment; it keeps scanning while signing in.
+      ScanFrame(scanning: _loading, child: const BrandLogo()),
+      const SizedBox(height: 4),
       FadeSlideIn(
         index: 1,
         child: Text(
