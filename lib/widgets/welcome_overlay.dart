@@ -84,7 +84,10 @@ class _WelcomeGateState extends State<WelcomeGate> with SingleTickerProviderStat
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 25),
     ]).animate(_controller);
     final rise = Tween(begin: 12.0, end: 0.0).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0, 0.35, curve: Motion.curve)),
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0, 0.35, curve: Motion.curve),
+      ),
     );
     return Stack(
       // Always the full screen, whatever the screen beneath measures.
