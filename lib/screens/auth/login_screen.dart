@@ -149,7 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
         textAlign: TextAlign.center,
         style: TextStyle(
           color: AppColors.text,
-          fontSize: 30,
+          fontSize: AppTypography.display,
           fontWeight: FontWeight.w800,
           height: 1.2,
         ),
@@ -197,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
             decoration: InputDecoration(
               hintText: 'Enter your password'.tr,
               suffixIcon: IconButton(
-                tooltip: _showPassword ? 'Hide password' : 'Show password',
+                tooltip: (_showPassword ? 'Hide password' : 'Show password').tr,
                 onPressed: () => setState(() => _showPassword = !_showPassword),
                 icon: Icon(
                   _showPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
@@ -223,10 +223,12 @@ class _LoginScreenState extends State<LoginScreen> {
               foregroundColor: AppColors.onBrand,
               disabledBackgroundColor: AppColors.primaryDark,
               disabledForegroundColor: AppColors.onBrand,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+              ),
               textStyle: const TextStyle(
                 fontFamily: AppTypography.family,
-                fontSize: 16,
+                fontSize: AppTypography.subtitle,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -260,7 +262,9 @@ class _LoginScreenState extends State<LoginScreen> {
           backgroundColor: AppColors.surface,
           side: const BorderSide(color: Color(0xFFD9D9D2)),
           minimumSize: const Size.fromHeight(52),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+          ),
         ),
         child: Text('Create an account'.tr),
       ),
@@ -273,7 +277,7 @@ class _LoginScreenState extends State<LoginScreen> {
       text,
       style: const TextStyle(
         color: AppColors.text,
-        fontSize: AppTypography.caption + 1,
+        fontSize: AppTypography.body,
         fontWeight: FontWeight.w700,
       ),
     ),

@@ -279,7 +279,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
@@ -304,10 +304,10 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     return Expanded(
       child: Material(
         color: selected ? AppColors.primaryDark : Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
         child: InkWell(
           onTap: () => setState(() => _isOwner = owner),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Row(
@@ -349,8 +349,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Text(
-        label,
-        style: const TextStyle(fontSize: AppTypography.caption + 1, fontWeight: FontWeight.w700),
+        label.tr,
+        style: const TextStyle(fontSize: AppTypography.body, fontWeight: FontWeight.w700),
       ),
       const SizedBox(height: 6),
       TextField(
@@ -358,7 +358,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         obscureText: obscureText,
         onChanged: onChanged,
         decoration: _inputDecoration(
-          hintText: hint,
+          hintText: hint.tr,
           icon: icon,
           errorText: errorText,
           suffixIcon: suffixIcon,
@@ -368,7 +368,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   );
 
   Widget _passwordToggle(bool visible, VoidCallback toggle) => IconButton(
-    tooltip: visible ? 'Hide password' : 'Show password',
+    tooltip: (visible ? 'Hide password' : 'Show password').tr,
     color: AppColors.muted,
     onPressed: toggle,
     icon: Icon(visible ? Icons.visibility_outlined : Icons.visibility_off_outlined),
@@ -424,7 +424,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: AppColors.text,
-                          fontSize: 28,
+                          fontSize: AppTypography.display,
                           fontWeight: FontWeight.w800,
                           height: 1.2,
                         ),
@@ -441,17 +441,14 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                     const SizedBox(height: 26),
                     Text(
                       'I am a...'.tr,
-                      style: TextStyle(
-                        fontSize: AppTypography.caption + 1,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: TextStyle(fontSize: AppTypography.body, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
                         color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                         border: Border.all(color: AppColors.border),
                       ),
                       child: Row(
@@ -543,10 +540,12 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         foregroundColor: AppColors.onBrand,
                         disabledBackgroundColor: AppColors.primaryDark,
                         disabledForegroundColor: AppColors.onBrand,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+                        ),
                         textStyle: const TextStyle(
                           fontFamily: AppTypography.family,
-                          fontSize: 16,
+                          fontSize: AppTypography.subtitle,
                           fontWeight: FontWeight.w800,
                         ),
                       ),

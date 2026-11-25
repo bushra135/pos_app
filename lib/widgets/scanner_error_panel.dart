@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../app/app_language.dart';
+import '../app/app_typography.dart';
 
 /// Keeps camera failures recoverable and shows the browser's actual reason.
 class ScannerErrorPanel extends StatelessWidget {
@@ -36,7 +37,7 @@ class ScannerErrorPanel extends StatelessWidget {
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  style: const TextStyle(color: Colors.white70, fontSize: AppTypography.caption),
                 ),
               ],
               const SizedBox(height: 16),
@@ -49,7 +50,7 @@ class ScannerErrorPanel extends StatelessWidget {
               Text(
                 'You can also close this view and enter the barcode manually.'.tr,
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white70, fontSize: 12),
+                style: TextStyle(color: Colors.white70, fontSize: AppTypography.caption),
               ),
             ],
           ),

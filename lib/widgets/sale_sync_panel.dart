@@ -5,6 +5,9 @@ import '../services/local_pos_store.dart';
 import '../services/sale_sync_service.dart';
 import '../utils/cart_manager.dart';
 import '../app/app_language.dart';
+import '../app/money.dart';
+import '../app/app_typography.dart';
+import '../app/app_spacing.dart';
 
 /// Cash receipts stay visible until the server confirms their stock deduction.
 class SaleSyncPanel extends StatelessWidget {
@@ -76,7 +79,10 @@ class SaleSyncPanel extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(status, style: TextStyle(color: color, fontSize: 12)),
+                  child: Text(
+                    status,
+                    style: TextStyle(color: color, fontSize: AppTypography.caption),
+                  ),
                 ),
                 TextButton(
                   onPressed: draftError == null
@@ -119,7 +125,7 @@ class SaleSyncPanel extends StatelessWidget {
                         child: Text(
                           'Saved cash sales'.tr,
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: AppTypography.headline,
                             fontWeight: FontWeight.bold,
                             color: AppColors.text,
                           ),
@@ -136,7 +142,7 @@ class SaleSyncPanel extends StatelessWidget {
                   const Text(
                     'Pending receipts are saved on this device. Stock and sales '
                     'reports are final only after server confirmation.',
-                    style: TextStyle(color: AppColors.muted, fontSize: 13),
+                    style: TextStyle(color: AppColors.muted, fontSize: AppTypography.body),
                   ),
                   const SizedBox(height: 12),
                   if (sync.lastError != null)
@@ -189,7 +195,7 @@ class _PendingSaleCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: pending.isConflict ? AppColors.dangerSoft : AppColors.background,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
         border: Border.all(color: AppColors.border),
       ),
       child: Column(
@@ -199,7 +205,7 @@ class _PendingSaleCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             '${MaterialLocalizations.of(context).formatShortDate(sale.createdAt.toLocal())}'
-            ' · BD ${sale.total.toStringAsFixed(3)} · Cash received',
+            ' · ${Money.format(sale.total)} · Cash received',
           ),
           const SizedBox(height: 6),
           for (final item in sale.items) Text('${item.quantity} × ${item.name}'),
@@ -218,7 +224,7 @@ class _PendingSaleCard extends StatelessWidget {
             const Text(
               'Cash has been received. Ask the manager to resolve the issue, '
               'then retry this receipt.',
-              style: TextStyle(fontSize: 12, color: AppColors.muted),
+              style: TextStyle(fontSize: AppTypography.caption, color: AppColors.muted),
             ),
             TextButton.icon(
               onPressed: sync.syncing ? null : () => sync.retry(sale.id),

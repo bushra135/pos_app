@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app/app_colors.dart';
+import '../app/app_typography.dart';
+import '../app/app_spacing.dart';
 
 /// A scrollable empty state that also fits short screens and large text.
 class AppEmptyState extends StatelessWidget {
@@ -19,7 +21,7 @@ class AppEmptyState extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppColors.accentSoft,
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
             ),
             child: Icon(icon, size: 30, color: AppColors.primaryDark),
           ),
@@ -28,7 +30,7 @@ class AppEmptyState extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 18,
+              fontSize: AppTypography.section,
               fontWeight: FontWeight.w700,
               color: AppColors.text,
             ),

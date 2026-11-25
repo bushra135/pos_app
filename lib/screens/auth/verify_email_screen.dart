@@ -7,6 +7,7 @@ import '../../app/app_colors.dart';
 import 'auth_wrapper.dart';
 import 'create_account_screen.dart';
 import '../../app/app_language.dart';
+import '../../app/app_typography.dart';
 
 /// Sends verification links and reloads the user after the emailed link is opened.
 class VerifyEmailScreen extends StatefulWidget {
@@ -177,7 +178,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                       Text(
                         'ShopPad'.tr,
                         style: TextStyle(
-                          fontSize: 28,
+                          fontSize: AppTypography.display,
                           fontWeight: FontWeight.bold,
                           color: AppColors.primaryDark,
                         ),
@@ -185,7 +186,10 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                       const SizedBox(height: 8),
                       Text(
                         'Verify your email'.tr,
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                          fontSize: AppTypography.metric,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       Text(
@@ -226,7 +230,9 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
                       TextButton(
                         onPressed: _busy || _cooldown > 0 ? null : _send,
                         child: Text(
-                          _cooldown > 0 ? 'Resend in ${_cooldown}s' : 'Resend verification email',
+                          _cooldown > 0
+                              ? 'Resend in {n}s'.trArgs({'n': _cooldown})
+                              : 'Resend verification email'.tr,
                         ),
                       ),
                       TextButton(
