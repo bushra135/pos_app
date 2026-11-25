@@ -229,7 +229,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
               (!_correctionsOnly || sale.hasCorrections) &&
               (_product == null || _matchingItems(sale).isNotEmpty) &&
               (query.isEmpty ||
-                  '${sale.receipt} ${ReportWorkbook.reference('INV', sale.id)} ${ReportWorkbook.reference('CS', sale.cashierUid)} ${sale.cashierName} ${sale.items.map((item) => '${item['name']} ${item['barcode']}').join(' ')}'
+                  '${sale.receipt} ${sale.data['receiptNumber'] ?? ''} ${ReportWorkbook.reference('INV', sale.id)} ${ReportWorkbook.reference('CS', sale.cashierUid)} ${sale.cashierName} ${sale.items.map((item) => '${item['name']} ${item['barcode']}').join(' ')}'
                       .toLowerCase()
                       .contains(query)),
         )
@@ -1009,7 +1009,10 @@ class _HistorySale {
   _HistorySale(this.id, this.data);
   final String id;
   final Map<String, dynamic> data;
-  String get receipt => (data['receiptNumber'] ?? 'RCPT-$id').toString();
+
+  /// The sequential invoice number when the sale has one (newer receipts), else the
+  /// receipt id.
+  String get receipt => (data['invoiceNumber'] ?? data['receiptNumber'] ?? 'RCPT-$id').toString();
   String get cashierUid => (data['cashierUid'] ?? data['cashierId'] ?? '').toString();
   String get cashierName => (data['cashierName'] ?? 'Unknown cashier').toString();
   String get cashierKey => cashierUid.isNotEmpty
@@ -1051,11 +1054,11 @@ class _HistorySale {
 
   SaleRecord? get exportableReceipt {
     try {
+      // VAT and discounts are part of the receipt record now; only refunds and
+      // incomplete records are left out.
       if (!completed ||
           refund ||
           date == null ||
-          _number(data['tax']) != 0 ||
-          _number(data['discount']) != 0 ||
           _number(data['refund'] ?? data['refundAmount']) != 0) {
         return null;
       }
