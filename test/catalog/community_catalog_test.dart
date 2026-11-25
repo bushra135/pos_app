@@ -60,6 +60,26 @@ void main() {
       expect(found.creditLine, 'ShopPad stores · shared by other stores');
     });
 
+    test('a later save fills a missing price and photo but never changes them', () async {
+      await catalog.contribute(barcode: '12345678', name: 'Pen', category: 'School');
+      await FirestoreCommunityCatalog(firestore: db, currentUserId: () => 'ownerB').contribute(
+        barcode: '12345678',
+        name: 'Different name',
+        category: 'Other',
+        price: 0.5,
+        image: 'data:image/png;base64,AA==',
+      );
+      var found = (await catalog.lookup('12345678'))!;
+      expect(found.name, 'Pen');
+      expect(found.category, 'School');
+      expect(found.suggestedPrice, 0.5);
+      expect(found.imageUrl, 'data:image/png;base64,AA==');
+
+      await catalog.contribute(barcode: '12345678', name: 'Pen', category: 'School', price: 9);
+      found = (await catalog.lookup('12345678'))!;
+      expect(found.suggestedPrice, 0.5);
+    });
+
     test('missing prices and unsafe images are not shared', () async {
       await catalog.contribute(
         barcode: '12345678',

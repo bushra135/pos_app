@@ -135,7 +135,19 @@ service cloud.firestore {
         && request.resource.data.category is string && request.resource.data.category.size() <= 60
         && request.resource.data.contributedBy == request.auth.uid
         && request.resource.data.createdAt == request.time;
-      allow update, delete: if false;
+      // Fill-in only: an active store may add a price or photo the entry is missing.
+      // Existing values (name, category, price, image, author) can never change.
+      allow update: if activeAccount()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['price','image'])
+        && request.resource.data.diff(resource.data).changedKeys().size() == 0
+        && request.resource.data.diff(resource.data).removedKeys().size() == 0
+        && (!('price' in request.resource.data) || ('price' in resource.data)
+          || (request.resource.data.price is number
+            && request.resource.data.price > 0 && request.resource.data.price <= 100000))
+        && (!('image' in request.resource.data) || ('image' in resource.data)
+          || (request.resource.data.image is string && request.resource.data.image.size() <= 250000
+            && request.resource.data.image.matches('^(data:image/|https://).*')));
+      allow delete: if false;
     }
     // Every collection that is not explicitly covered stays closed.
     match /{document=**} { allow read, write: if false; }

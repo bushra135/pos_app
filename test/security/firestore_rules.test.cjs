@@ -182,3 +182,13 @@ test('shared suggested prices and images are validated and stock is never stored
   denied(await shareName('12345675',{name:'Pen',category:'',image:'javascript:alert(1)',contributedBy:'ownerA'},'ownerA'));
   denied(await shareName('12345676',{name:'Pen',category:'',stock:9,contributedBy:'ownerA'},'ownerA'));
 });
+test('stores may fill a missing shared price or photo but never change existing values',async()=>{
+  allowed(await shareName('12345677',{name:'Ruler',category:'',contributedBy:'ownerA'},'ownerA'));
+  allowed(await patch('catalog/12345677',{price:0.4},'cashierB'));
+  denied(await patch('catalog/12345677',{price:9},'ownerB'));
+  denied(await patch('catalog/12345677',{name:'Hacked'},'ownerB'));
+  allowed(await patch('catalog/12345677',{image:'https://images.example/ruler.png'},'ownerB'));
+  denied(await patch('catalog/12345677',{image:'https://images.example/other.png'},'ownerA'));
+  denied(await patch('catalog/12345678',{image:'javascript:alert(1)'},'ownerB'));
+  denied(await patch('catalog/12345677',{price:0.4},null));
+});

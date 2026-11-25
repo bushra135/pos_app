@@ -12,7 +12,8 @@ import 'barcode_catalog_service.dart';
 abstract class CommunityCatalog {
   Future<CatalogProduct?> lookup(String barcode);
 
-  /// Adds a barcode the first time any store saves it. Never overwrites an entry.
+  /// Adds a barcode the first time any store saves it, and later fills a missing
+  /// price or photo. Never overwrites what is already shared.
   Future<void> contribute({
     required String barcode,
     required String name,
@@ -77,9 +78,19 @@ class FirestoreCommunityCatalog implements CommunityCatalog {
     if (uid == null || cleanName.isEmpty || !_barcodePattern.hasMatch(code)) return;
 
     final ref = _firestore.collection('catalog').doc(code);
-    // Server rules allow create only, so an existing entry is left as the first store wrote it.
+    // Server rules allow a create, or a fill-in of a missing price or photo.
     final existing = await ref.get();
-    if (existing.exists) return;
+    if (existing.exists) {
+      // Name and category stay as first shared; only a missing price or photo is added,
+      // so entries saved before prices were shared still become complete.
+      final data = existing.data() ?? const {};
+      final updates = <String, Object>{
+        if (data['price'] == null && price > 0 && price <= 100000) 'price': price,
+        if (data['image'] == null && _isSafeImage(image.trim())) 'image': image.trim(),
+      };
+      if (updates.isNotEmpty) await ref.update(updates);
+      return;
+    }
     await ref.set({
       'name': cleanName.length > 80 ? cleanName.substring(0, 80).trim() : cleanName,
       'category': category.trim().length > 60

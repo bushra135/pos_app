@@ -56,7 +56,7 @@ class CatalogProduct {
   String get licenseNote => _isCommunity
       ? 'shared by other stores'
       : _isUpcItemDb
-      ? 'name and category only'
+      ? 'name, category and photo'
       : 'data ODbL · images CC BY-SA';
 
   /// One-line credit for the UI: provider, licence, and the source page when there is one.
@@ -267,10 +267,15 @@ class BarcodeCatalogService {
         if (!matches || name.isEmpty) continue;
         // UPCitemdb categories run general > specific; the last part is most useful in a shop.
         final category = text(item['category']).split('>').last.trim();
+        // First secure (https) retailer photo; plain http images are skipped.
+        final images = item['images'] is List ? item['images'] as List : const [];
+        final image = images
+            .map(text)
+            .firstWhere((url) => Uri.tryParse(url)?.scheme == 'https', orElse: () => '');
         return CatalogProduct(
           barcode: code,
           name: name.length > 80 ? name.substring(0, 80).trim() : name,
-          imageUrl: '',
+          imageUrl: image,
           category: category,
           productType: CatalogProduct.upcItemDbType,
         );
