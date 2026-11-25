@@ -18,6 +18,7 @@ import '../reports/sales_history_screen.dart';
 import 'cashiers_management_screen.dart';
 import '../../app/app_language.dart';
 import '../../app/money.dart';
+import '../../utils/receipt_audit.dart';
 import '../../utils/today_summary.dart';
 import '../../widgets/adaptive_layout.dart';
 import '../../widgets/receipt_card.dart';
@@ -55,7 +56,13 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   int bestSellerSold = 0;
   int totalProducts = 0;
   int cashierCount = 0;
+
+  /// For the first-run checklist: whether BenefitPay payments are set up.
+  bool hasBenefitNumber = true;
   int activeCashierCount = 0;
+
+  /// Today's receipts that look unusual (see ReceiptAudit), for the owner to check.
+  int receiptsToReview = 0;
 
   /// Products whose stock a cashier corrected while selling a miscounted item.
   List<({DocumentReference<Map<String, dynamic>> ref, String name, int recorded, int sold})>
@@ -122,6 +129,8 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       final options = SaleSyncService.maybeInstance?.online == false
           ? const GetOptions(source: Source.cache)
           : const GetOptions();
+      final storeData = (await _firestore.collection('stores').doc(code).get(options)).data();
+      final benefitReady = (storeData?['benefitNumber'] ?? '').toString().trim().isNotEmpty;
       // Count only users with the cashier role in this store.
       final cashiersSnapshot = await _firestore
           .collection('users')
@@ -130,9 +139,10 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           .get(options);
 
       final totalCashiers = cashiersSnapshot.docs.length;
+      // An invite the cashier has not accepted yet is not an active cashier.
       final activeCashiers = cashiersSnapshot.docs.where((doc) {
         final data = doc.data();
-        return (data['isActive'] ?? false) == true;
+        return (data['isActive'] ?? false) == true && data['status'] != 'invited';
       }).length;
 
       final productsSnapshot = await _firestore
@@ -185,6 +195,16 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           if (sale.data()['createdAt'] is Timestamp)
             (date: (sale.data()['createdAt'] as Timestamp).toDate(), data: sale.data()),
       ], now);
+      final prices = {
+        for (final doc in productsSnapshot.docs)
+          if (doc.data()['price'] is num) doc.id: (doc.data()['price'] as num).toDouble(),
+      };
+      final startOfToday = DateTime(now.year, now.month, now.day);
+      final reviewCount = salesDocs.where((sale) {
+        final created = sale.data()['createdAt'];
+        if (created is! Timestamp || created.toDate().isBefore(startOfToday)) return false;
+        return ReceiptAudit.issues(sale.data(), catalogPrices: prices).isNotEmpty;
+      }).length;
 
       if (!mounted) return;
 
@@ -197,8 +217,10 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         bestSellerSold = today.bestSellerUnits;
         totalProducts = total;
         cashierCount = totalCashiers;
+        hasBenefitNumber = benefitReady;
         activeCashierCount = activeCashiers;
         stockCorrections = corrections;
+        receiptsToReview = reviewCount;
       });
     } catch (e) {
       debugPrint('Error loading dashboard data: $e');
@@ -302,9 +324,15 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           _buildHeader(),
           const SizedBox(height: 18),
           _buildSalesCard(),
+          // Urgent alerts first, then the first-run checklist.
           if (stockCorrections.isNotEmpty) ...[
             const SizedBox(height: 14),
             _buildCorrectionsAlert(),
+          ],
+          if (receiptsToReview > 0) ...[const SizedBox(height: 14), _buildReviewAlert()],
+          if (totalProducts == 0 || cashierCount == 0 || !hasBenefitNumber) ...[
+            const SizedBox(height: 14),
+            _buildSetupChecklist(),
           ],
           const SizedBox(height: 26),
           Text(
@@ -316,53 +344,64 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: wide ? 4 : 2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            // Taller tiles when the system text size is increased.
-            childAspectRatio: 1.35 / MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6),
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            children: [
-              _OverviewTile(
-                icon: Icons.warning_amber_rounded,
-                color: AppColors.warning,
-                label: 'Low stock'.tr,
-                value: '$lowStockCount',
-                caption: lowStockCount == 1
-                    ? 'item needs restocking'.tr
-                    : 'items need restocking'.tr,
-                onTap: () => setState(() => _selectedIndex = 1),
+          // One panel instead of four separate cards.
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
               ),
-              _OverviewTile(
-                icon: Icons.inventory_2_outlined,
-                color: AppColors.primaryDark,
-                label: 'Products'.tr,
-                value: '$totalProducts',
-                caption: 'in your catalogue'.tr,
-                onTap: () => setState(() => _selectedIndex = 1),
+              child: GridView.count(
+                crossAxisCount: wide ? 4 : 2,
+                crossAxisSpacing: 1,
+                mainAxisSpacing: 1,
+                // Taller tiles when the system text size is increased.
+                childAspectRatio: 1.35 / MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  _OverviewTile(
+                    icon: Icons.warning_amber_rounded,
+                    color: AppColors.warning,
+                    label: 'Low stock'.tr,
+                    value: '$lowStockCount',
+                    caption: lowStockCount == 1
+                        ? 'item needs restocking'.tr
+                        : 'items need restocking'.tr,
+                    onTap: () => setState(() => _selectedIndex = 1),
+                  ),
+                  _OverviewTile(
+                    icon: Icons.inventory_2_outlined,
+                    color: AppColors.primaryDark,
+                    label: 'Products'.tr,
+                    value: '$totalProducts',
+                    caption: 'in your catalogue'.tr,
+                    onTap: () => setState(() => _selectedIndex = 1),
+                  ),
+                  _OverviewTile(
+                    icon: Icons.local_fire_department_outlined,
+                    color: AppColors.danger,
+                    label: 'Best seller'.tr,
+                    value: bestSellerName.isEmpty ? 'No sales yet'.tr : bestSellerName,
+                    caption: bestSellerName.isEmpty
+                        ? 'record a sale to see it'.tr
+                        : '{n} sold today'.trArgs({'n': bestSellerSold}),
+                    smallValue: true,
+                    onTap: _openTopCashiers,
+                  ),
+                  _OverviewTile(
+                    icon: Icons.people_alt_outlined,
+                    color: AppColors.success,
+                    label: 'Cashiers'.tr,
+                    value: '$activeCashierCount/$cashierCount',
+                    caption: 'active right now'.tr,
+                    onTap: _openCashiersManagement,
+                  ),
+                ],
               ),
-              _OverviewTile(
-                icon: Icons.local_fire_department_outlined,
-                color: AppColors.danger,
-                label: 'Best seller'.tr,
-                value: bestSellerName.isEmpty ? 'No sales yet'.tr : bestSellerName,
-                caption: bestSellerName.isEmpty
-                    ? 'record a sale to see it'.tr
-                    : '{n} sold today'.trArgs({'n': bestSellerSold}),
-                smallValue: true,
-                onTap: _openTopCashiers,
-              ),
-              _OverviewTile(
-                icon: Icons.people_alt_outlined,
-                color: AppColors.success,
-                label: 'Cashiers'.tr,
-                value: '$activeCashierCount/$cashierCount',
-                caption: 'active right now'.tr,
-                onTap: _openCashiersManagement,
-              ),
-            ],
+            ),
           ),
           const SizedBox(height: 8),
           Align(
@@ -460,6 +499,120 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   }
 
   /// Owner alert: items sold although the records said they were out of stock.
+  /// First-run steps for a new store; each opens the screen where it is done and the
+  /// card disappears once all three are complete.
+  Widget _buildSetupChecklist() {
+    final steps = [
+      (
+        done: totalProducts > 0,
+        icon: Icons.inventory_2_outlined,
+        title: 'Add your first product',
+        hint: 'Scan its barcode; the name and photo are filled in for you',
+        open: () => setState(() => _selectedIndex = 1),
+      ),
+      (
+        done: cashierCount > 0,
+        icon: Icons.person_add_alt_1_outlined,
+        title: 'Invite a cashier',
+        hint: 'Share your store code or send an invite',
+        open: _openCashiersManagement,
+      ),
+      (
+        done: hasBenefitNumber,
+        icon: Icons.qr_code_2_rounded,
+        title: 'Set up BenefitPay',
+        hint: 'Add your BenefitPay number and QR in Profile',
+        open: () => setState(() => _selectedIndex = 4),
+      ),
+    ];
+    final left = steps.where((step) => !step.done).length;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        border: Border.all(color: AppColors.border),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 14, 8, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Get your store ready'.tr,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: AppTypography.subtitle),
+          ),
+          Text(
+            (left == 1 ? '1 step left' : '{n} steps left').trArgs({'n': left}),
+            style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
+          ),
+          const SizedBox(height: 4),
+          for (final step in steps)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              minTileHeight: 52,
+              onTap: step.done ? null : step.open,
+              leading: Icon(
+                step.done ? Icons.check_circle_rounded : step.icon,
+                color: step.done ? AppColors.success : AppColors.primaryDark,
+              ),
+              title: Text(
+                step.title.tr,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  decoration: step.done ? TextDecoration.lineThrough : null,
+                  color: step.done ? AppColors.muted : AppColors.text,
+                ),
+              ),
+              subtitle: step.done
+                  ? null
+                  : Text(step.hint.tr, style: const TextStyle(fontSize: AppTypography.caption)),
+              trailing: step.done ? null : const Icon(Icons.chevron_right_rounded),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Today's receipts flagged for review, with a direct way to open them.
+  Widget _buildReviewAlert() {
+    return Material(
+      color: AppColors.warningSoft,
+      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        onTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const SalesHistoryScreen())),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+          child: Row(
+            children: [
+              const Icon(Icons.flag_outlined, color: AppColors.warning),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  (receiptsToReview == 1
+                          ? '1 receipt today needs a look'
+                          : '{n} receipts today need a look')
+                      .trArgs({'n': receiptsToReview}),
+                  style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.text),
+                ),
+              ),
+              Text(
+                'Open history'.tr,
+                style: const TextStyle(
+                  color: AppColors.primaryDark,
+                  fontWeight: FontWeight.w700,
+                  fontSize: AppTypography.caption,
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.primaryDark),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildCorrectionsAlert() {
     final shown = stockCorrections.take(3).toList();
     final more = stockCorrections.length - shown.length;
@@ -661,19 +814,12 @@ class _OverviewTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(AppSpacing.cardRadius);
     return Material(
       color: AppColors.surface,
-      borderRadius: radius,
       child: InkWell(
         onTap: onTap,
-        borderRadius: radius,
         child: Ink(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: radius,
-            border: Border.all(color: AppColors.border),
-          ),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

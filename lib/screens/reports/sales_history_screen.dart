@@ -14,6 +14,8 @@ import '../../utils/report_workbook.dart';
 import '../../widgets/sale_receipt_view.dart';
 import '../../app/app_language.dart';
 import '../../app/money.dart';
+import '../../app/app_spacing.dart';
+import '../../utils/receipt_audit.dart';
 import '../../app/app_typography.dart';
 
 /// Owner-only, store-scoped history and a transparent cashier leaderboard.
@@ -80,6 +82,12 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   }
 
   // Owner access and store-scoped live history.
+  /// Current selling prices (product id -> price), to flag receipts sold below them.
+  Map<String, double> _catalogPrices = const {};
+
+  List<String> _issues(_HistorySale sale) =>
+      ReceiptAudit.issues(sale.data, catalogPrices: _catalogPrices);
+
   Future<void> _load() async {
     final generation = ++_generation;
     await _subscription?.cancel();
@@ -109,7 +117,17 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
             .where('storeCode', isEqualTo: store)
             .get()
             .timeout(const Duration(seconds: 10)),
+        _db
+            .collection('products')
+            .where('storeCode', isEqualTo: store)
+            .get()
+            .timeout(const Duration(seconds: 10)),
       ]);
+      _catalogPrices = {
+        for (final product in results[2].docs)
+          if (product.data()['price'] is num)
+            product.id: (product.data()['price'] as num).toDouble(),
+      };
       if (!mounted || generation != _generation || _uid != uid) return;
       _profiles.clear();
       for (final user in results[1].docs) {
@@ -633,13 +651,37 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                       margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
                       child: ListTile(
                         contentPadding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-                        title: Text(
-                          sale.receipt,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: AppTypography.button,
-                          ),
+                        title: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                sale.receipt,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: AppTypography.button,
+                                ),
+                              ),
+                            ),
+                            if (_issues(sale).isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.warningSoft,
+                                  borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
+                                ),
+                                child: Text(
+                                  'Review'.tr,
+                                  style: const TextStyle(
+                                    color: AppColors.warning,
+                                    fontSize: AppTypography.caption,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         subtitle: Text(
                           '${sale.cashierName} · ${_dateLabel(sale.date)}\n${sale.method.tr} · ${sale.refund ? 'Refund · '.tr : ''}${sale.status.tr}',
@@ -844,6 +886,24 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
                     Text('Payment: {method}'.trArgs({'method': sale.method.tr})),
                     Text('Type: {type}'.trArgs({'type': (sale.refund ? 'Refund' : 'Sale').tr})),
                     Text('Status: {status}'.trArgs({'status': sale.status.tr})),
+                    // What looked unusual, so the owner knows what to check.
+                    for (final issue in _issues(sale))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.flag_outlined, size: 18, color: AppColors.warning),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                (ReceiptAudit.messages[issue] ?? issue).tr,
+                                style: const TextStyle(color: AppColors.warning),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     const Divider(),
                     ...sale.items.map((item) {
                       final quantity = _number(item['quantity'] ?? item['qty']);
