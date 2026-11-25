@@ -414,21 +414,21 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
                 padding: const EdgeInsets.all(14),
                 child: Row(
                   children: [
-                    const Icon(Icons.local_offer_outlined, color: AppColors.primaryDark),
+                    const Icon(Icons.insights_rounded, color: AppColors.primaryDark),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Offers & tips'.tr,
+                            'Insights & recommendations'.tr,
                             style: const TextStyle(
                               fontWeight: FontWeight.w800,
                               color: AppColors.text,
                             ),
                           ),
                           Text(
-                            'Sell slow items with your best sellers'.tr,
+                            'What to reorder, offers and tips from your sales'.tr,
                             style: const TextStyle(
                               color: AppColors.muted,
                               fontSize: AppTypography.caption,

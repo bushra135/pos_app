@@ -11,6 +11,7 @@ import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 import '../../models/report_sale.dart';
 import '../../utils/bundle_offer_planner.dart';
+import '../../utils/store_insights.dart';
 import '../reports/reports_screen.dart';
 import '../../app/app_language.dart';
 import '../../app/money.dart';
@@ -94,7 +95,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     FocusScope.of(context).unfocus();
 
     setState(() {
-      messages.add(_ChatMessage(isUser: true, text: question));
+      // A tapped suggestion is shown in the app's language; matching uses the original.
+      messages.add(_ChatMessage(isUser: true, text: preset != null ? question.tr : question));
       _isThinking = true;
     });
 
@@ -149,6 +151,21 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       'تخفيض',
     ])) {
       return _bundleOffers(data);
+    }
+
+    if (_containsAny(q, [
+      'advice',
+      'tips',
+      'insight',
+      'analy',
+      'what should i do',
+      'توصيات',
+      'نصيحة',
+      'نصائح',
+      'تحليل',
+      'حلل',
+    ])) {
+      return _recommendations(data);
     }
 
     if (_containsAny(q, [
@@ -540,6 +557,51 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       ...lines,
       'Each offer uses a popular product to help sell items that are not moving.'.tr,
       'Start an offer from Home → Offers & tips; cashiers get it automatically.'.tr,
+    ].join('\n');
+  }
+
+  // Owner recommendations from the last 30 days, most urgent first.
+  String _recommendations(_StoreData data) {
+    final recs = StoreInsights.build(
+      products: [
+        for (final p in data.products)
+          (
+            id: p.key,
+            name: p.name,
+            category: p.category,
+            stock: p.stock,
+            price: p.price,
+            cost: null,
+          ),
+      ],
+      sales: [
+        for (final sale in data.sales)
+          (
+            createdAt: sale.createdAt!,
+            total: sale.netTotal,
+            subtotal: sale.grossTotal,
+            discount: sale.discount,
+            isRefund: sale.isRefund,
+            cashierName: sale.cashierName,
+            items: [
+              for (final item in sale.items)
+                (productId: item.key, quantity: item.quantity, revenue: item.subtotal),
+            ],
+          ),
+      ],
+      now: DateTime.now(),
+      money: _money,
+    );
+    if (recs.isEmpty) {
+      return 'Your store looks healthy. Record more sales for more recommendations.'.tr;
+    }
+    return [
+      'Recommendations from your last 30 days:'.tr,
+      '',
+      for (var i = 0; i < recs.length && i < 6; i++)
+        '{i}. {text}'.trArgs({'i': i + 1, 'text': recs[i].text.trArgs(recs[i].args)}),
+      '',
+      'See all, with offers and tips: Home → Insights & recommendations.'.tr,
     ].join('\n');
   }
 
@@ -1026,6 +1088,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         'Find items with fewer sales',
       ),
       (
+        Icons.insights_rounded,
+        'Recommendations',
+        'Give me recommendations and tips',
+        'What to do next, from your sales',
+      ),
+      (
         Icons.local_offer_outlined,
         'Bundle offers',
         'Suggest bundle offers',
@@ -1329,11 +1397,16 @@ class _SaleInfo {
   final ReportSale _summary;
   final List<ReportSaleItem> items;
 
-  _SaleInfo._(this.createdAt, this._summary)
+  final String cashierName;
+
+  _SaleInfo._(this.createdAt, this._summary, this.cashierName)
     : items = _summary.items.map(ReportSaleItem.fromMap).toList();
 
-  factory _SaleInfo.fromMap(Map<String, dynamic> data) =>
-      _SaleInfo._(reportDate(data['createdAt']), ReportSale.fromMap(data));
+  factory _SaleInfo.fromMap(Map<String, dynamic> data) => _SaleInfo._(
+    reportDate(data['createdAt']),
+    ReportSale.fromMap(data),
+    (data['cashierName'] ?? '').toString(),
+  );
 
   double get grossTotal => _summary.grossSales;
   double get netTotal => _summary.netSales;

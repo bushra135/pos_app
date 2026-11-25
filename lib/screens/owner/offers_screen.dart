@@ -13,6 +13,7 @@ import '../../services/sales_query.dart';
 import '../../utils/active_offers.dart';
 import '../../utils/bundle_offer_planner.dart';
 import '../../utils/offer_tips.dart';
+import '../../utils/store_insights.dart';
 import '../../widgets/adaptive_layout.dart';
 
 /// Owner only: bundle offers that pair best sellers with slow stock, and practical
@@ -48,6 +49,7 @@ class _OffersScreenState extends State<OffersScreen> {
   Map<String, double> _sold = const {};
   Map<String, double> _costs = const {};
   List<TipSale> _sales = const [];
+  List<InsightSale> _insightSales = const [];
   final Set<String> _busy = {};
 
   @override
@@ -77,11 +79,32 @@ class _OffersScreenState extends State<OffersScreen> {
       final saleDocs = results[1] as List<QueryDocumentSnapshot<Map<String, dynamic>>>;
       final sold = <String, double>{};
       final sales = <TipSale>[];
+      final insightSales = <InsightSale>[];
       for (final doc in saleDocs) {
         final data = doc.data();
-        if (data['type'] == 'refund') continue;
         final created = reportDate(data['createdAt']);
         if (created == null || created.isBefore(from)) continue;
+        final refund = data['type'] == 'refund';
+        insightSales.add((
+          createdAt: created,
+          total: reportNumber(data, ['total']),
+          subtotal: reportNumber(data, ['subtotal', 'total']),
+          discount: reportNumber(data, ['discount']),
+          isRefund: refund,
+          cashierName: (data['cashierName'] ?? '').toString(),
+          items: [
+            for (final item in (data['items'] as List?) ?? const [])
+              if (item is Map)
+                (
+                  productId: (item['productId'] ?? '').toString(),
+                  quantity: (item['quantity'] as num?)?.toDouble() ?? 0,
+                  revenue:
+                      ((item['price'] as num?)?.toDouble() ?? 0) *
+                      ((item['quantity'] as num?)?.toDouble() ?? 0),
+                ),
+          ],
+        ));
+        if (refund) continue;
         sales.add((
           createdAt: created,
           total: reportNumber(data, ['total']),
@@ -99,6 +122,7 @@ class _OffersScreenState extends State<OffersScreen> {
         _products = [for (final doc in productDocs) _Product(doc.id, doc.data())];
         _sold = sold;
         _sales = sales;
+        _insightSales = insightSales;
         _costs = results[2] as Map<String, double>;
         _loading = false;
       });
@@ -252,7 +276,7 @@ class _OffersScreenState extends State<OffersScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: Text('Offers & tips'.tr),
+        title: Text('Insights & recommendations'.tr),
         actions: [
           IconButton(
             tooltip: 'Refresh'.tr,
@@ -299,7 +323,30 @@ class _OffersScreenState extends State<OffersScreen> {
       sales: _sales,
       money: Money.format,
     );
+    final recommendations = StoreInsights.build(
+      products: [
+        for (final p in _products)
+          (
+            id: p.id,
+            name: p.name,
+            category: p.category,
+            stock: p.stock,
+            price: p.price,
+            cost: _costs[p.id],
+          ),
+      ],
+      sales: _insightSales,
+      now: DateTime.now(),
+      money: Money.format,
+    );
     return [
+      _heading('Recommendations', Icons.insights_rounded),
+      _note('From your last 30 days of sales, most urgent first.'),
+      if (recommendations.isEmpty)
+        _note('Your store looks healthy. Record more sales for more recommendations.')
+      else
+        for (final rec in recommendations) _recommendationCard(rec),
+      const SizedBox(height: 20),
       _heading('Active offers', Icons.local_offer_rounded),
       if (active.isEmpty)
         _note('No offers running. Start one of the suggestions below.')
@@ -456,6 +503,62 @@ class _OffersScreenState extends State<OffersScreen> {
               onPressed: _busy.contains(slow.key) ? null : () => _start(offer),
               icon: const Icon(Icons.play_arrow_rounded, size: 18),
               label: Text('Start offer'.tr),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _recommendationCard(Recommendation rec) {
+    final (label, color, soft) = switch (rec.priority) {
+      0 => ('Urgent', AppColors.danger, AppColors.dangerSoft),
+      1 => ('Worth doing', AppColors.warning, AppColors.warningSoft),
+      _ => ('Good to know', AppColors.success, AppColors.successSoft),
+    };
+    final icon = switch (rec.kind) {
+      'reorder' || 'outOfStock' => Icons.inventory_2_outlined,
+      'trendUp' => Icons.trending_up_rounded,
+      'trendDown' => Icons.trending_down_rounded,
+      'peakHour' => Icons.schedule_rounded,
+      'priceUp' => Icons.sell_outlined,
+      'refunds' => Icons.undo_rounded,
+      'discounts' => Icons.percent_rounded,
+      'category' => Icons.category_outlined,
+      'cashier' => Icons.emoji_events_outlined,
+      _ => Icons.insights_outlined,
+    };
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: _card,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: soft,
+                    borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
+                  ),
+                  child: Text(
+                    label.tr,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: AppTypography.caption,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(rec.text.trArgs(rec.args)),
+              ],
             ),
           ),
         ],
