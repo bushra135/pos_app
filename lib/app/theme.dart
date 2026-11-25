@@ -270,7 +270,29 @@ abstract final class AppTheme {
             fontFamily: AppTypography.family,
             bodyColor: AppColors.text,
             displayColor: AppColors.text,
-          ),
+          )
+          .merge(_tabularDigits),
     );
   }
+
+  /// Every digit takes the same width, so prices, totals and receipt columns line up
+  /// and amounts do not shift while they change.
+  static const _digits = TextStyle(fontFeatures: [FontFeature.tabularFigures()]);
+  static const _tabularDigits = TextTheme(
+    displayLarge: _digits,
+    displayMedium: _digits,
+    displaySmall: _digits,
+    headlineLarge: _digits,
+    headlineMedium: _digits,
+    headlineSmall: _digits,
+    titleLarge: _digits,
+    titleMedium: _digits,
+    titleSmall: _digits,
+    bodyLarge: _digits,
+    bodyMedium: _digits,
+    bodySmall: _digits,
+    labelLarge: _digits,
+    labelMedium: _digits,
+    labelSmall: _digits,
+  );
 }
