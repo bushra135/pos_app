@@ -4,6 +4,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../app/app_colors.dart';
 import '../services/barcode_catalog_service.dart';
 import '../app/app_language.dart';
+import '../app/app_typography.dart';
+import '../app/app_spacing.dart';
 
 /// Owns the lookup lifecycle independently of product form rebuilds.
 class BarcodeLookupPanel extends StatefulWidget {
@@ -27,6 +29,9 @@ class BarcodeLookupPanel extends StatefulWidget {
 class BarcodeLookupPanelState extends State<BarcodeLookupPanel> {
   bool _loading = false;
   String? _message;
+
+  /// Last barcode searched (by button, scan or typing), so it is not searched twice.
+  String? lastCode;
 
   /// Barcode that no catalogue knew; offers a web search for it.
   String? _missingCode;
@@ -58,6 +63,7 @@ class BarcodeLookupPanelState extends State<BarcodeLookupPanel> {
       setState(() => _message = 'Enter or scan a barcode first.');
       return;
     }
+    lastCode = code;
     final generation = ++_generation;
     setState(() {
       _missingCode = null;
@@ -90,7 +96,7 @@ class BarcodeLookupPanelState extends State<BarcodeLookupPanel> {
         widget.onProduct(product);
         _finish(
           generation,
-          product.suggestedPrice > 0
+          product.suggestedPrice > 0 && product.productType == CatalogProduct.communityType
               ? 'Product found. Empty fields were filled, including a price another store uses. Review the price and enter your stock.'
               : 'Product found. Empty fields were filled; review the details and set your price and stock.',
         );
@@ -136,7 +142,7 @@ class BarcodeLookupPanelState extends State<BarcodeLookupPanel> {
       Text(
         'Product information · fills empty fields only. Stock is yours to set; a price from another store is only a suggestion.'
             .tr,
-        style: TextStyle(fontSize: 12, color: AppColors.muted),
+        style: TextStyle(fontSize: AppTypography.caption, color: AppColors.muted),
       ),
       if (_message != null)
         Container(
@@ -145,12 +151,18 @@ class BarcodeLookupPanelState extends State<BarcodeLookupPanel> {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: AppColors.accentSoft,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(_message!, style: const TextStyle(color: AppColors.primaryDark, fontSize: 12)),
+              Text(
+                _message!,
+                style: const TextStyle(
+                  color: AppColors.primaryDark,
+                  fontSize: AppTypography.caption,
+                ),
+              ),
               if (_missingCode != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),

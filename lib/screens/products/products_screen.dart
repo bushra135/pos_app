@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
@@ -20,6 +21,7 @@ import '../../widgets/barcode_lookup_panel.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/scanner_error_panel.dart';
 import '../../app/app_language.dart';
+import '../../app/money.dart';
 
 /// Manages store products, images, and low stock alert thresholds.
 /// Manages store-scoped products, barcode suggestions, images and low-stock alerts.
@@ -41,17 +43,59 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   String searchText = '';
 
+  /// Markup the owner adds to the invoice cost; remembered on this device.
+  double _markupPercent = 25;
+  static const _markupKey = 'price_markup_percent';
+  static const _markupChoices = [15.0, 20.0, 25.0, 30.0, 40.0];
+
+  Future<void> _loadMarkup() async {
+    try {
+      final saved = (await SharedPreferences.getInstance()).getDouble(_markupKey);
+      if (saved != null && mounted) setState(() => _markupPercent = saved);
+    } catch (_) {}
+  }
+
+  Future<void> _saveMarkup(double value) async {
+    _markupPercent = value;
+    try {
+      await (await SharedPreferences.getInstance()).setDouble(_markupKey, value);
+    } catch (_) {}
+  }
+
   /// Owners see and edit cost prices; cashiers never do.
   bool _isOwner = false;
 
   /// Product list order chosen from the sort button next to search.
   _ProductSort _sort = _ProductSort.name;
+
+  /// List rows or a grid of tiles; remembered on this device.
+  bool _gridView = false;
+  static const _viewKey = 'products_view';
+
+  Future<void> _loadViewChoice() async {
+    try {
+      final grid = (await SharedPreferences.getInstance()).getBool(_viewKey) ?? false;
+      if (mounted && grid != _gridView) setState(() => _gridView = grid);
+    } catch (_) {
+      // Storage unavailable: keep the list view.
+    }
+  }
+
+  Future<void> _toggleView() async {
+    setState(() => _gridView = !_gridView);
+    try {
+      await (await SharedPreferences.getInstance()).setBool(_viewKey, _gridView);
+    } catch (_) {}
+  }
+
   String storeCode = '';
   bool isLoadingStore = true;
 
   @override
   void initState() {
     super.initState();
+    _loadViewChoice();
+    _loadMarkup();
     _loadStoreCode();
   }
 
@@ -153,17 +197,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   String _priceLabel(Map<String, dynamic> item) {
     final price = double.tryParse((item['price'] ?? 0).toString()) ?? 0;
-    return 'BD ${price.toStringAsFixed(3)}';
+    return Money.format(price);
   }
 
   String _stockText(Map<String, dynamic> item) {
     final stock = _stockFrom(item);
     final minStock = _minStockFrom(item);
 
-    if (stock <= 0) return 'Out';
-    if (stock <= minStock) return 'Low $stock';
+    if (stock <= 0) return 'Out of stock'.tr;
+    if (stock <= minStock) return 'Low · {n}'.trArgs({'n': stock});
 
-    return '$stock left';
+    return '{n} left'.trArgs({'n': stock});
   }
 
   Color _stockColor(Map<String, dynamic> item) {
@@ -317,11 +361,29 @@ class _ProductsScreenState extends State<ProductsScreen> {
     String imagePreviewUrl = existingImage;
     String? preparedImage;
     String? saveError;
+    // Where an automatic price came from, shown under the price field.
+    String? priceHint;
+    // True while the price is the one calculated from cost + markup.
+    var priceFromMarkup = false;
+    var markup = _markupPercent;
+    void applyMarkup() {
+      final cost = double.tryParse(costController.text.trim()) ?? 0;
+      if (cost <= 0) return;
+      if (priceController.text.trim().isNotEmpty && !priceFromMarkup) return;
+      priceController.text = ProductsScreenPricing.priceFromCost(cost, markup).toStringAsFixed(3);
+      priceFromMarkup = true;
+      priceHint = 'Cost {cost} + {markup}% markup'.trArgs({
+        'cost': cost.toStringAsFixed(3),
+        'markup': markup.toStringAsFixed(0),
+      });
+    }
+
     String saveStage = 'Checking barcode';
     bool isLookingUp = false;
     bool categoryManuallyEdited = false;
     String? automaticCategory;
     final lookupKey = GlobalKey<BarcodeLookupPanelState>();
+    Timer? lookupDebounce;
     Map<String, dynamic>? catalogueSource = product?['catalogueSource'] is Map
         ? Map<String, dynamic>.from(product!['catalogueSource'])
         : null;
@@ -489,7 +551,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   messenger.showSnackBar(
                     SnackBar(
                       content: Text(
-                        isEdit ? 'Product updated successfully' : 'Product added successfully',
+                        (isEdit ? 'Product updated successfully' : 'Product added successfully').tr,
                       ),
                     ),
                   );
@@ -534,7 +596,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           children: [
                             Expanded(
                               child: Text(
-                                isEdit ? 'Edit product' : 'Add product',
+                                (isEdit ? 'Edit product' : 'Add product').tr,
                                 style: const TextStyle(
                                   fontSize: AppTypography.title,
                                   fontWeight: FontWeight.w800,
@@ -568,9 +630,21 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               child: _buildField(
                                 barcodeController,
                                 'Barcode',
-                                onChanged: (_) => setDialogState(() {
-                                  catalogueSource = null;
-                                }),
+                                onChanged: (value) {
+                                  setDialogState(() => catalogueSource = null);
+                                  // A typed barcode looks itself up once it is complete.
+                                  lookupDebounce?.cancel();
+                                  final code = value.trim();
+                                  if (!isEdit && RegExp(r'^(\d{8}|\d{12,14})$').hasMatch(code)) {
+                                    lookupDebounce = Timer(const Duration(milliseconds: 700), () {
+                                      if (context.mounted &&
+                                          barcodeController.text.trim() == code &&
+                                          lookupKey.currentState?.lastCode != code) {
+                                        lookupKey.currentState?.lookup();
+                                      }
+                                    });
+                                  }
+                                },
                                 enabled: !isBusy,
                                 keyboardType: TextInputType.number,
                               ),
@@ -645,10 +719,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 imagePreviewUrl = result.imageUrl;
                                 filled = true;
                               }
-                              // A price set by another ShopPad store is only a starting point.
+                              // Only a price a Bahraini store really uses; never a guess.
                               if (priceController.text.trim().isEmpty &&
-                                  result.suggestedPrice > 0) {
+                                  result.suggestedPrice > 0 &&
+                                  result.productType == CatalogProduct.communityType) {
                                 priceController.text = result.suggestedPrice.toStringAsFixed(3);
+                                priceHint = 'Price another ShopPad store uses. Check it.'.tr;
+                                priceFromMarkup = false;
                                 filled = true;
                               }
                               if (filled) catalogueSource = result.attribution;
@@ -664,7 +741,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 if ('${catalogueSource!['url'] ?? ''}'.isNotEmpty)
                                   '${catalogueSource!['url']}',
                               ].join('\n'),
-                              style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                              style: const TextStyle(
+                                fontSize: AppTypography.caption,
+                                color: AppColors.muted,
+                              ),
                             ),
                           ),
                         _buildField(
@@ -698,21 +778,85 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             padding: EdgeInsets.only(bottom: 12),
                             child: Text(
                               'Suggested from product name · you can change it'.tr,
-                              style: TextStyle(color: AppColors.muted, fontSize: 12),
+                              style: TextStyle(
+                                color: AppColors.muted,
+                                fontSize: AppTypography.caption,
+                              ),
                             ),
                           ),
-                        _buildField(
-                          priceController,
-                          'Price',
-                          enabled: !isBusy,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        ),
-                        if (_isOwner)
+                        if (_isOwner) ...[
                           _buildField(
                             costController,
                             'Cost price (owner only, optional)',
                             enabled: !isBusy,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            onChanged: (_) => setDialogState(applyMarkup),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  'Markup'.tr,
+                                  style: const TextStyle(
+                                    fontSize: AppTypography.caption,
+                                    color: AppColors.muted,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                for (final choice in _markupChoices)
+                                  ChoiceChip(
+                                    label: Text('${choice.toStringAsFixed(0)}%'),
+                                    selected: markup == choice,
+                                    showCheckmark: false,
+                                    visualDensity: VisualDensity.compact,
+                                    onSelected: isBusy
+                                        ? null
+                                        : (_) => setDialogState(() {
+                                            markup = choice;
+                                            _saveMarkup(choice);
+                                            // Re-price only when the price came from the markup.
+                                            if (priceFromMarkup) {
+                                              priceController.clear();
+                                            }
+                                            applyMarkup();
+                                          }),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        _buildField(
+                          priceController,
+                          'Price',
+                          enabled: !isBusy,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          onChanged: (_) {
+                            priceFromMarkup = false;
+                            if (priceHint != null) setDialogState(() => priceHint = null);
+                          },
+                        ),
+                        if (priceHint != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 0, bottom: 10),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.info_outline, size: 15, color: AppColors.warning),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    priceHint!,
+                                    style: const TextStyle(
+                                      fontSize: AppTypography.caption,
+                                      color: AppColors.warning,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         _buildField(
                           stockController,
@@ -750,7 +894,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 onPressed: isBusy ? null : chooseImage,
                                 icon: const Icon(Icons.upload_file_rounded),
                                 label: Text(
-                                  isChoosingImage ? 'Preparing image...' : 'Choose image',
+                                  (isChoosingImage ? 'Preparing image...' : 'Choose image').tr,
                                 ),
                                 style: OutlinedButton.styleFrom(
                                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -955,7 +1099,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Are you sure you want to delete "$productName"?'),
+                Text('Are you sure you want to delete "{name}"?'.trArgs({'name': productName})),
                 const SizedBox(height: 8),
                 Text('Existing receipts will stay in sales history.'.tr),
                 if (errorMessage != null) ...[
@@ -1032,7 +1176,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     height: 5,
                     decoration: BoxDecoration(
                       color: AppColors.border,
-                      borderRadius: BorderRadius.circular(99),
+                      borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1054,7 +1198,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           color: lowStockDocs.isEmpty
                               ? AppColors.success.withValues(alpha: 0.12)
                               : AppColors.danger.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(99),
+                          borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
                         ),
                         child: Text(
                           '${lowStockDocs.length}',
@@ -1087,7 +1231,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               final image = (item['image'] ?? '').toString();
                               final stock = _stockFrom(item);
                               final minStock = _minStockFrom(item);
-                              final status = stock <= 0 ? 'Out of stock' : 'Low stock';
+                              final status = (stock <= 0 ? 'Out of stock' : 'Low stock').tr;
 
                               return Material(
                                 color: AppColors.surface,
@@ -1191,7 +1335,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: AppColors.danger,
-                      borderRadius: BorderRadius.circular(99),
+                      borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
                       border: Border.all(color: AppColors.surface, width: 1.5),
                     ),
                     child: Text(
@@ -1215,7 +1359,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Widget _productThumb(String imageUrl) => Container(
     width: 48,
     height: 48,
-    decoration: BoxDecoration(color: AppColors.soft, borderRadius: BorderRadius.circular(12)),
+    decoration: BoxDecoration(
+      color: AppColors.soft,
+      borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
+    ),
     clipBehavior: Clip.antiAlias,
     child: ProductImage(
       source: imageUrl,
@@ -1256,6 +1403,217 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
   }
 
+  /// Long-press menu: the quick way to edit, restock or delete a product.
+  Future<void> _showProductActions(QueryDocumentSnapshot<Map<String, dynamic>> doc) async {
+    final item = doc.data();
+    final name = (item['name'] ?? '').toString();
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: AppTypography.section,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined, color: AppColors.primaryDark),
+              title: Text('Edit product'.tr),
+              onTap: () => Navigator.pop(sheetContext, 'edit'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.add_box_outlined, color: AppColors.primaryDark),
+              title: Text('Restock'.tr),
+              onTap: () => Navigator.pop(sheetContext, 'restock'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+              title: Text('Delete product'.tr, style: const TextStyle(color: AppColors.danger)),
+              onTap: () => Navigator.pop(sheetContext, 'delete'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    switch (action) {
+      case 'edit':
+        _showProductDialog(docId: doc.id, product: item);
+      case 'restock':
+        await _showRestockDialog(doc);
+      case 'delete':
+        _showDeleteDialog(doc.id, name);
+    }
+  }
+
+  /// Square icon button matching the sort button next to the search field.
+  Widget _squareAction({
+    required String tooltip,
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+          child: Ink(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Icon(icon, color: AppColors.text),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Grid tile: photo first, then name, price, stock and quick restock.
+  Widget _productTile(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final item = doc.data();
+    final name = (item['name'] ?? '').toString();
+    final stockColor = _stockColor(item);
+    final low = _stockFrom(item) <= _minStockFrom(item);
+    final radius = BorderRadius.circular(AppSpacing.cardRadius);
+    return Tooltip(
+      message: 'Edit product'.tr,
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _showProductDialog(docId: doc.id, product: item),
+          onLongPress: () => _showProductActions(doc),
+          child: Ink(
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: ProductImage(
+                    source: (item['image'] ?? '').toString(),
+                    fit: BoxFit.cover,
+                    placeholder: _monogram(name, (item['category'] ?? '').toString()),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: AppTypography.body,
+                        ),
+                      ),
+                      Text(
+                        _priceLabel(item),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: AppTypography.button,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: Container(
+                                padding: EdgeInsets.symmetric(horizontal: low ? 8 : 0),
+                                decoration: BoxDecoration(
+                                  color: low ? stockColor.withValues(alpha: 0.12) : null,
+                                  borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
+                                ),
+                                child: Text(
+                                  _stockText(item),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: AppTypography.caption,
+                                    fontWeight: FontWeight.w700,
+                                    color: stockColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 34,
+                            height: 34,
+                            child: IconButton.filledTonal(
+                              tooltip: 'Restock'.tr,
+                              padding: EdgeInsets.zero,
+                              onPressed: () => _showRestockDialog(doc),
+                              style: IconButton.styleFrom(
+                                backgroundColor: AppColors.accentSoft,
+                                foregroundColor: AppColors.primaryDark,
+                              ),
+                              icon: const Icon(Icons.add_rounded, size: 20),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Tints for products without a photo; one per category so a shelf reads at a glance.
+  static const _tints = [
+    (AppColors.accentSoft, AppColors.primaryDark),
+    (AppColors.successSoft, AppColors.success),
+    (AppColors.warningSoft, AppColors.warning),
+    (AppColors.dangerSoft, AppColors.danger),
+    (Color(0xFFE6F0FA), Color(0xFF1F5F99)),
+  ];
+
+  /// Photo stand-in: the product's first letter on its category tint.
+  Widget _monogram(String name, String category) {
+    final key = category.trim().isEmpty ? name : category.trim().toLowerCase();
+    final tint = _tints[key.codeUnits.fold<int>(0, (a, b) => a + b) % _tints.length];
+    final letter = name.trim().isEmpty ? '?' : name.trim().characters.first.toUpperCase();
+    return ColoredBox(
+      color: tint.$1,
+      child: Center(
+        child: Text(
+          letter,
+          style: TextStyle(fontSize: 44, fontWeight: FontWeight.w800, color: tint.$2),
+        ),
+      ),
+    );
+  }
+
   Widget _productRow(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
     final item = doc.data();
     final name = (item['name'] ?? '').toString();
@@ -1272,6 +1630,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       message: 'Edit product'.tr,
       child: InkWell(
         onTap: () => _showProductDialog(docId: doc.id, product: item),
+        onLongPress: () => _showProductActions(doc),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
           child: Row(
@@ -1321,7 +1680,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     padding: EdgeInsets.symmetric(horizontal: low ? 8 : 0),
                     decoration: BoxDecoration(
                       color: low ? stockColor.withValues(alpha: 0.12) : null,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
                     ),
                     child: Text(
                       _stockText(item),
@@ -1359,7 +1718,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       initialValue: _sort,
       onSelected: (value) => setState(() => _sort = value),
       position: PopupMenuPosition.under,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.controlRadius)),
       itemBuilder: (context) => [
         for (final option in _ProductSort.values)
           PopupMenuItem(
@@ -1420,7 +1779,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
         titleSpacing: canPop ? 0 : AppSpacing.page,
         title: Text(
           'Products'.tr,
-          style: TextStyle(color: AppColors.text, fontSize: 26, fontWeight: FontWeight.w800),
+          style: TextStyle(
+            color: AppColors.text,
+            fontSize: AppTypography.display,
+            fontWeight: FontWeight.w800,
+          ),
         ),
         actions: [_buildNotificationButton()],
       ),
@@ -1494,6 +1857,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             ),
                             const SizedBox(width: 10),
                             _buildSortButton(),
+                            const SizedBox(width: 8),
+                            _squareAction(
+                              tooltip: _gridView ? 'List view'.tr : 'Grid view'.tr,
+                              icon: _gridView
+                                  ? Icons.view_agenda_outlined
+                                  : Icons.grid_view_rounded,
+                              onPressed: _toggleView,
+                            ),
                           ],
                         ),
                       ),
@@ -1513,6 +1884,25 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                           .tr
                                     : 'Try another name, category or barcode.'.tr,
                               )
+                            : _gridView
+                            ? GridView.builder(
+                                padding: const EdgeInsets.fromLTRB(
+                                  AppSpacing.page,
+                                  0,
+                                  AppSpacing.page,
+                                  96,
+                                ),
+                                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                                  maxCrossAxisExtent: 220,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  // Taller tiles when the system text size is larger.
+                                  mainAxisExtent:
+                                      232 * MediaQuery.textScalerOf(context).scale(14) / 14,
+                                ),
+                                itemCount: filteredDocs.length,
+                                itemBuilder: (context, i) => _productTile(filteredDocs[i]),
+                              )
                             : ListView(
                                 padding: const EdgeInsets.fromLTRB(
                                   AppSpacing.page,
@@ -1524,7 +1914,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                   Material(
                                     color: AppColors.surface,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
+                                      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                                       side: const BorderSide(color: AppColors.border),
                                     ),
                                     clipBehavior: Clip.antiAlias,
@@ -1588,13 +1978,16 @@ class _RestockDialogState extends State<_RestockDialog> {
     final value = int.tryParse(_controller.text.trim()) ?? 0;
     final valid = value > 0 && value <= 100000;
     return AlertDialog(
-      title: Text('Restock ${widget.name}'),
+      title: Text('Restock {name}'.trArgs({'name': widget.name})),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('In stock now: ${widget.current}', style: const TextStyle(color: AppColors.muted)),
+            Text(
+              'In stock now: {n}'.trArgs({'n': widget.current}),
+              style: const TextStyle(color: AppColors.muted),
+            ),
             const SizedBox(height: 14),
             Wrap(
               spacing: 8,
@@ -1635,5 +2028,14 @@ class _RestockDialogState extends State<_RestockDialog> {
         ),
       ],
     );
+  }
+}
+
+/// How the product form turns an invoice cost into a shelf price.
+abstract final class ProductsScreenPricing {
+  /// Cost plus markup, rounded up to the next 5 fils like shelf prices.
+  static double priceFromCost(double cost, double markupPercent) {
+    final raw = cost * (1 + markupPercent / 100);
+    return (raw * 200 - 1e-9).ceilToDouble() / 200;
   }
 }
