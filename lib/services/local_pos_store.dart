@@ -233,6 +233,34 @@ class LocalPosStore {
     return products.isEmpty ? null : Map<String, dynamic>.from(products.single.value);
   }
 
+  /// Products of this store whose name contains [query] (any case), for selling items
+  /// by name when the barcode cannot be scanned. Uses the offline catalogue.
+  Future<List<Map<String, dynamic>>> searchProducts(
+    String storeCode,
+    String query, {
+    int limit = 8,
+  }) async {
+    final needle = query.trim().toLowerCase();
+    if (needle.isEmpty) return const [];
+    final records = await _products.find(
+      database,
+      finder: Finder(filter: Filter.equals('storeCode', storeCode)),
+    );
+    final matches = [
+      for (final record in records)
+        if ((record.value['name'] ?? '').toString().toLowerCase().contains(needle))
+          Map<String, dynamic>.from(record.value),
+    ];
+    // Names that start with the query come first, then alphabetical.
+    matches.sort((a, b) {
+      final an = a['name'].toString().toLowerCase();
+      final bn = b['name'].toString().toLowerCase();
+      final starts = (bn.startsWith(needle) ? 1 : 0) - (an.startsWith(needle) ? 1 : 0);
+      return starts != 0 ? starts : an.compareTo(bn);
+    });
+    return matches.take(limit).toList();
+  }
+
   Future<Map<String, dynamic>?> productById(String storeCode, String id) async {
     final product = await _products.record(_productKey(storeCode, id)).get(database);
     return product == null ? null : Map<String, dynamic>.from(product);

@@ -17,7 +17,10 @@ import '../../widgets/app_empty_state.dart';
 import '../../services/sale_sync_service.dart';
 import '../../utils/barcode_scan_guard.dart';
 import '../../utils/cart_manager.dart';
+import '../checkout/checkout_receipt_screen.dart';
 import '../../app/app_language.dart';
+import '../../app/money.dart';
+import '../../app/app_spacing.dart';
 
 typedef BrowserCheckoutLauncher =
     Future<bool> Function({
@@ -30,12 +33,16 @@ class ScanScreen extends StatefulWidget {
   final BarcodeCatalogService? catalog;
   final VoidCallback? onGoToCart;
   final VoidCallback? onBackToHome;
+
+  /// Called after a sale paid straight from the scanner is saved.
+  final VoidCallback? onSaleCompleted;
   final BrowserCheckoutLauncher? browserCheckout;
 
   const ScanScreen({
     super.key,
     this.onGoToCart,
     this.onBackToHome,
+    this.onSaleCompleted,
     this.catalog,
     this.browserCheckout,
   });
@@ -68,12 +75,25 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   String? _lastAddedProductId;
   String? _lastAddedStoreCode;
 
+  /// Keeps the entry field ready for the next scan from a USB/Bluetooth reader.
+  final _entryFocus = FocusNode();
+
+  /// Keys from a barcode reader arrive within a few milliseconds of each other; a
+  /// person types far slower. Only a fast burst ending in Enter counts as a scan.
+  final _readerBuffer = StringBuffer();
+  DateTime _lastReaderKey = DateTime(0);
+
+  /// Products matching a typed name, for items whose barcode cannot be scanned.
+  List<Map<String, dynamic>> _nameMatches = const [];
+  Timer? _searchDebounce;
+
   bool get _usesBrowserScanner => kIsWeb || widget.browserCheckout != null;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    HardwareKeyboard.instance.addHandler(_onHardwareKey);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _usesBrowserScanner) {
         unawaited(_openBrowserCheckout());
@@ -84,6 +104,9 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    HardwareKeyboard.instance.removeHandler(_onHardwareKey);
+    _searchDebounce?.cancel();
+    _entryFocus.dispose();
     _releaseTimer?.cancel();
     if (_browserScannerOpen) closeBrowserScanner();
     _scannerController.dispose();
@@ -117,6 +140,145 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Barcode readers that act as a keyboard work on any screen size, with no field open.
+  bool _onHardwareKey(KeyEvent event) {
+    if (event is! KeyDownEvent || !mounted || _isProductInfoOpen) return false;
+    // A focused text field (barcode entry, dialogs) handles its own keys.
+    if (FocusManager.instance.primaryFocus?.context?.widget is EditableText) return false;
+    if (ModalRoute.of(context)?.isCurrent == false) return false;
+    final now = DateTime.now();
+    if (now.difference(_lastReaderKey) > const Duration(milliseconds: 80)) _readerBuffer.clear();
+    _lastReaderKey = now;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.numpadEnter) {
+      final code = _readerBuffer.toString();
+      _readerBuffer.clear();
+      if (code.length < 4) return false;
+      _queueBarcode(code);
+      return true;
+    }
+    final character = event.character;
+    if (character != null && RegExp(r'^[0-9A-Za-z-]$').hasMatch(character)) {
+      _readerBuffer.write(character);
+    }
+    return false;
+  }
+
+  void _queueBarcode(String code) {
+    if (_isAddingProduct) {
+      if (_pendingBarcodes.length < _maximumPendingScans) _pendingBarcodes.add(code);
+    } else {
+      unawaited(_addProductByBarcode(code));
+    }
+  }
+
+  /// The entry field takes a barcode or part of a product name.
+  void _onEntryChanged(String value) {
+    _searchDebounce?.cancel();
+    final text = value.trim();
+    if (text.length < 2 || RegExp(r'^\d+$').hasMatch(text)) {
+      if (_nameMatches.isNotEmpty) setState(() => _nameMatches = const []);
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 200), () async {
+      final sync = SaleSyncService.maybeInstance;
+      if (sync == null) return;
+      try {
+        final matches = await sync.searchProducts(text);
+        if (mounted && _barcodeInputController.text.trim() == text) {
+          setState(() => _nameMatches = matches);
+        }
+      } catch (error) {
+        debugPrint('Product name search failed: $error');
+      }
+    });
+  }
+
+  void _onEntrySubmitted(String value) {
+    final text = value.trim();
+    if (text.isEmpty) return;
+    if (RegExp(r'^\d+$').hasMatch(text) || _nameMatches.isEmpty) {
+      _queueBarcode(text);
+    } else if (_nameMatches.length == 1) {
+      _addMatch(_nameMatches.single);
+    }
+    _entryFocus.requestFocus();
+  }
+
+  void _addMatch(Map<String, dynamic> product) {
+    final barcode = (product['barcode'] ?? '').toString().trim();
+    setState(() {
+      _nameMatches = const [];
+      _barcodeInputController.clear();
+    });
+    if (barcode.isEmpty) {
+      setState(() {
+        _hasScanError = true;
+        _statusMessage = '{name} has no barcode yet. Ask the owner to add one in Products.'.trArgs({
+          'name': product['name'],
+        });
+      });
+      unawaited(_playErrorFeedback());
+      return;
+    }
+    _queueBarcode(barcode);
+    _entryFocus.requestFocus();
+  }
+
+  /// A different signal for problems, so the cashier notices without looking.
+  Future<void> _playErrorFeedback() async {
+    try {
+      await HapticFeedback.heavyImpact();
+      for (var i = 0; i < 2; i++) {
+        await _audioPlayer.stop();
+        await _audioPlayer.play(AssetSource('sounds/beep.mp3'));
+        await Future<void>.delayed(const Duration(milliseconds: 160));
+      }
+    } catch (error) {
+      debugPrint('Scan feedback unavailable: $error');
+    }
+  }
+
+  /// Short, translated reasons instead of raw exceptions.
+  String _scanErrorMessage(Object error, String code) {
+    if (error is ProductNotFoundException) {
+      return 'Not in your store yet: {code}'.trArgs({'code': code});
+    }
+    if (error is StateError) {
+      const known = {
+        'The sales service is not ready.',
+        'Sign in before scanning products.',
+        'Multiple products in this store use this barcode.',
+        'This product is not available in the offline catalogue.',
+        'Wait for the cart to finish switching.',
+      };
+      if (known.contains(error.message)) return error.message.tr;
+    }
+    debugPrint('Scan failed for $code: $error');
+    return 'Could not add this product. Check the connection and try again.'.tr;
+  }
+
+  Future<void> _openCheckout() async {
+    if (_isAddingProduct || CartManager.items.isEmpty) return;
+    if (_browserScannerOpen) closeBrowserScanner();
+    final paid = await Navigator.of(
+      context,
+    ).push<bool>(MaterialPageRoute(builder: (_) => const CheckoutReceiptScreen()));
+    if (!mounted) return;
+    setState(() {
+      if (paid == true) {
+        _statusMessage = null;
+        _lastAddedProductId = null;
+      }
+    });
+    if (paid == true) widget.onSaleCompleted?.call();
+    if (mounted && _usesBrowserScanner && !_browserScannerOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_openBrowserCheckout());
+      });
+    }
+  }
+
   Future<void> _playScanFeedback() async {
     // Feedback failure must never report an already-added item as a failed scan.
     try {
@@ -131,7 +293,12 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   // Resolve a store product before updating the cart.
   Future<void> _addProductByBarcode(String code) async {
     if (_isAddingProduct || code.trim().isEmpty) return;
-    setState(() => _isAddingProduct = true);
+    setState(() {
+      _isAddingProduct = true;
+      // Visible right away, so a slow connection never looks like a missed scan.
+      _statusMessage = 'Looking up {code}…'.trArgs({'code': code.trim()});
+      _hasScanError = false;
+    });
     try {
       final sync = SaleSyncService.maybeInstance;
       if (sync == null) throw StateError('The sales service is not ready.');
@@ -147,9 +314,12 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         if (!mounted) return;
         if (!sell) {
           setState(() {
-            _statusMessage = '${error.productName} not added: recorded stock is 0.';
+            _statusMessage = '{name} not added: recorded stock is 0.'.trArgs({
+              'name': error.productName,
+            });
             _hasScanError = true;
           });
+          unawaited(_playErrorFeedback());
           return;
         }
         data = await sync.findProduct(code.trim(), preferCache: true, allowStockCorrection: true);
@@ -170,8 +340,13 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       );
       setState(() {
         _statusMessage = miscounted
-            ? '$name added as miscounted · stock will be corrected and the owner alerted'
-            : '$name · BD ${(data['price'] as num).toStringAsFixed(3)} added';
+            ? '{name} added as miscounted · stock will be corrected and the owner alerted'.trArgs({
+                'name': name,
+              })
+            : '{name} · {price} added'.trArgs({
+                'name': name,
+                'price': Money.format(data['price'] as num),
+              });
         _hasScanError = false;
         _lastAddedProductId = productId;
         _lastAddedStoreCode = storeCode;
@@ -181,9 +356,10 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _statusMessage = 'Could not add product: $error';
+        _statusMessage = _scanErrorMessage(error, code.trim());
         _hasScanError = true;
       });
+      unawaited(_playErrorFeedback());
       if (error is ProductNotFoundException) {
         if (_browserScannerOpen) closeBrowserScanner();
         await _showUnknownProduct(code.trim());
@@ -210,9 +386,8 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
           icon: const Icon(Icons.inventory_2_outlined, color: AppColors.warning, size: 32),
           title: Text('Out of stock in the system'.tr),
           content: Text(
-            'The records show 0 $productName left. If the customer has the item in hand, '
-            'the stock count was wrong.\n\nSell it as a miscounted product: the stock is '
-            'corrected at checkout and the owner gets an alert to review.',
+            'The records show 0 {name} left. If the customer has the item in hand, the stock count was wrong.\n\nSell it as a miscounted product: the stock is corrected at checkout and the owner gets an alert to review.'
+                .trArgs({'name': productName}),
           ),
           actions: [
             TextButton(
@@ -276,7 +451,8 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                         return Text(
                           snapshot.data?.error != null
                               ? snapshot.data!.error!
-                              : 'No match in ShopPad or the free product catalogues. This product can still be added manually.',
+                              : 'No match in ShopPad or the free product catalogues. This product can still be added manually.'
+                                    .tr,
                         );
                       }
                       return Column(
@@ -297,13 +473,19 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                           const SizedBox(height: 12),
                           Text(
                             product.name,
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: AppTypography.section,
+                            ),
                           ),
                           if (product.category.isNotEmpty) Text(product.category),
                           const SizedBox(height: 10),
                           SelectableText(
                             product.creditLine,
-                            style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                            style: const TextStyle(
+                              fontSize: AppTypography.caption,
+                              color: AppColors.muted,
+                            ),
                           ),
                         ],
                       );
@@ -347,7 +529,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     setState(() {
       CartManager.decreaseQuantity(index);
       _lastAddedProductId = null;
-      _statusMessage = 'Last addition undone';
+      _statusMessage = 'Last addition undone'.tr;
       _hasScanError = false;
     });
   }
@@ -360,7 +542,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       if (mounted) {
         setState(() {
           _hasScanError = true;
-          _statusMessage = 'Flash is unavailable on this camera';
+          _statusMessage = 'Flash is unavailable on this camera'.tr;
         });
       }
     }
@@ -386,7 +568,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
             child: Text(
               'Scan & sell'.tr,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+              style: TextStyle(fontSize: AppTypography.section, fontWeight: FontWeight.w800),
             ),
           ),
           IconButton.outlined(
@@ -406,7 +588,10 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
 
   String get _browserCartSummary {
     final units = CartManager.items.fold<int>(0, (sum, item) => sum + item.quantity);
-    return '$units items · BD ${CartManager.total.toStringAsFixed(3)}';
+    return (units == 1 ? '1 item · {total}' : '{n} items · {total}').trArgs({
+      'n': units,
+      'total': Money.format(CartManager.total),
+    });
   }
 
   // Keep browser video aligned with the Flutter camera region.
@@ -441,14 +626,14 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         summary: _browserCartSummary,
         onBarcode: (code) async {
           if (!mounted) {
-            return jsonEncode({'ok': false, 'message': 'Scanner closed', 'summary': ''});
+            return jsonEncode({'ok': false, 'message': 'Scanner closed'.tr, 'summary': ''});
           }
           if (!_isManualEntryVisible && !_isProductInfoOpen) {
             await _addProductByBarcode(code);
           }
           return jsonEncode({
             'ok': !_hasScanError,
-            'message': _statusMessage ?? 'Ready to scan',
+            'message': _statusMessage ?? 'Ready to scan'.tr,
             'summary': _browserCartSummary,
           });
         },
@@ -461,7 +646,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         setState(() {
           _hasScanError = true;
           _browserPreviewFailed = true;
-          _statusMessage = 'Could not open browser camera. Retry or use Enter barcode.';
+          _statusMessage = 'Could not open browser camera. Retry or use Enter barcode.'.tr;
         });
       }
     } finally {
@@ -496,7 +681,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
           child: ColoredBox(
             color: AppColors.primary,
             child: Stack(
@@ -536,14 +721,14 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(999),
+                        borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
                       ),
                       child: Padding(
                         padding: EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                         child: Text(
                           'Move each barcode into view. Use + for identical items.'.tr,
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white, fontSize: 12),
+                          style: TextStyle(color: Colors.white, fontSize: AppTypography.caption),
                         ),
                       ),
                     ),
@@ -559,55 +744,101 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildManualBarcodeInput() {
+  Widget _buildManualBarcodeInput({bool autofocus = false}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: TextField(
-              controller: _barcodeInputController,
-              textInputAction: TextInputAction.done,
-              decoration: InputDecoration(
-                labelText: 'Barcode'.tr,
-                hintText: 'Type the product barcode'.tr,
-                prefixIcon: Icon(Icons.barcode_reader),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _barcodeInputController,
+                  focusNode: _entryFocus,
+                  autofocus: autofocus,
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    labelText: 'Barcode or product name'.tr,
+                    hintText: 'Scan, type a barcode, or search by name'.tr,
+                    prefixIcon: const Icon(Icons.barcode_reader),
+                  ),
+                  onChanged: _onEntryChanged,
+                  onSubmitted: _isAddingProduct ? null : _onEntrySubmitted,
+                ),
               ),
-              onSubmitted: _isAddingProduct ? null : _addProductByBarcode,
+              const SizedBox(width: 8),
+              FilledButton(
+                style: FilledButton.styleFrom(minimumSize: const Size(64, 52)),
+                onPressed: _isAddingProduct
+                    ? null
+                    : () => _onEntrySubmitted(_barcodeInputController.text),
+                child: Text('Add'.tr),
+              ),
+            ],
+          ),
+          if (_nameMatches.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(top: 6),
+              constraints: const BoxConstraints(maxHeight: 220),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: _nameMatches.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (context, i) {
+                  final product = _nameMatches[i];
+                  final price = product['price'] is num ? product['price'] as num : 0;
+                  return ListTile(
+                    dense: true,
+                    minTileHeight: 48,
+                    title: Text(
+                      (product['name'] ?? '').toString(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    trailing: Text(
+                      Money.format(price),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    onTap: _isAddingProduct ? null : () => _addMatch(product),
+                  );
+                },
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          FilledButton(
-            onPressed: _isAddingProduct
-                ? null
-                : () => _addProductByBarcode(_barcodeInputController.text),
-            child: Text('Add'.tr),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildEntryOptions() => Padding(
+  /// On wide screens the entry field is always shown, so the toggle is left out.
+  Widget _buildEntryOptions({bool showToggle = true}) => Padding(
     padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
     child: Row(
       children: [
         Expanded(
           child: Text(
             'Current sale'.tr,
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            style: TextStyle(fontSize: AppTypography.subtitle, fontWeight: FontWeight.w800),
           ),
         ),
-        TextButton.icon(
-          onPressed: _isAddingProduct
-              ? null
-              : () => setState(() => _isManualEntryVisible = !_isManualEntryVisible),
-          icon: Icon(
-            _isManualEntryVisible ? Icons.close_rounded : Icons.keyboard_outlined,
-            size: 18,
+        if (showToggle)
+          TextButton.icon(
+            onPressed: _isAddingProduct
+                ? null
+                : () => setState(() => _isManualEntryVisible = !_isManualEntryVisible),
+            icon: Icon(
+              _isManualEntryVisible ? Icons.close_rounded : Icons.keyboard_outlined,
+              size: 18,
+            ),
+            label: Text(_isManualEntryVisible ? 'Close entry'.tr : 'Enter barcode'.tr),
           ),
-          label: Text(_isManualEntryVisible ? 'Close entry' : 'Enter barcode'),
-        ),
       ],
     ),
   );
@@ -617,11 +848,21 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          Icon(
-            _hasScanError ? Icons.error_outline : Icons.check_circle_outline,
-            color: _hasScanError ? AppColors.danger : AppColors.success,
-            size: 20,
-          ),
+          if (_isAddingProduct && !_isProductInfoOpen)
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: Padding(
+                padding: EdgeInsets.all(2),
+                child: CircularProgressIndicator(strokeWidth: 2.4),
+              ),
+            )
+          else
+            Icon(
+              _hasScanError ? Icons.error_outline : Icons.check_circle_outline,
+              color: _hasScanError ? AppColors.danger : AppColors.success,
+              size: 20,
+            ),
           const SizedBox(width: 8),
           Expanded(child: Text(_statusMessage!, maxLines: 2, overflow: TextOverflow.ellipsis)),
           if (!_hasScanError && _lastAddedProductId != null)
@@ -641,7 +882,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
           ? AppEmptyState(
               icon: Icons.qr_code_scanner_rounded,
               title: 'Ready for your first item'.tr,
-              message: 'Scan a barcode or use Enter barcode to add a product.'.tr,
+              message: 'Scan a barcode, use a barcode reader, or search by name.'.tr,
             )
           : ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
@@ -654,7 +895,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                   padding: const EdgeInsets.fromLTRB(14, 6, 4, 6),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                     border: Border.all(
                       color: justAdded ? AppColors.primaryDark : AppColors.border,
                       width: justAdded ? 2 : 1,
@@ -673,7 +914,10 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                               style: const TextStyle(fontWeight: FontWeight.w700),
                             ),
                             Text(
-                              'BD ${item.price.toStringAsFixed(3)} each | BD ${item.totalPrice.toStringAsFixed(3)}',
+                              '{price} each · {total}'.trArgs({
+                                'price': Money.format(item.price),
+                                'total': Money.format(item.totalPrice),
+                              }),
                               style: TextStyle(
                                 fontSize: AppTypography.caption,
                                 color: justAdded ? AppColors.primaryDark : AppColors.muted,
@@ -709,41 +953,68 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     );
   }
 
+  /// Cart to review or edit, and Pay to go straight to payment (one step fewer).
   Widget _buildReviewSaleButton(int unitCount) {
+    final enabled = !_isAddingProduct && unitCount > 0;
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+    );
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
       decoration: const BoxDecoration(
         color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
-      child: ElevatedButton(
-        onPressed: _isAddingProduct || unitCount == 0 ? null : widget.onGoToCart,
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size.fromHeight(56),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          disabledBackgroundColor: AppColors.soft,
-          disabledForegroundColor: AppColors.muted,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          textStyle: const TextStyle(
-            fontFamily: AppTypography.family,
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.shopping_cart_checkout_rounded, size: 20),
-            const SizedBox(width: 10),
-            Text('Review sale'.tr),
-            const SizedBox(width: 8),
-            Text(
-              '· $unitCount ${unitCount == 1 ? 'item' : 'items'}',
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: AppTypography.body),
+      child: Row(
+        children: [
+          Tooltip(
+            message: 'Review sale'.tr,
+            child: OutlinedButton.icon(
+              onPressed: enabled ? widget.onGoToCart : null,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 56),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                side: const BorderSide(color: AppColors.border),
+                shape: shape,
+              ),
+              icon: const Icon(Icons.shopping_cart_outlined, size: 20),
+              label: Text(
+                '$unitCount',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: AppTypography.subtitle,
+                ),
+              ),
             ),
-            const Spacer(),
-            Text('BD ${CartManager.total.toStringAsFixed(3)}'),
-          ],
-        ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: ElevatedButton(
+              onPressed: enabled ? _openCheckout : null,
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size.fromHeight(56),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                disabledBackgroundColor: AppColors.soft,
+                disabledForegroundColor: AppColors.muted,
+                shape: shape,
+                textStyle: const TextStyle(
+                  fontFamily: AppTypography.family,
+                  fontSize: AppTypography.subtitle,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.payments_outlined, size: 20),
+                  const SizedBox(width: 10),
+                  Text('Pay'.tr),
+                  const Spacer(),
+                  Text(Money.format(CartManager.total)),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -756,21 +1027,49 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       });
     }
     final unitCount = CartManager.items.fold<int>(0, (total, item) => total + item.quantity);
+    // On a counter PC or tablet the camera sits beside the sale, and the entry field is
+    // always ready for a barcode reader.
+    final wide = MediaQuery.sizeOf(context).width >= 900;
+    final entryVisible = _isManualEntryVisible || wide;
+    final salePane = [
+      if (!wide) _buildEntryOptions(),
+      if (entryVisible) _buildManualBarcodeInput(autofocus: wide),
+      if (_statusMessage != null) _buildScanStatus(),
+      _buildLiveCart(),
+      _buildReviewSaleButton(unitCount),
+    ];
     return Scaffold(
       backgroundColor: AppColors.background,
       resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildScanHeader(),
-            _buildCameraPreview(),
-            _buildEntryOptions(),
-            if (_isManualEntryVisible) _buildManualBarcodeInput(),
-            if (_statusMessage != null) _buildScanStatus(),
-            _buildLiveCart(),
-            _buildReviewSaleButton(unitCount),
-          ],
-        ),
+        child: wide
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: Column(
+                      children: [
+                        _buildScanHeader(),
+                        _buildCameraPreview(),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+                  const VerticalDivider(width: 1),
+                  Expanded(
+                    flex: 4,
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 12),
+                        _buildEntryOptions(showToggle: false),
+                        ...salePane,
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : Column(children: [_buildScanHeader(), _buildCameraPreview(), ...salePane]),
       ),
     );
   }

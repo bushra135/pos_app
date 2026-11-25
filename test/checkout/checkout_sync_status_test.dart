@@ -132,7 +132,12 @@ void main() {
       );
       await tester.pumpAndSettle();
       final confirm = find.text('Confirm cash payment');
-      await tester.scrollUntilVisible(confirm, 350);
+      // The page list is the first scrollable; the cash field has its own.
+      await tester.scrollUntilVisible(
+        confirm,
+        350,
+        scrollable: find.byType(Scrollable).first,
+      );
       final button = tester.widget<ElevatedButton>(
         find.ancestor(of: confirm, matching: find.byType(ElevatedButton)),
       );

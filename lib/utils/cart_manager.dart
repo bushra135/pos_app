@@ -212,6 +212,12 @@ abstract final class CartManager {
     _save();
   }
 
+  /// Puts a removed line back where it was (undo after a mistaken delete).
+  static void restoreItem(int index, CartItem item) {
+    items.insert(index.clamp(0, items.length), item);
+    _save();
+  }
+
   static double get total => items.fold(0, (value, item) => value + item.totalPrice);
   static void clearCart() {
     items.clear();

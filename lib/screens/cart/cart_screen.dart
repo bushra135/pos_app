@@ -9,6 +9,7 @@ import '../../utils/cart_manager.dart';
 import '../../widgets/product_image.dart';
 import '../checkout/checkout_receipt_screen.dart';
 import '../../app/app_language.dart';
+import '../../app/money.dart';
 
 /// Shows the shared cart and returns to the home screen after a confirmed sale.
 class CartScreen extends StatefulWidget {
@@ -134,7 +135,7 @@ class _CartScreenState extends State<CartScreen> {
                                 ),
                                 title: Text(row['label'].toString()),
                                 subtitle: Text(
-                                  '${(row['items'] as List).length} products · BD ${(row['total'] as num).toStringAsFixed(3)}',
+                                  '${(row['items'] as List).length} products · ${Money.format((row['total'] as num))}',
                                 ),
                                 trailing: const Icon(Icons.play_arrow),
                                 onTap: () => Navigator.pop(sheetContext, row['id'].toString()),
@@ -168,10 +169,10 @@ class _CartScreenState extends State<CartScreen> {
     side: const BorderSide(color: AppColors.border),
     minimumSize: const Size(48, 46),
     padding: const EdgeInsets.symmetric(horizontal: 10),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.controlRadius)),
     textStyle: const TextStyle(
       fontFamily: AppTypography.family,
-      fontSize: AppTypography.caption + 1,
+      fontSize: AppTypography.body,
       fontWeight: FontWeight.w700,
     ),
   );
@@ -253,6 +254,26 @@ class _CartScreenState extends State<CartScreen> {
     ),
   );
 
+  /// Removing a line is one tap, so it can be undone for a few seconds.
+  void _removeWithUndo(int index) {
+    final item = CartManager.items[index];
+    setState(() => CartManager.removeItem(index));
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 4),
+        content: Text('{name} removed'.trArgs({'name': item.name})),
+        action: SnackBarAction(
+          label: 'Undo'.tr,
+          onPressed: () {
+            if (mounted) setState(() => CartManager.restoreItem(index, item));
+          },
+        ),
+      ),
+    );
+  }
+
   void _checkout() {
     if (CartManager.items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Cart is empty'.tr)));
@@ -312,7 +333,10 @@ class _CartScreenState extends State<CartScreen> {
                     Expanded(
                       child: Text(
                         'Cart'.tr,
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                        style: TextStyle(
+                          fontSize: AppTypography.metric,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                     if (cartItems.isNotEmpty)
@@ -320,7 +344,7 @@ class _CartScreenState extends State<CartScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
                           color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(999),
+                          borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
                         ),
                         child: Text(
                           (cartItems.length == 1 ? '1 item' : '{n} items').trArgs({
@@ -352,7 +376,7 @@ class _CartScreenState extends State<CartScreen> {
                           DecoratedBox(
                             decoration: BoxDecoration(
                               color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                               border: Border.all(color: AppColors.border),
                             ),
                             child: Column(
@@ -390,9 +414,12 @@ class _CartScreenState extends State<CartScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'BD ${CartManager.total.toStringAsFixed(3)}',
+                              Money.format(CartManager.total),
                               textAlign: TextAlign.end,
-                              style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+                              style: const TextStyle(
+                                fontSize: AppTypography.display,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
                         ],
@@ -402,11 +429,13 @@ class _CartScreenState extends State<CartScreen> {
                         onPressed: _checkout,
                         style: ElevatedButton.styleFrom(
                           minimumSize: const Size.fromHeight(56),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+                          ),
                           textStyle: const TextStyle(
                             fontFamily: AppTypography.family,
                             fontWeight: FontWeight.w800,
-                            fontSize: 16,
+                            fontSize: AppTypography.subtitle,
                           ),
                         ),
                         child: Text('Complete sale'.tr),
@@ -431,7 +460,7 @@ class _CartScreenState extends State<CartScreen> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
               color: AppColors.soft,
             ),
             clipBehavior: Clip.antiAlias,
@@ -463,7 +492,7 @@ class _CartScreenState extends State<CartScreen> {
             padding: const EdgeInsets.all(2),
             decoration: BoxDecoration(
               border: Border.all(color: const Color(0xFFE1E1DB)),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -475,7 +504,7 @@ class _CartScreenState extends State<CartScreen> {
                   onPressed: () => setState(() => CartManager.decreaseQuantity(index)),
                 ),
                 SizedBox(
-                  width: 26,
+                  width: 32,
                   child: Text(
                     item.quantity.toString(),
                     textAlign: TextAlign.center,
@@ -496,7 +525,7 @@ class _CartScreenState extends State<CartScreen> {
           ),
           IconButton(
             tooltip: 'Remove {name}'.trArgs({'name': item.name}),
-            onPressed: () => setState(() => CartManager.removeItem(index)),
+            onPressed: () => _removeWithUndo(index),
             icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
           ),
         ],
@@ -510,9 +539,10 @@ class _CartScreenState extends State<CartScreen> {
     required bool filled,
     required VoidCallback onPressed,
   }) {
+    // 42 px with the 2 px frame gives a 46 px target, comfortable at a busy counter.
     return SizedBox(
-      width: 34,
-      height: 34,
+      width: 42,
+      height: 42,
       child: IconButton(
         tooltip: tooltip,
         padding: EdgeInsets.zero,
@@ -520,9 +550,11 @@ class _CartScreenState extends State<CartScreen> {
         style: IconButton.styleFrom(
           backgroundColor: filled ? AppColors.primary : AppColors.background,
           foregroundColor: filled ? AppColors.onBrand : AppColors.text,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
+          ),
         ),
-        icon: Icon(icon, size: 18),
+        icon: Icon(icon, size: 20),
       ),
     );
   }

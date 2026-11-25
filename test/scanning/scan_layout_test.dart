@@ -136,7 +136,7 @@ void main() {
     expect(find.text('Current sale'), findsOneWidget);
     await tester.pumpWidget(view());
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Review sale'));
+    await tester.tap(find.byTooltip('Review sale'));
     expect(reviews, 1);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
@@ -196,7 +196,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.text('BD 1.125'), findsOneWidget);
-      await tester.tap(find.text('Review sale'));
+      await tester.tap(find.byTooltip('Review sale'));
       expect(reviews, 1);
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();

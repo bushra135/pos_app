@@ -51,7 +51,7 @@ void main() {
       await tester.tap(find.byTooltip('Switch to cashier'));
       await tester.pumpAndSettle();
       expect(find.byType(CashierHomeScreen), findsOneWidget);
-      expect(find.text('Scan'), findsOneWidget);
+      expect(find.text('Start sale'), findsOneWidget);
       expect(find.byTooltip('Switch to owner'), findsOneWidget);
       expect(CartManager.items.single.name, 'Pen');
       await tester.tap(find.byTooltip('Switch to owner'));

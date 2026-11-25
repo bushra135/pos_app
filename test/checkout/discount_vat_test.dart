@@ -128,7 +128,10 @@ void main() {
 
       await tester.tap(find.text('Add discount'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), '20');
+      await tester.enterText(
+        find.descendant(of: find.byType(Dialog), matching: find.byType(TextField)),
+        '20',
+      );
       await tester.pumpAndSettle();
       expect(find.text('Customer pays BD 8.000'), findsOneWidget);
       await tester.tap(find.text('Apply'));

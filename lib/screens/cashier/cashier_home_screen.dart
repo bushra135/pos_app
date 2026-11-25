@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
@@ -8,6 +9,8 @@ import '../../app/app_typography.dart';
 import '../../services/sale_sync_service.dart';
 import '../../services/sales_query.dart';
 import '../../utils/cart_manager.dart';
+import '../../widgets/adaptive_layout.dart';
+import '../../widgets/receipt_card.dart';
 import '../../widgets/sale_sync_panel.dart';
 import '../cart/cart_screen.dart';
 import '../closing/end_of_day_screen.dart';
@@ -15,6 +18,7 @@ import '../products/products_screen.dart';
 import '../profile/profile_screen.dart';
 import '../scan/scan_screen.dart';
 import '../../app/app_language.dart';
+import '../../app/money.dart';
 
 /// Hosts cashier navigation and daily statistics without changing the account role.
 class CashierHomeScreen extends StatefulWidget {
@@ -44,6 +48,9 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
 
   double todaySales = 0.0;
   int todayTransactions = 0;
+
+  /// Today's latest receipts by this cashier, newest first (read from the same query).
+  List<_RecentReceipt> recentReceipts = const [];
   bool isActive = false;
 
   @override
@@ -127,22 +134,35 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
 
       double total = 0.0;
       int count = 0;
+      final recent = <_RecentReceipt>[];
       for (final doc in salesDocs) {
         final data = doc.data();
         final createdAt = data['createdAt'];
         if (createdAt is Timestamp) {
           final saleDate = createdAt.toDate();
           if (!saleDate.isBefore(startOfDay) && saleDate.isBefore(endOfDay)) {
-            total += ((data['total'] ?? 0) as num).toDouble();
+            final amount = ((data['total'] ?? 0) as num).toDouble();
+            total += amount;
             count++;
+            recent.add(
+              _RecentReceipt(
+                time: saleDate,
+                total: amount,
+                items: data['items'] is List ? (data['items'] as List).length : 0,
+                method: (data['paymentMethod'] ?? 'Cash').toString(),
+                refund: data['type'] == 'refund',
+              ),
+            );
           }
         }
       }
+      recent.sort((a, b) => b.time.compareTo(a.time));
 
       if (!mounted) return;
       setState(() {
         todaySales = total;
         todayTransactions = count;
+        recentReceipts = recent.take(3).toList();
       });
     } catch (e) {
       debugPrint('Error loading today stats: $e');
@@ -173,6 +193,11 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
         currentScreen = ScanScreen(
           onGoToCart: () => setState(() => selectedIndex = 2),
           onBackToHome: () => setState(() => selectedIndex = 0),
+          // Paid straight from the scanner: stay ready for the next customer.
+          onSaleCompleted: () async {
+            final uid = _userId;
+            if (uid != null) await _loadTodayStats(uid);
+          },
         );
         break;
       case 2:
@@ -198,53 +223,52 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
         currentScreen = _buildHomeContent();
     }
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SaleSyncPanel(),
-            Expanded(
-              child: isLoading ? const Center(child: CircularProgressIndicator()) : currentScreen,
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: AppColors.border)),
-        ),
-        child: NavigationBar(
-          selectedIndex: selectedIndex,
-          onDestinationSelected: (index) async {
+    // F2 starts a sale from anywhere in the cashier workspace (counter keyboards).
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.f2): () {
+          if (selectedIndex != 1) setState(() => selectedIndex = 1);
+        },
+      },
+      child: Focus(
+        autofocus: true,
+        child: AdaptiveNavScaffold(
+          // Screens: 0 home, 1 scanner, 2 cart, 3 profile. The scanner opens from
+          // "Start sale" and belongs to Home in the navigation.
+          selectedIndex: switch (selectedIndex) {
+            2 => 1,
+            3 => 2,
+            _ => 0,
+          },
+          onSelected: (tab) async {
+            final index = const [0, 2, 3][tab];
             setState(() => selectedIndex = index);
             if (index == 0) {
               final uid = _userId;
               if (uid != null) await _loadTodayStats(uid);
             }
           },
-          destinations: [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: 'Home'.tr,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.qr_code_scanner_rounded),
-              selectedIcon: Icon(Icons.qr_code_scanner_rounded),
-              label: 'Scan'.tr,
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.shopping_cart_outlined),
-              selectedIcon: Icon(Icons.shopping_cart_rounded),
+          items: [
+            (icon: Icons.home_outlined, selectedIcon: Icons.home_rounded, label: 'Home'.tr),
+            (
+              icon: Icons.shopping_cart_outlined,
+              selectedIcon: Icons.shopping_cart_rounded,
               label: 'Cart'.tr,
             ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded),
-              selectedIcon: Icon(Icons.person_rounded),
+            (
+              icon: Icons.person_outline_rounded,
+              selectedIcon: Icons.person_rounded,
               label: 'Profile'.tr,
             ),
           ],
+          body: Column(
+            children: [
+              const SaleSyncPanel(),
+              Expanded(
+                child: isLoading ? const Center(child: CircularProgressIndicator()) : currentScreen,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -261,53 +285,126 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(AppSpacing.page, 24, AppSpacing.page, 24),
         children: [
-          _buildHeader(),
-          const SizedBox(height: 18),
-          _buildStatsCard(),
-          const SizedBox(height: 14),
-          _buildStartSaleButton(),
-          const SizedBox(height: 12),
-          Row(
+          ContentWidth(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: _homeChildren(cartCount),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _homeChildren(int cartCount) {
+    return [
+      _buildHeader(),
+      const SizedBox(height: 18),
+      _buildStatsCard(),
+      const SizedBox(height: 14),
+      _buildStartSaleButton(),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(
+            child: _buildActionTile(
+              icon: Icons.shopping_cart_outlined,
+              label: 'Cart'.tr,
+              caption: cartCount == 0
+                  ? 'Empty'.tr
+                  : (cartCount == 1 ? '1 item waiting' : '{n} items waiting').trArgs({
+                      'n': cartCount,
+                    }),
+              onTap: () => setState(() => selectedIndex = 2),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildActionTile(
+              icon: Icons.inventory_2_outlined,
+              label: 'Products'.tr,
+              caption: 'Prices and stock'.tr,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProductsScreen()),
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      OutlinedButton.icon(
+        onPressed: () =>
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const EndOfDayScreen())),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: AppColors.surface,
+          foregroundColor: AppColors.text,
+          side: const BorderSide(color: AppColors.border),
+          minimumSize: const Size.fromHeight(52),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.cardRadius)),
+        ),
+        icon: const Icon(Icons.point_of_sale_outlined, color: AppColors.primaryDark),
+        label: Text('End of day · close the drawer'.tr),
+      ),
+      if (recentReceipts.isNotEmpty) ...[
+        const SizedBox(height: 26),
+        Text(
+          'Latest receipts'.tr,
+          style: const TextStyle(
+            fontSize: AppTypography.section,
+            fontWeight: FontWeight.w800,
+            color: AppColors.text,
+          ),
+        ),
+        const SizedBox(height: 10),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
             children: [
-              Expanded(
-                child: _buildActionTile(
-                  icon: Icons.shopping_cart_outlined,
-                  label: 'Cart'.tr,
-                  caption: cartCount == 0
-                      ? 'Empty'.tr
-                      : (cartCount == 1 ? '1 item waiting' : '{n} items waiting').trArgs({
-                          'n': cartCount,
-                        }),
-                  onTap: () => setState(() => selectedIndex = 2),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildActionTile(
-                  icon: Icons.inventory_2_outlined,
-                  label: 'Products'.tr,
-                  caption: 'Prices and stock'.tr,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ProductsScreen()),
-                  ),
-                ),
-              ),
+              for (var i = 0; i < recentReceipts.length; i++) ...[
+                if (i > 0) const Divider(height: 1, indent: 16, endIndent: 16),
+                _buildReceiptRow(recentReceipts[i]),
+              ],
             ],
           ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: () =>
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const EndOfDayScreen())),
-            style: OutlinedButton.styleFrom(
-              backgroundColor: AppColors.surface,
-              foregroundColor: AppColors.text,
-              side: const BorderSide(color: AppColors.border),
-              minimumSize: const Size.fromHeight(52),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        ),
+      ],
+    ];
+  }
+
+  /// One line per recent receipt: time and item count, payment method, amount.
+  Widget _buildReceiptRow(_RecentReceipt receipt) {
+    final time = TimeOfDay.fromDateTime(receipt.time).format(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Icon(
+            receipt.method == 'Cash' ? Icons.payments_outlined : Icons.qr_code_2_rounded,
+            color: AppColors.muted,
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              (receipt.items == 1 ? '{time} · 1 item' : '{time} · {n} items').trArgs({
+                'time': time,
+                'n': receipt.items,
+              }),
+              style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.body),
             ),
-            icon: const Icon(Icons.point_of_sale_outlined, color: AppColors.primaryDark),
-            label: Text('End of day · close the drawer'.tr),
+          ),
+          Text(
+            Money.format(receipt.total),
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: AppTypography.button,
+              color: receipt.refund ? AppColors.danger : AppColors.text,
+            ),
           ),
         ],
       ),
@@ -423,7 +520,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
           label,
           style: const TextStyle(
             color: AppColors.onHeroMuted,
-            fontSize: AppTypography.caption + 1,
+            fontSize: AppTypography.body,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -435,7 +532,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
             value,
             style: const TextStyle(
               color: AppColors.onHero,
-              fontSize: 28,
+              fontSize: AppTypography.display,
               fontWeight: FontWeight.w800,
               height: 1.2,
             ),
@@ -444,13 +541,12 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       ],
     );
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: AppColors.hero, borderRadius: BorderRadius.circular(24)),
+    return ReceiptCard(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
       child: IntrinsicHeight(
         child: Row(
           children: [
-            Expanded(child: stat('My sales today'.tr, 'BD ${todaySales.toStringAsFixed(3)}')),
+            Expanded(child: stat('My sales today'.tr, Money.format(todaySales))),
             Container(
               width: 1,
               margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -465,7 +561,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
 
   /// The cashier's main action: a large indigo tile that opens the scanner.
   Widget _buildStartSaleButton() {
-    final radius = BorderRadius.circular(22);
+    final radius = BorderRadius.circular(AppSpacing.cardRadius);
     return Material(
       color: AppColors.primaryDark,
       borderRadius: radius,
@@ -481,7 +577,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                 height: 56,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                 ),
                 child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 28),
               ),
@@ -494,16 +590,13 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                       'Start sale'.tr,
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
+                        fontSize: AppTypography.headline,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     Text(
                       'Scan a barcode to add items'.tr,
-                      style: TextStyle(
-                        color: Color(0xFFDCDAFB),
-                        fontSize: AppTypography.caption + 1,
-                      ),
+                      style: TextStyle(color: Color(0xFFDCDAFB), fontSize: AppTypography.body),
                     ),
                   ],
                 ),
@@ -522,7 +615,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     required String caption,
     required VoidCallback onTap,
   }) {
-    final radius = BorderRadius.circular(18);
+    final radius = BorderRadius.circular(AppSpacing.cardRadius);
     return Material(
       color: AppColors.surface,
       borderRadius: radius,
@@ -560,4 +653,20 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
       ),
     );
   }
+}
+
+/// A receipt summary for the cashier home list.
+class _RecentReceipt {
+  const _RecentReceipt({
+    required this.time,
+    required this.total,
+    required this.items,
+    required this.method,
+    required this.refund,
+  });
+  final DateTime time;
+  final double total;
+  final int items;
+  final String method;
+  final bool refund;
 }
