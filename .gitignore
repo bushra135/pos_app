@@ -61,3 +61,7 @@ app.*.map.json
 
 # Local security snapshots may contain account configuration.
 /.security-audit/
+
+# Local tools and backups (not part of the app)
+/.claude/
+/firestore_rules_backups/
