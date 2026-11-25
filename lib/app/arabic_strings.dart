@@ -618,6 +618,7 @@ const Map<String, String> arabicStrings = {
   'Sign in to your ShopPad workspace.': 'سجّل الدخول إلى مساحة عملك في ShopPad.',
   'Sign out': 'تسجيل الخروج',
   'Signature: ____________________': 'التوقيع: ____________________',
+  'Signing in...': 'جارٍ تسجيل الدخول...',
   'Signing out...': 'جارٍ تسجيل الخروج...',
   'Slow moving products this month:': 'المنتجات بطيئة البيع هذا الشهر:',
   'Slow-moving items': 'منتجات بطيئة البيع',

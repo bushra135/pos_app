@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
+import '../../widgets/auth_motion.dart';
+import '../../widgets/motion.dart';
 import 'create_account_screen.dart';
 import '../../app/app_language.dart';
 
@@ -24,6 +26,18 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _showPassword = false;
   bool _loading = false;
 
+  /// Sign-in problems are shown under the form (translated), with a gentle shake.
+  String? _error;
+  int _errorCount = 0;
+
+  void _showError(String text) {
+    if (!mounted) return;
+    setState(() {
+      _error = text.tr;
+      _errorCount++;
+    });
+  }
+
   @override
   void dispose() {
     _email.dispose();
@@ -40,10 +54,13 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _signIn() async {
     final email = _email.text.trim().toLowerCase();
     if (email.isEmpty || _password.text.isEmpty) {
-      _message('Enter your email and password.');
+      _showError('Enter your email and password.');
       return;
     }
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       // AuthWrapper handles navigation when the Firebase auth state changes.
       await _auth.signInWithEmailAndPassword(email: email, password: _password.text);
@@ -55,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
         'too-many-requests' => 'Too many attempts. Please try again later.',
         _ => 'Unable to sign in right now. Please try again.',
       };
-      _message(message);
+      _showError(message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -102,22 +119,24 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Align(
-                          alignment: AlignmentDirectional.centerEnd,
-                          child: TextButton.icon(
-                            onPressed: AppLanguage.toggle,
-                            style: TextButton.styleFrom(foregroundColor: AppColors.text),
-                            icon: const Icon(Icons.translate_rounded, size: 18),
-                            // Each language is written in itself so it can be found.
-                            label: Text(AppLanguage.isArabic ? 'English' : 'العربية'),
+                        FadeSlideIn(
+                          child: Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: TextButton.icon(
+                              onPressed: AppLanguage.toggle,
+                              style: TextButton.styleFrom(foregroundColor: AppColors.text),
+                              icon: const Icon(Icons.translate_rounded, size: 18),
+                              // Each language is written in itself so it can be found.
+                              label: Text(AppLanguage.isArabic ? 'English' : 'العربية'),
+                            ),
                           ),
                         ),
                         _brand(),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 28),
                         _form(),
                         const Spacer(),
                         const SizedBox(height: 32),
-                        _createAccount(),
+                        FadeSlideIn(index: 6, child: _createAccount()),
                       ],
                     ),
                   ),
@@ -132,33 +151,29 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _brand() => Column(
     children: [
-      // Large ink logo, centred, with no background tile.
-      Image.asset(
-        'assets/logo.png',
-        width: 120,
-        height: 120,
-        fit: BoxFit.contain,
-        // Sign-in swaps the app's roles: indigo brand, ink for secondary actions.
-        color: AppColors.primaryDark,
-        colorBlendMode: BlendMode.srcIn,
-        semanticLabel: 'ShopPad logo'.tr,
-      ),
-      const SizedBox(height: 16),
-      Text(
-        'Welcome back'.tr,
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: AppColors.text,
-          fontSize: AppTypography.display,
-          fontWeight: FontWeight.w800,
-          height: 1.2,
+      const BrandLogo(),
+      const SizedBox(height: 8),
+      FadeSlideIn(
+        index: 1,
+        child: Text(
+          'Welcome back'.tr,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.text,
+            fontSize: AppTypography.display,
+            fontWeight: FontWeight.w800,
+            height: 1.2,
+          ),
         ),
       ),
       const SizedBox(height: 4),
-      Text(
-        'Sign in to your ShopPad workspace.'.tr,
-        textAlign: TextAlign.center,
-        style: TextStyle(color: AppColors.muted, fontSize: AppTypography.button),
+      FadeSlideIn(
+        index: 2,
+        child: Text(
+          'Sign in to your ShopPad workspace.'.tr,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: AppColors.muted, fontSize: AppTypography.button),
+        ),
       ),
     ],
   );
@@ -178,34 +193,51 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _label('Email address'),
-          TextField(
-            controller: _email,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            autofillHints: const [AutofillHints.username, AutofillHints.email],
-            decoration: InputDecoration(hintText: 'you@example.com'.tr),
-          ),
-          const SizedBox(height: 16),
-          _label('Password'),
-          TextField(
-            controller: _password,
-            obscureText: !_showPassword,
-            textInputAction: TextInputAction.done,
-            autofillHints: const [AutofillHints.password],
-            onSubmitted: (_) => _loading ? null : _signIn(),
-            decoration: InputDecoration(
-              hintText: 'Enter your password'.tr,
-              suffixIcon: IconButton(
-                tooltip: (_showPassword ? 'Hide password' : 'Show password').tr,
-                onPressed: () => setState(() => _showPassword = !_showPassword),
-                icon: Icon(
-                  _showPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+          ShakeOnChange(
+            trigger: _errorCount,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FadeSlideIn(
+                  index: 3,
+                  child: GlowField(
+                    label: 'Email address'.tr,
+                    child: TextField(
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const [AutofillHints.username, AutofillHints.email],
+                      onChanged: (_) => _error == null ? null : setState(() => _error = null),
+                      decoration: InputDecoration(hintText: 'you@example.com'.tr),
+                    ),
+                  ),
                 ),
-                color: AppColors.muted,
-              ),
+                const SizedBox(height: 16),
+                FadeSlideIn(
+                  index: 4,
+                  child: GlowField(
+                    label: 'Password'.tr,
+                    child: TextField(
+                      controller: _password,
+                      obscureText: !_showPassword,
+                      textInputAction: TextInputAction.done,
+                      autofillHints: const [AutofillHints.password],
+                      onSubmitted: (_) => _loading ? null : _signIn(),
+                      onChanged: (_) => _error == null ? null : setState(() => _error = null),
+                      decoration: InputDecoration(
+                        hintText: 'Enter your password'.tr,
+                        suffixIcon: PasswordEye(
+                          visible: _showPassword,
+                          onPressed: () => setState(() => _showPassword = !_showPassword),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
+          InlineErrorBanner(message: _error),
           Align(
             alignment: AlignmentDirectional.centerEnd,
             child: TextButton(
@@ -215,30 +247,51 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          ElevatedButton(
-            onPressed: _loading ? null : _signIn,
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size.fromHeight(54),
-              backgroundColor: AppColors.primaryDark,
-              foregroundColor: AppColors.onBrand,
-              disabledBackgroundColor: AppColors.primaryDark,
-              disabledForegroundColor: AppColors.onBrand,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-              ),
-              textStyle: const TextStyle(
-                fontFamily: AppTypography.family,
-                fontSize: AppTypography.subtitle,
-                fontWeight: FontWeight.w800,
+          FadeSlideIn(
+            index: 5,
+            child: PressableScale(
+              enabled: !_loading,
+              child: ElevatedButton(
+                onPressed: _loading ? null : _signIn,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(54),
+                  backgroundColor: AppColors.primaryDark,
+                  foregroundColor: AppColors.onBrand,
+                  disabledBackgroundColor: AppColors.primaryDark,
+                  disabledForegroundColor: AppColors.onBrand,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+                  ),
+                  textStyle: const TextStyle(
+                    fontFamily: AppTypography.family,
+                    fontSize: AppTypography.subtitle,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                // The button keeps its size while it changes to a progress state.
+                child: AnimatedSwitcher(
+                  duration: Motion.reduced(context) ? Duration.zero : Motion.fast,
+                  child: _loading
+                      ? Row(
+                          key: const ValueKey('signing-in'),
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: AppColors.onBrand,
+                                strokeWidth: 2.4,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text('Signing in...'.tr),
+                          ],
+                        )
+                      : Text('Sign in'.tr, key: const ValueKey('sign-in')),
+                ),
               ),
             ),
-            child: _loading
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(color: AppColors.onBrand, strokeWidth: 2.4),
-                  )
-                : Text('Sign in'.tr),
           ),
         ],
       ),
@@ -269,17 +322,5 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Text('Create an account'.tr),
       ),
     ],
-  );
-
-  Widget _label(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Text(
-      text.tr,
-      style: const TextStyle(
-        color: AppColors.text,
-        fontSize: AppTypography.body,
-        fontWeight: FontWeight.w700,
-      ),
-    ),
   );
 }

@@ -11,6 +11,7 @@ import 'login_screen.dart';
 import 'verify_email_screen.dart';
 import '../../app/app_language.dart';
 import '../../services/profile_edits.dart';
+import '../../widgets/motion.dart';
 import '../../widgets/welcome_overlay.dart';
 
 /// Selects the screen from the Firebase session, verification, and Firestore role.
@@ -48,105 +49,117 @@ class AuthWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator(color: AppColors.primaryDark)),
-          );
-        }
+      // Signing in or out cross-fades between the screens instead of cutting.
+      builder: (context, snapshot) => FadeThroughSwitcher(
+        child: KeyedSubtree(
+          key: ValueKey(
+            snapshot.connectionState == ConnectionState.waiting
+                ? 'waiting'
+                : snapshot.data?.uid ?? 'signed-out',
+          ),
+          child: Builder(
+            builder: (context) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator(color: AppColors.primaryDark)),
+                );
+              }
 
-        if (!snapshot.hasData) {
-          return const LoginScreen();
-        }
+              if (!snapshot.hasData) {
+                return const LoginScreen();
+              }
 
-        final user = snapshot.data!;
+              final user = snapshot.data!;
 
-        if (!user.emailVerified) {
-          return const VerifyEmailScreen();
-        }
+              if (!user.emailVerified) {
+                return const VerifyEmailScreen();
+              }
 
-        // Load the user profile before choosing the owner or cashier screen.
-        return StreamBuilder<Map<String, dynamic>?>(
-          stream: _profile(user.uid),
-          builder: (context, userSnapshot) {
-            if (userSnapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator(color: AppColors.primaryDark)),
+              // Load the user profile before choosing the owner or cashier screen.
+              return StreamBuilder<Map<String, dynamic>?>(
+                stream: _profile(user.uid),
+                builder: (context, userSnapshot) {
+                  if (userSnapshot.connectionState == ConnectionState.waiting) {
+                    return const Scaffold(
+                      body: Center(child: CircularProgressIndicator(color: AppColors.primaryDark)),
+                    );
+                  }
+
+                  if (userSnapshot.hasError) {
+                    return Scaffold(
+                      body: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Unable to check account access. Check your connection and sign in again.'
+                                    .tr,
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 16),
+                              TextButton(
+                                onPressed: () => FirebaseAuth.instance.signOut(),
+                                child: Text('Sign out'.tr),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  if (!userSnapshot.hasData) {
+                    return const LoginScreen();
+                  }
+
+                  final userData = userSnapshot.data!;
+                  final String role = (userData['role'] ?? '').toString();
+
+                  final blocked =
+                      userData['isActive'] == false ||
+                      ['disabled', 'pending'].contains(userData['status']) ||
+                      (role != 'owner' && role != 'cashier') ||
+                      (role == 'cashier' && userData['isActive'] != true);
+                  if (blocked) {
+                    return Scaffold(
+                      appBar: AppBar(title: Text('Account access'.tr)),
+                      body: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'This account needs store owner approval or has been disabled. Contact your store owner.'
+                                    .tr,
+                              ),
+                              const SizedBox(height: 16),
+                              TextButton(
+                                onPressed: () => FirebaseAuth.instance.signOut(),
+                                child: Text('Sign out'.tr),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  // A short welcome after signing in, then the home screen beneath it.
+                  return WelcomeGate(
+                    uid: user.uid,
+                    name: (userData['fullName'] ?? '').toString(),
+                    storeName: (userData['storeName'] ?? '').toString(),
+                    isOwner: role == 'owner',
+                    child: role == 'owner' ? const OwnerHomeScreen() : const CashierHomeScreen(),
+                  );
+                },
               );
-            }
-
-            if (userSnapshot.hasError) {
-              return Scaffold(
-                body: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Unable to check account access. Check your connection and sign in again.'
-                              .tr,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: () => FirebaseAuth.instance.signOut(),
-                          child: Text('Sign out'.tr),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }
-            if (!userSnapshot.hasData) {
-              return const LoginScreen();
-            }
-
-            final userData = userSnapshot.data!;
-            final String role = (userData['role'] ?? '').toString();
-
-            final blocked =
-                userData['isActive'] == false ||
-                ['disabled', 'pending'].contains(userData['status']) ||
-                (role != 'owner' && role != 'cashier') ||
-                (role == 'cashier' && userData['isActive'] != true);
-            if (blocked) {
-              return Scaffold(
-                appBar: AppBar(title: Text('Account access'.tr)),
-                body: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'This account needs store owner approval or has been disabled. Contact your store owner.'
-                              .tr,
-                        ),
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: () => FirebaseAuth.instance.signOut(),
-                          child: Text('Sign out'.tr),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }
-
-            // A short welcome after signing in, then the home screen beneath it.
-            return WelcomeGate(
-              uid: user.uid,
-              name: (userData['fullName'] ?? '').toString(),
-              storeName: (userData['storeName'] ?? '').toString(),
-              isOwner: role == 'owner',
-              child: role == 'owner' ? const OwnerHomeScreen() : const CashierHomeScreen(),
-            );
-          },
-        );
-      },
+            },
+          ),
+        ),
+      ),
     );
   }
 }
