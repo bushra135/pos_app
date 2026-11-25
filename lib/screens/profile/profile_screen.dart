@@ -30,6 +30,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   String name = '';
+  String phone = '';
   String email = '';
   String role = '';
   String storeName = '';
@@ -80,6 +81,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       final userData = userDoc.data()!;
+      // A new email confirmed through the link from Firebase is copied to the profile.
+      try {
+        await user.reload();
+        final fresh = FirebaseAuth.instance.currentUser;
+        if ((fresh?.email ?? '').toLowerCase() !=
+            (userData['email'] ?? '').toString().toLowerCase()) {
+          await fresh?.getIdToken(true);
+          if (await ProfileEdits.syncEmail(
+            FirebaseFirestore.instance,
+            uid: user.uid,
+            profileEmail: (userData['email'] ?? '').toString(),
+            authEmail: fresh?.email,
+          )) {
+            userData['email'] = fresh!.email!.toLowerCase();
+          }
+        }
+      } catch (e) {
+        debugPrint('Email sync skipped: $e');
+      }
 
       final String fetchedStoreCode = userData['storeCode'] ?? '';
       String fetchedStoreName = userData['storeName'] ?? '';
@@ -103,6 +123,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         name = userData['fullName'] ?? '';
         email = userData['email'] ?? '';
+        phone = (userData['phone'] ?? '').toString();
         role = userData['role'] ?? '';
         storeName = fetchedStoreName;
         storeCode = fetchedStoreCode;
@@ -230,6 +251,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user == null) return;
     final nameController = TextEditingController(text: name);
     final storeController = TextEditingController(text: storeName);
+    final emailController = TextEditingController(text: email);
+    final phoneController = TextEditingController(text: phone);
+    final passwordController = TextEditingController();
+    String? emailSentTo;
     final formKey = GlobalKey<FormState>();
     var saving = false;
     String? error;
@@ -247,7 +272,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
               saving = true;
               error = null;
             });
+            final newEmail = emailController.text.trim().toLowerCase();
+            final emailChanged = newEmail != email.trim().toLowerCase();
             try {
+              if (emailChanged) {
+                // Firebase asks for the password again, then emails a confirmation link
+                // to the new address; the email changes only once that link is opened.
+                await user.reauthenticateWithCredential(
+                  EmailAuthProvider.credential(
+                    email: user.email ?? email,
+                    password: passwordController.text,
+                  ),
+                );
+                await user.verifyBeforeUpdateEmail(
+                  newEmail,
+                  ActionCodeSettings(
+                    url: 'https://shoppad-f3d43.firebaseapp.com',
+                    handleCodeInApp: false,
+                  ),
+                );
+                emailSentTo = newEmail;
+              }
               await ProfileEdits.save(
                 FirebaseFirestore.instance,
                 uid: user.uid,
@@ -257,8 +302,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 newName: nameController.text,
                 oldStoreName: storeName,
                 newStoreName: storeController.text,
+                oldPhone: phone,
+                newPhone: phoneController.text,
               ).timeout(const Duration(seconds: 15));
               if (sheetContext.mounted) Navigator.pop(sheetContext, true);
+            } on FirebaseAuthException catch (e) {
+              debugPrint('Email change failed: ${e.code}');
+              setSheet(() {
+                saving = false;
+                error = switch (e.code) {
+                  'wrong-password' || 'invalid-credential' => 'Your current password is incorrect.',
+                  'email-already-in-use' => 'This email is already in use',
+                  'invalid-email' => 'Enter a valid email address.',
+                  'too-many-requests' => 'Too many attempts. Please try again later.',
+                  _ => 'Could not change your email. Try again later.',
+                };
+              });
             } catch (e) {
               debugPrint('Profile save failed: $e');
               setSheet(() {
@@ -319,6 +378,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                   const SizedBox(height: 8),
+                  TextFormField(
+                    controller: phoneController,
+                    enabled: !saving,
+                    keyboardType: TextInputType.phone,
+                    maxLength: 20,
+                    decoration: InputDecoration(
+                      labelText: 'Phone number (optional)'.tr,
+                      prefixIcon: const Icon(Icons.phone_outlined),
+                    ),
+                    validator: (value) => ProfileEdits.checkPhone(value ?? '')?.tr,
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: emailController,
+                    enabled: !saving,
+                    keyboardType: TextInputType.emailAddress,
+                    autocorrect: false,
+                    decoration: InputDecoration(
+                      labelText: 'Email'.tr,
+                      helperText: 'A new email changes after you open the link we send to it'.tr,
+                      helperMaxLines: 2,
+                      prefixIcon: const Icon(Icons.email_outlined),
+                    ),
+                    validator: (value) => ProfileEdits.checkEmail(value ?? '')?.tr,
+                    onChanged: (_) => setSheet(() {}),
+                  ),
+                  if (emailController.text.trim().toLowerCase() != email.trim().toLowerCase()) ...[
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: passwordController,
+                      enabled: !saving,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: 'Current password'.tr,
+                        helperText: 'Needed to change your email'.tr,
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                      ),
+                      validator: (value) =>
+                          (value ?? '').isEmpty ? 'Enter your current password'.tr : null,
+                    ),
+                  ],
+                  const SizedBox(height: 8),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.lock_reset_rounded, color: AppColors.primaryDark),
@@ -344,10 +445,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     nameController.dispose();
     storeController.dispose();
+    emailController.dispose();
+    phoneController.dispose();
+    passwordController.dispose();
     if (saved == true) {
       await _loadUserData();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Profile updated'.tr)));
+        final sentTo = emailSentTo;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: Duration(seconds: sentTo == null ? 4 : 8),
+            content: Text(
+              sentTo == null
+                  ? 'Profile updated'.tr
+                  : 'Profile updated. Open the link we sent to {email} to finish changing your email, then sign in with it.'
+                        .trArgs({'email': sentTo}),
+            ),
+          ),
+        );
       }
     }
   }
@@ -537,6 +652,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           title: 'Email'.tr,
                           value: email.isEmpty ? '-' : email,
                         ),
+                        if (phone.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          _InfoRow(
+                            icon: Icons.phone_outlined,
+                            iconBg: AppColors.successSoft,
+                            iconColor: AppColors.success,
+                            title: 'Phone'.tr,
+                            value: phone,
+                          ),
+                        ],
                       ],
                     ),
                   ),

@@ -15,6 +15,23 @@ abstract final class ProfileEdits {
     return null;
   }
 
+  /// Optional: empty is fine; otherwise digits with an optional +, spaces or dashes.
+  static String? checkPhone(String value) {
+    final phone = value.trim();
+    if (phone.isEmpty) return null;
+    final digits = phone.replaceAll(RegExp(r'[\s-]'), '');
+    if (!RegExp(r'^\+?[0-9]{7,15}$').hasMatch(digits)) return 'Enter a valid phone number';
+    return null;
+  }
+
+  static String? checkEmail(String value) {
+    final email = value.trim();
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      return 'Enter a valid email address.';
+    }
+    return null;
+  }
+
   static String? checkStoreName(String value) {
     final name = value.trim();
     if (name.isEmpty) return 'Enter the store name';
@@ -32,14 +49,21 @@ abstract final class ProfileEdits {
     required String newName,
     required String oldStoreName,
     required String newStoreName,
+    String oldPhone = '',
+    String newPhone = '',
   }) async {
     final name = newName.trim();
     final store = newStoreName.trim();
+    final phone = newPhone.trim();
     final batch = firestore.batch();
     var changed = false;
-    if (name != oldName.trim()) {
+    final own = <String, dynamic>{
+      if (name != oldName.trim()) 'fullName': name,
+      if (phone != oldPhone.trim()) 'phone': phone,
+    };
+    if (own.isNotEmpty) {
       batch.update(firestore.collection('users').doc(uid), {
-        'fullName': name,
+        ...own,
         'updatedAt': FieldValue.serverTimestamp(),
       });
       changed = true;
@@ -53,5 +77,22 @@ abstract final class ProfileEdits {
     }
     if (changed) await batch.commit();
     return changed;
+  }
+
+  /// After the user confirms a new email (link sent by Firebase Auth), copies it to their
+  /// profile so the owner's cashier list shows the right address. No-op when equal.
+  static Future<bool> syncEmail(
+    FirebaseFirestore firestore, {
+    required String uid,
+    required String profileEmail,
+    required String? authEmail,
+  }) async {
+    final confirmed = (authEmail ?? '').trim().toLowerCase();
+    if (confirmed.isEmpty || confirmed == profileEmail.trim().toLowerCase()) return false;
+    await firestore.collection('users').doc(uid).update({
+      'email': confirmed,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    return true;
   }
 }

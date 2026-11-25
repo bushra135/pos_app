@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -8,17 +10,37 @@ import '../owner/owner_home_screen.dart';
 import 'login_screen.dart';
 import 'verify_email_screen.dart';
 import '../../app/app_language.dart';
+import '../../services/profile_edits.dart';
 
 /// Selects the screen from the Firebase session, verification, and Firestore role.
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
   Stream<Map<String, dynamic>?> _profile(String uid) {
-    return FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .snapshots()
-        .map((snapshot) => snapshot.data());
+    return FirebaseFirestore.instance.collection('users').doc(uid).snapshots().map((snapshot) {
+      final data = snapshot.data();
+      if (data != null) unawaited(_syncConfirmedEmail(uid, data));
+      return data;
+    });
+  }
+
+  /// After the user opens the email-change link, the signed-in email differs from the
+  /// profile; copy it so the owner's cashier list shows the new address. Best effort.
+  Future<void> _syncConfirmedEmail(String uid, Map<String, dynamic> profile) async {
+    final authEmail = FirebaseAuth.instance.currentUser?.email;
+    if ((authEmail ?? '').toLowerCase() == (profile['email'] ?? '').toString().toLowerCase()) {
+      return;
+    }
+    try {
+      await ProfileEdits.syncEmail(
+        FirebaseFirestore.instance,
+        uid: uid,
+        profileEmail: (profile['email'] ?? '').toString(),
+        authEmail: authEmail,
+      );
+    } catch (e) {
+      debugPrint('Email sync skipped: $e');
+    }
   }
 
   @override

@@ -72,4 +72,50 @@ void main() {
     expect(ProfileEdits.checkStoreName(''), isNotNull);
     expect(ProfileEdits.checkStoreName('Al Reem'), isNull);
   });
+
+  test('phone is optional and saved only when it changes', () async {
+    final db = await seed();
+    await ProfileEdits.save(
+      db,
+      uid: 'u1',
+      storeCode: 'S',
+      isOwner: false,
+      oldName: 'Maryam',
+      newName: 'Maryam',
+      oldStoreName: 'Al Reem',
+      newStoreName: 'Al Reem',
+      newPhone: ' +973 3300 0000 ',
+    );
+    expect((await db.collection('users').doc('u1').get()).data()!['phone'], '+973 3300 0000');
+    expect(ProfileEdits.checkPhone(''), isNull, reason: 'optional');
+    expect(ProfileEdits.checkPhone('+973 3300-0000'), isNull);
+    expect(ProfileEdits.checkPhone('abc'), isNotNull);
+    expect(ProfileEdits.checkPhone('12'), isNotNull);
+  });
+
+  test('a confirmed new email is copied to the profile once', () async {
+    final db = await seed();
+    await db.collection('users').doc('u1').update({'email': 'old@test.invalid'});
+    expect(
+      await ProfileEdits.syncEmail(
+        db,
+        uid: 'u1',
+        profileEmail: 'old@test.invalid',
+        authEmail: 'New@Test.invalid',
+      ),
+      isTrue,
+    );
+    expect((await db.collection('users').doc('u1').get()).data()!['email'], 'new@test.invalid');
+    expect(
+      await ProfileEdits.syncEmail(
+        db,
+        uid: 'u1',
+        profileEmail: 'new@test.invalid',
+        authEmail: 'new@test.invalid',
+      ),
+      isFalse,
+    );
+    expect(ProfileEdits.checkEmail('noora@shop.bh'), isNull);
+    expect(ProfileEdits.checkEmail('noora@'), isNotNull);
+  });
 }
