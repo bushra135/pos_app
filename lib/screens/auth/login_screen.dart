@@ -33,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _message(String text) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text.tr)));
     }
   }
 
@@ -274,7 +274,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _label(String text) => Padding(
     padding: const EdgeInsets.only(bottom: 6),
     child: Text(
-      text,
+      text.tr,
       style: const TextStyle(
         color: AppColors.text,
         fontSize: AppTypography.body,

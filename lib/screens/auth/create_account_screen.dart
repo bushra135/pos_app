@@ -102,7 +102,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message.tr)));
   }
 
   Future<void> _sendVerificationAndContinue(User user) async {
