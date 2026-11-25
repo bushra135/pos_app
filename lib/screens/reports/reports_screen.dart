@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../owner/offers_screen.dart';
 import '../../services/product_costs.dart';
 import '../../services/sales_query.dart';
 import '../../app/app_colors.dart';
@@ -334,6 +335,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     children: [
                       _buildHeader(),
                       const SizedBox(height: 16),
+                      if (_canOpenSalesHistory) ...[
+                        _buildOwnerShortcuts(),
+                        const SizedBox(height: 16),
+                      ],
                       _buildPeriodSelector(),
                       const SizedBox(height: 16),
                       _buildHeroCard(data),
@@ -369,6 +374,84 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ),
               ),
       ),
+    );
+  }
+
+  /// Owner only: the analysis screens, at the top of the dashboard.
+  Widget _buildOwnerShortcuts() {
+    Widget card({
+      required IconData icon,
+      required String label,
+      required bool main,
+      required VoidCallback onTap,
+    }) {
+      final radius = BorderRadius.circular(AppSpacing.cardRadius);
+      return Material(
+        color: main ? AppColors.accentSoft : AppColors.surface,
+        borderRadius: radius,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 52),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: radius,
+              border: Border.all(
+                color: main ? AppColors.primaryDark : AppColors.border,
+                width: main ? 2 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, color: AppColors.primaryDark, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label.tr,
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.text),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: card(
+            icon: Icons.insights_rounded,
+            label: 'Insights & recommendations',
+            main: true,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) =>
+                    OffersScreen(firestore: _firestore, currentUserId: widget.currentUserId),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: card(
+            icon: Icons.emoji_events_outlined,
+            label: 'Top cashiers',
+            main: false,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => SalesHistoryScreen(
+                  firestore: _firestore,
+                  currentUserId: widget.currentUserId,
+                  showTopCashiers: true,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

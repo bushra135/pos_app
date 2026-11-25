@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../utils/vat_invoice.dart';
-import 'offers_screen.dart';
 import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
@@ -399,63 +398,6 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          // The doctor's idea: help slow stock sell by pairing it with best sellers.
-          Material(
-            color: AppColors.accentSoft,
-            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => OffersScreen(
-                    firestore: widget.firestore,
-                    currentUserId: widget.currentUserId,
-                  ),
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  children: [
-                    const Icon(Icons.insights_rounded, color: AppColors.primaryDark),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Insights & recommendations'.tr,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.text,
-                            ),
-                          ),
-                          Text(
-                            'What to reorder, offers and tips from your sales'.tr,
-                            style: const TextStyle(
-                              color: AppColors.muted,
-                              fontSize: AppTypography.caption,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.chevron_right_rounded, color: AppColors.muted),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: TextButton.icon(
-              onPressed: _openTopCashiers,
-              icon: const Icon(Icons.emoji_events_outlined, size: 18),
-              label: Text('Top cashiers'.tr),
-            ),
-          ),
         ],
       ),
     );

@@ -346,12 +346,18 @@ void main() {
     await tester.tap(find.byTooltip('Sales history'));
     await tester.pumpAndSettle();
     expect(find.byType(SalesHistoryScreen), findsOneWidget);
-    expect(find.text('Top cashiers'), findsNothing);
+    // Opened normally, history has no top-cashiers section.
+    expect(
+      find.descendant(of: find.byType(SalesHistoryScreen), matching: find.text('Top cashiers')),
+      findsNothing,
+    );
     expect(find.byType(TabBar), findsNothing);
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
     expect(find.byType(ReportsScreen), findsOneWidget);
-    expect(find.text('Top cashiers'), findsNothing);
+    // The dashboard itself offers both analysis shortcuts to the owner.
+    expect(find.text('Top cashiers'), findsOneWidget);
+    expect(find.text('Insights & recommendations'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
