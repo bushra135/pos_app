@@ -124,4 +124,20 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('deleting a product also removes its owner-only cost', (tester) async {
+    final db = await seed({'role': 'owner'});
+    await ProductCosts.save(db, productId: 'notebook', storeCode: 'A', cost: 1.1);
+    await open(tester, db);
+    await tester.tap(find.text('Notebook'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Delete product'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete').last);
+    await tester.pumpAndSettle();
+
+    expect((await db.collection('products').doc('notebook').get()).exists, isFalse);
+    expect((await db.collection(ProductCosts.collection).doc('notebook').get()).exists, isFalse);
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -617,6 +617,8 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
               ),
               const SizedBox(width: 8),
               Semantics(
+                // Own node, so a screen reader announces just this switch, not the whole card.
+                container: true,
                 label: 'Account active'.tr,
                 child: Switch(
                   value: isActive,

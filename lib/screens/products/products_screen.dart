@@ -260,7 +260,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   void _showMessage(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text.tr)));
   }
 
   // Barcode input and validation.
@@ -1300,6 +1300,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         });
                         try {
                           await productRef.delete().timeout(_requestTimeout);
+                          if (_isOwner) {
+                            // Its owner-only cost goes too; a leftover cost is harmless,
+                            // so this never blocks the delete.
+                            unawaited(ProductCosts.delete(_firestore, productRef.id));
+                          }
                           if (!dialogContext.mounted) return;
                           Navigator.pop(dialogContext);
                           if (mounted) {

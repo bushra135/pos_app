@@ -34,6 +34,15 @@ abstract final class ProductCosts {
     'updatedAt': FieldValue.serverTimestamp(),
   });
 
+  /// Owner only: removes a deleted product's cost. Errors are logged, never thrown.
+  static Future<void> delete(FirebaseFirestore firestore, String productId) async {
+    try {
+      await firestore.collection(collection).doc(productId).delete();
+    } catch (error) {
+      debugPrint('Cost price not removed: $error');
+    }
+  }
+
   /// Moves cost prices still saved on product documents (older versions) into the
   /// owner-only collection and removes them from the product. Safe to call repeatedly.
   static Future<int> migrateLegacy(
