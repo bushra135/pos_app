@@ -298,10 +298,10 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                   : 'Receipt saved — sync pending'.tr,
             ),
             content: Text(
-              '$receiptNumber\n\n${result.message ?? 'Stock and reports will update when this receipt is confirmed online.'}\n\n'
-              'No need to submit this sale again. It will retry automatically. Keep this browser data until synchronization completes; check Sales status for progress.',
+              '$receiptNumber\n\n${(result.message ?? 'Stock and reports will update when this receipt is confirmed online.').tr}\n\n'
+              '${'No need to submit this sale again. It will retry automatically. Keep this browser data until synchronization completes; check Sales status for progress.'.tr}',
             ),
-            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text('OK'.tr))],
           ),
         );
       }

@@ -15,11 +15,13 @@ import 'package:pos_app/screens/products/products_screen.dart';
 import 'package:pos_app/screens/reports/reports_screen.dart';
 import 'package:pos_app/screens/reports/sales_history_screen.dart';
 import 'package:pos_app/utils/cart_manager.dart';
+import 'package:pos_app/models/sale_record.dart';
+import 'package:pos_app/widgets/sale_receipt_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Guards the Arabic interface: every visible text on the main owner and cashier
 /// screens must be translated. Brand and payment names are the only English allowed.
-const _allowed = {'ShopPad', 'BenefitPay'};
+const _allowed = {'ShopPad', 'BenefitPay', 'PDF'};
 
 Future<FakeFirebaseFirestore> _seed() async {
   final db = FakeFirebaseFirestore();
@@ -175,6 +177,24 @@ void main() {
     'dashboard': () async => ReportsScreen(firestore: await _seed(), currentUserId: () => 'owner'),
     'sales history': () async =>
         SalesHistoryScreen(firestore: await _seed(), currentUserId: () => 'owner'),
+    'receipt after payment': () async => SaleReceiptView(
+      sale: SaleRecord(
+        id: 'ABC123',
+        storeCode: 'S',
+        storeName: 'قرطاسية عائشة',
+        cashierUid: 'c1',
+        cashierName: 'نورة',
+        paymentMethod: 'Cash',
+        createdAt: DateTime(2026, 11, 25, 9, 5),
+        items: const [
+          SaleLine(productId: 'p1', barcode: 'p1', name: 'قلم أزرق', price: 0.5, quantity: 2),
+        ],
+        discount: 0.1,
+        vatRate: 10,
+      ),
+      status: 'Synchronized'.tr,
+      onNewSale: () {},
+    ),
     'assistant': () async =>
         AiAssistantScreen(firestore: await _seed(), currentUserId: () => 'owner'),
   };
