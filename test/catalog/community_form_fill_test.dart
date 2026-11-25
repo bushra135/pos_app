@@ -14,7 +14,7 @@ void main() {
   ) async {
     await (FontLoader('Cairo')..addFont(rootBundle.load('assets/fonts/Cairo.ttf'))).load();
     final db = FakeFirebaseFirestore();
-    await db.collection('users').doc('owner').set({'storeCode': 'A'});
+    await db.collection('users').doc('owner').set({'storeCode': 'A', 'role': 'owner'});
     await db.collection('catalog').doc('6287017260083').set({
       'name': 'Al Rabie Juice',
       'category': 'Drinks',

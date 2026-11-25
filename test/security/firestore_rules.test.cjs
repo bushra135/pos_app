@@ -8,6 +8,7 @@ function token(uid, verified=true) {
 }
 function value(v) {
   if (v === null) return {nullValue:null};
+  if (v instanceof Date) return {timestampValue:v.toISOString()};
   if (Array.isArray(v)) return {arrayValue:{values:v.map(value)}};
   if (typeof v === 'object') return {mapValue:{fields:fields(v)}};
   if (typeof v === 'boolean') return {booleanValue:v};
@@ -24,8 +25,21 @@ async function request(path, uid, {method='GET',data,query='',verified=true}={})
 }
 async function put(path,data,uid='ADMIN',verified=true) { return request('/'+path,uid,{method:'PATCH',data:{fields:fields(data)},verified}); }
 async function patch(path,data,uid) { return request('/'+path,uid,{method:'PATCH',data:{fields:fields(data)},query:'?'+Object.keys(data).map(k=>'updateMask.fieldPaths='+k).join('&')}); }
+// A write may name fields to set to the server's request time ($serverTime) and may be a
+// partial update of an existing document ($mask), like the app's transactions.
 async function commit(writes,uid,verified=true) {
-  return request(':commit',uid,{method:'POST',verified,data:{writes:writes.map(([path,data])=>({update:{name:'projects/demo-shoppad-security/databases/(default)/documents/'+path,fields:fields(data)}}))}});
+  return request(':commit',uid,{method:'POST',verified,data:{writes:writes.map(([path,data])=>{
+    const {$serverTime=[],$mask=false,...plain}=data;
+    const write={update:{name:'projects/demo-shoppad-security/databases/(default)/documents/'+path,fields:fields(plain)}};
+    if($mask){write.updateMask={fieldPaths:Object.keys(plain)};write.currentDocument={exists:true};}
+    if($serverTime.length) write.updateTransforms=$serverTime.map(f=>({fieldPath:f,setToServerValue:'REQUEST_TIME'}));
+    return write;
+  })}});
+}
+// A cashier receipt as the app writes it: consistent totals, sale time and server sync time.
+function receipt(id,cashier,extra={}) {
+  return {id,cashierUid:cashier,storeCode:'A',items:[{name:'Pen',price:2,quantity:1}],productIds:['productA'],
+    subtotal:2,discount:0,total:2,status:'completed',type:'sale',createdAt:new Date(),$serverTime:['syncedAt'],...extra};
 }
 async function query(collection,filters,uid) {
   return request(':runQuery',uid,{method:'POST',data:{structuredQuery:{from:[{collectionId:collection}],where:{compositeFilter:{op:'AND',filters:Object.entries(filters).map(([field,v])=>({fieldFilter:{field:{fieldPath:field},op:'EQUAL',value:value(v)}}))}}}}});
@@ -70,7 +84,15 @@ test('cashier sees only their own receipts and cannot rewrite history',async()=>
 });
 test('approved cashier edits own-store catalogue but cannot cross stores or forge audit',async()=>{
   allowed(await put('products/editable',{storeCode:'A',name:'Book',category:'Stationery',price:2,stock:3,minStock:1,barcode:'456',image:''}));
-  allowed(await patch('products/editable',{name:'Notebook',category:'School',price:20,stock:8,minStock:1,barcode:'789',image:'data:image/png;base64,AA==',catalogueSource:null,updatedAt:'2026-10-31'},'cashierA'));
+  const edit={name:'Notebook',category:'School',price:20,minStock:1,barcode:'789',image:'data:image/png;base64,AA==',catalogueSource:null,updatedAt:'2026-10-31'};
+  // Not allowed until the owner grants it; the cashier cannot grant it to themselves.
+  denied(await patch('products/editable',edit,'cashierA'));
+  denied(await patch('users/cashierA',{canEditProducts:true},'cashierA'));
+  denied(await patch('users/cashierA',{canEditProducts:true},'ownerB'));
+  allowed(await patch('users/cashierA',{canEditProducts:true},'ownerA'));
+  allowed(await patch('products/editable',edit,'cashierA'));
+  // Stock is not part of a catalogue edit any more.
+  denied(await patch('products/editable',{stock:8},'cashierA'));
   denied(await patch('products/productB',{price:1},'cashierA'));
   denied(await patch('products/editable',{storeCode:'B'},'cashierA'));
   denied(await patch('products/editable',{lastStockCorrection:{addedQuantity:99}},'cashierA'));
@@ -81,12 +103,12 @@ test('approved cashier edits own-store catalogue but cannot cross stores or forg
   denied(await put('sales/forged',{id:'forged',cashierUid:'ownerA',storeCode:'A',items:[{}],productIds:['productA'],total:2,status:'completed',type:'sale'},'cashierA'));
 });
 test('sale transaction updates stock but cashier cannot rewrite its audit linkage',async()=>{
-  const sale={id:'new-sale',cashierUid:'cashierA',storeCode:'A',items:[{name:'Pen',price:2,quantity:1}],productIds:['productA'],total:2,status:'completed',type:'sale'};
+  const sale=receipt('new-sale','cashierA');
   allowed(await commit([['sales/new-sale',sale],['products/productA',{storeCode:'A',name:'Pen',price:2,stock:2,barcode:'123',lastSaleId:'new-sale'}]],'cashierA'));
   denied(await patch('products/productA',{stock:1,lastSaleId:'fake-sale'},'cashierA'));
 });
 test('a receipt cannot be used to inflate inventory',async()=>{
-  const sale={id:'inflate',cashierUid:'cashierA',storeCode:'A',items:[{name:'Pen',price:2,quantity:1}],productIds:['productA'],total:2,status:'completed',type:'sale'};
+  const sale=receipt('inflate','cashierA');
   denied(await commit([['sales/inflate',sale],['products/productA',{storeCode:'A',name:'Pen',price:2,stock:99,barcode:'123',lastSaleId:'inflate'}]],'cashierA'));
 });
 test('new owner must create their own store atomically and cannot claim an existing one',async()=>{
@@ -147,6 +169,9 @@ test('approved cashier deletes own-store product but cannot delete foreign produ
   denied(await request('/products/delete-ours','disabled-delete',{method:'DELETE'}));
   denied(await request('/products/delete-foreign','cashierA',{method:'DELETE'}));
   denied(await request('/sales/saleA','cashierA',{method:'DELETE'}));
+  allowed(await patch('users/cashierA',{canEditProducts:false},'ownerA'));
+  denied(await request('/products/delete-ours','cashierA',{method:'DELETE'}));
+  allowed(await patch('users/cashierA',{canEditProducts:true},'ownerA'));
   allowed(await request('/products/delete-ours','cashierA',{method:'DELETE'}));
   assert.equal((await request('/products/delete-ours','ADMIN')).status,404);
   allowed(await request('/products/delete-foreign','ADMIN'));
@@ -191,4 +216,47 @@ test('stores may fill a missing shared price or photo but never change existing 
   denied(await patch('catalog/12345677',{image:'https://images.example/other.png'},'ownerA'));
   denied(await patch('catalog/12345678',{image:'javascript:alert(1)'},'ownerB'));
   denied(await patch('catalog/12345677',{price:0.4},null));
+});
+
+test('cashier stock changes need the owner permission and a matching stock move',async()=>{
+  allowed(await put('products/counted',{storeCode:'A',name:'Tape',price:1,stock:5,barcode:'555'}));
+  const move=(id,before,after,extra={})=>({storeCode:'A',productId:'counted',productName:'Tape',before,after,
+    delta:after-before,reason:'restock',byUid:'cashierA',byName:'A',$serverTime:['createdAt'],...extra});
+  const adjust=(id,after)=>({stock:after,lastStockMoveId:id,$mask:true});
+  allowed(await patch('users/cashierA',{canAdjustStock:false},'ownerA'));
+  denied(await commit([['stockMoves/m0',move('m0',5,17)],['products/counted',adjust('m0',17)]],'cashierA'));
+  allowed(await patch('users/cashierA',{canAdjustStock:true},'ownerA'));
+  allowed(await commit([['stockMoves/m1',move('m1',5,17)],['products/counted',adjust('m1',17)]],'cashierA'));
+  // A stock change without its move, with a move for another amount, or reusing an old move.
+  denied(await patch('products/counted',{stock:999},'cashierA'));
+  denied(await commit([['stockMoves/m2',move('m2',17,20)],['products/counted',adjust('m2',99)]],'cashierA'));
+  denied(await commit([['products/counted',adjust('m1',30)]],'cashierA'));
+  // Moves are append-only, must add up, and only the owner reads them.
+  denied(await commit([['stockMoves/m3',move('m3',17,20,{delta:50})],['products/counted',adjust('m3',20)]],'cashierA'));
+  denied(await patch('stockMoves/m1',{reason:'other'},'cashierA'));
+  denied(await request('/stockMoves/m1','cashierA'));
+  allowed(await request('/stockMoves/m1','ownerA'));
+  denied(await request('/stockMoves/m1','ownerB'));
+});
+test('cost prices are owner-only',async()=>{
+  allowed(await put('products/costed',{storeCode:'A',name:'Glue',price:2,stock:4,barcode:'777'}));
+  allowed(await put('productCosts/costed',{storeCode:'A',cost:1.2},'ownerA'));
+  allowed(await request('/productCosts/costed','ownerA'));
+  denied(await request('/productCosts/costed','cashierA'));
+  denied(await request('/productCosts/costed','ownerB'));
+  denied(await put('productCosts/costed',{storeCode:'A',cost:0.1},'cashierA'));
+  denied(await put('productCosts/costed',{storeCode:'A',cost:-1},'ownerA'));
+  denied(await put('productCosts/productB',{storeCode:'A',cost:1},'ownerA'));
+});
+test('cashier receipts must add up and carry a real sale time',async()=>{
+  const saleWith=(id,extra)=>[['sales/'+id,receipt(id,'cashierA',{productIds:[],...extra})]];
+  allowed(await commit(saleWith('ok-receipt',{}),'cashierA'));
+  denied(await commit(saleWith('zero-total',{total:0}),'cashierA'));
+  denied(await commit(saleWith('big-discount',{discount:5,total:0}),'cashierA'));
+  denied(await commit(saleWith('negative-discount',{discount:-1,total:3}),'cashierA'));
+  denied(await commit(saleWith('backdated',{createdAt:new Date(Date.now()-40*86400000)}),'cashierA'));
+  denied(await commit(saleWith('future',{createdAt:new Date(Date.now()+86400000)}),'cashierA'));
+  denied(await commit(saleWith('fake-sync',{$serverTime:[],syncedAt:new Date()}),'cashierA'));
+  // Offline sales may sync later within the 30-day window.
+  allowed(await commit(saleWith('offline-receipt',{createdAt:new Date(Date.now()-3*86400000)}),'cashierA'));
 });

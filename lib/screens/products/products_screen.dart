@@ -21,6 +21,9 @@ import '../../widgets/barcode_lookup_panel.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/scanner_error_panel.dart';
 import '../../app/app_language.dart';
+import '../../services/product_costs.dart';
+import '../../services/stock_moves.dart';
+import '../../utils/product_import.dart';
 import '../../app/money.dart';
 
 /// Manages store products, images, and low stock alert thresholds.
@@ -64,6 +67,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   /// Owners see and edit cost prices; cashiers never do.
   bool _isOwner = false;
+
+  /// Cashier permissions the owner grants (owners can always do both).
+  bool _canEditProducts = false;
+  bool _canAdjustStock = false;
+  bool get _mayEdit => _isOwner || _canEditProducts;
+  bool get _mayAdjust => _isOwner || _canAdjustStock;
+  String _userName = '';
+
+  /// Owner only: product id -> cost price (kept apart from products).
+  Map<String, double> _costs = const {};
 
   /// Product list order chosen from the sort button next to search.
   _ProductSort _sort = _ProductSort.name;
@@ -123,11 +136,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
       if (!mounted) return;
 
+      final profile = userDoc.data() ?? const <String, dynamic>{};
       setState(() {
         storeCode = code;
-        _isOwner = userDoc.data()?['role'] == 'owner';
+        _isOwner = profile['role'] == 'owner';
+        _canEditProducts = profile['canEditProducts'] == true;
+        _canAdjustStock = profile['canAdjustStock'] == true;
+        _userName = (profile['fullName'] ?? '').toString();
         isLoadingStore = false;
       });
+      if (_isOwner && code.isNotEmpty) unawaited(_loadCosts(code));
     } catch (e) {
       debugPrint('Error loading store code: $e');
 
@@ -136,6 +154,27 @@ class _ProductsScreenState extends State<ProductsScreen> {
       setState(() => isLoadingStore = false);
     }
   }
+
+  /// Owner: loads cost prices and moves any still saved on products (older versions).
+  Future<void> _loadCosts(String code) async {
+    try {
+      final products = await _firestore
+          .collection('products')
+          .where('storeCode', isEqualTo: code)
+          .get();
+      await ProductCosts.migrateLegacy(_firestore, code, products.docs);
+      final costs = await ProductCosts.load(_firestore, code);
+      if (mounted) setState(() => _costs = costs);
+    } catch (error) {
+      debugPrint('Cost prices not loaded: $error');
+    }
+  }
+
+  String get _uid =>
+      (widget.currentUserId != null
+          ? widget.currentUserId!()
+          : FirebaseAuth.instance.currentUser?.uid) ??
+      '';
 
   Stream<QuerySnapshot<Map<String, dynamic>>> _productsStream() {
     return _firestore.collection('products').where('storeCode', isEqualTo: storeCode).snapshots();
@@ -336,11 +375,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final nameController = TextEditingController(text: product?['name']?.toString() ?? '');
     final categoryController = TextEditingController(text: product?['category']?.toString() ?? '');
     final priceController = TextEditingController(text: product?['price']?.toString() ?? '');
+    final savedCost =
+        (docId == null ? null : _costs[docId]) ??
+        (product?['cost'] is num ? (product!['cost'] as num).toDouble() : null);
     final costController = TextEditingController(
-      text: (product?['cost'] is num && (product!['cost'] as num) > 0)
-          ? product['cost'].toString()
-          : '',
+      text: savedCost != null && savedCost > 0 ? savedCost.toString() : '',
     );
+    final originalStock = int.tryParse(product?['stock']?.toString() ?? '');
     final stockController = TextEditingController(text: product?['stock']?.toString() ?? '');
     final minStockController = TextEditingController(
       text: (product?['minStock'] ?? product?['minQuantity'] ?? product?['minimumStock'] ?? 5)
@@ -365,6 +406,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
     String? priceHint;
     // True while the price is the one calculated from cost + markup.
     var priceFromMarkup = false;
+    // Owner choice: show this product as a one-tap button at checkout.
+    var quickKey = product?['quickKey'] == true;
     var markup = _markupPercent;
     void applyMarkup() {
       final cost = double.tryParse(costController.text.trim()) ?? 0;
@@ -506,27 +549,48 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   saveStage = 'Saving product';
                 });
 
+                // Cost lives in the owner-only collection; stock changes on an existing
+                // product go through a recorded stock move.
                 final Map<String, dynamic> productData = {
                   'name': name,
                   'category': category,
                   'price': price,
-                  // Cost is owner-only; cashier edits leave it untouched.
-                  if (_isOwner) 'cost': cost ?? 0,
-                  'stock': stock,
+                  if (!isEdit) 'stock': stock,
                   'minStock': minStock,
                   'barcode': barcode,
                   'image': image,
                   'catalogueSource': catalogueSource,
+                  if (_isOwner) 'quickKey': quickKey,
                   'storeCode': storeCode,
                   'updatedAt': FieldValue.serverTimestamp(),
                 };
 
                 if (isEdit) {
-                  await productRef.update(productData).timeout(_requestTimeout);
+                  if (_mayEdit) await productRef.update(productData).timeout(_requestTimeout);
+                  if (_mayAdjust && originalStock != null && stock != originalStock) {
+                    await StockMoves.adjust(
+                      productFirestore,
+                      product: productRef,
+                      storeCode: storeCode,
+                      reason: 'count_correction',
+                      byUid: _uid,
+                      byName: _userName,
+                      newStock: (_) => stock,
+                    ).timeout(_requestTimeout);
+                  }
                 } else {
                   await productRef
                       .set({...productData, 'createdAt': FieldValue.serverTimestamp()})
                       .timeout(_requestTimeout);
+                }
+                if (_isOwner && cost != null && cost >= 0 && cost != (savedCost ?? -1)) {
+                  await ProductCosts.save(
+                    productFirestore,
+                    productId: productRef.id,
+                    storeCode: storeCode,
+                    cost: cost,
+                  ).timeout(_requestTimeout);
+                  if (mounted) setState(() => _costs = {..._costs, productRef.id: cost});
                 }
                 // Share only barcode, name and category so other stores can find this product.
                 // Best effort: it must never delay or fail the store's own save.
@@ -604,7 +668,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               ),
                             ),
                             // Delete lives here so the product list stays uncluttered.
-                            if (isEdit)
+                            if (isEdit && _mayEdit)
                               IconButton(
                                 tooltip: 'Delete product'.tr,
                                 onPressed: isBusy
@@ -645,7 +709,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                     });
                                   }
                                 },
-                                enabled: !isBusy,
+                                enabled: !isBusy && _mayEdit,
                                 keyboardType: TextInputType.number,
                               ),
                             ),
@@ -659,11 +723,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                   borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                                 ),
                                 child: IconButton(
+                                  tooltip: 'Scan barcode'.tr,
                                   icon: const Icon(
                                     Icons.qr_code_scanner,
                                     color: AppColors.primaryDark,
                                   ),
-                                  onPressed: isBusy
+                                  onPressed: isBusy || !_mayEdit
                                       ? null
                                       : () async {
                                           final result = await _scanBarcode(context);
@@ -685,11 +750,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             ),
                           ],
                         ),
+                        if (!_mayEdit || !_mayAdjust) _permissionNote(),
                         BarcodeLookupPanel(
                           key: lookupKey,
                           barcode: barcodeController,
                           catalog: catalogue,
-                          enabled: !isSavingProduct && !isChoosingImage,
+                          enabled: !isSavingProduct && !isChoosingImage && _mayEdit,
                           onBusyChanged: (busy) {
                             if (context.mounted) {
                               setDialogState(() => isLookingUp = busy);
@@ -750,7 +816,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         _buildField(
                           nameController,
                           'Product name',
-                          enabled: !isBusy,
+                          enabled: !isBusy && _mayEdit,
                           onChanged: (value) {
                             if (categoryManuallyEdited) return;
                             final current = categoryController.text.trim();
@@ -767,7 +833,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         _buildField(
                           categoryController,
                           'Category',
-                          enabled: !isBusy,
+                          enabled: !isBusy && _mayEdit,
                           onChanged: (_) => setDialogState(() {
                             categoryManuallyEdited = true;
                             automaticCategory = null;
@@ -832,7 +898,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         _buildField(
                           priceController,
                           'Price',
-                          enabled: !isBusy,
+                          enabled: !isBusy && _mayEdit,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           onChanged: (_) {
                             priceFromMarkup = false;
@@ -861,19 +927,37 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         _buildField(
                           stockController,
                           'Stock',
-                          enabled: !isBusy,
+                          // Changing stock here is recorded as a count correction.
+                          enabled: !isBusy && (!isEdit || _mayAdjust),
                           keyboardType: TextInputType.number,
                         ),
                         _buildField(
                           minStockController,
                           'Low stock alert limit',
-                          enabled: !isBusy,
+                          enabled: !isBusy && _mayEdit,
                           keyboardType: TextInputType.number,
                         ),
+                        if (_isOwner)
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            value: quickKey,
+                            onChanged: isBusy
+                                ? null
+                                : (value) => setDialogState(() => quickKey = value),
+                            title: Text(
+                              'Quick button at checkout'.tr,
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            subtitle: Text(
+                              'For items sold often or without a readable barcode'.tr,
+                              style: const TextStyle(fontSize: AppTypography.caption),
+                            ),
+                          ),
+                        if (_isOwner && isEdit) _stockHistory(docId),
                         _buildField(
                           imageController,
                           'Image URL',
-                          enabled: !isBusy,
+                          enabled: !isBusy && _mayEdit,
                           onChanged: (value) {
                             setDialogState(() {
                               pickedImageBytes = null;
@@ -891,7 +975,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                           children: [
                             Expanded(
                               child: OutlinedButton.icon(
-                                onPressed: isBusy ? null : chooseImage,
+                                onPressed: isBusy || !_mayEdit ? null : chooseImage,
                                 icon: const Icon(Icons.upload_file_rounded),
                                 label: Text(
                                   (isChoosingImage ? 'Preparing image...' : 'Choose image').tr,
@@ -1053,6 +1137,99 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 ),
               ],
             ),
+    );
+  }
+
+  /// Tells a cashier what the owner has not allowed, instead of silently greyed fields.
+  Widget _permissionNote() {
+    final text = !_mayEdit && !_mayAdjust
+        ? 'View only. Ask the store owner for permission to change products or stock.'
+        : !_mayEdit
+        ? 'You can update stock only. Ask the store owner for permission to change prices and details.'
+        : 'You can change details and prices. Ask the store owner for permission to change stock.';
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.warningSoft,
+        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.lock_outline_rounded, size: 18, color: AppColors.warning),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text.tr,
+              style: const TextStyle(fontSize: AppTypography.caption, color: AppColors.text),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Owner: the product's latest stock changes outside sales.
+  Widget _stockHistory(String productId) {
+    const reasonLabels = {
+      'restock': 'Restock',
+      'count_correction': 'Count correction',
+      'damaged': 'Damaged',
+      'other': 'Other',
+    };
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: StockMoves.history(_firestore, storeCode: storeCode, productId: productId),
+      builder: (context, snapshot) {
+        final moves = snapshot.data ?? const [];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 8),
+            Text(
+              'Stock history'.tr,
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: AppTypography.body),
+            ),
+            const SizedBox(height: 4),
+            if (snapshot.connectionState != ConnectionState.done)
+              const LinearProgressIndicator()
+            else if (moves.isEmpty)
+              Text(
+                'No stock changes recorded yet.'.tr,
+                style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
+              )
+            else
+              for (final move in moves)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '{reason} · {name}'.trArgs({
+                            'reason': (reasonLabels[move['reason']] ?? 'Other').tr,
+                            'name': (move['byName'] ?? '').toString(),
+                          }),
+                          style: const TextStyle(fontSize: AppTypography.caption),
+                        ),
+                      ),
+                      Text(
+                        '${move['before']} → ${move['after']}',
+                        textDirection: TextDirection.ltr,
+                        style: TextStyle(
+                          fontSize: AppTypography.caption,
+                          fontWeight: FontWeight.w700,
+                          color: (move['delta'] is num && (move['delta'] as num) < 0)
+                              ? AppColors.danger
+                              : AppColors.success,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+          ],
+        );
+      },
     );
   }
 
@@ -1300,6 +1477,165 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
+  /// Owner: paste rows copied from Excel/Google Sheets, check them, then import in batches.
+  Future<void> _showImportDialog() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final existing =
+        (await _firestore.collection('products').where('storeCode', isEqualTo: storeCode).get())
+            .docs
+            .map((doc) => (doc.data()['barcode'] ?? '').toString())
+            .where((code) => code.isNotEmpty)
+            .toSet();
+    if (!mounted) return;
+    final controller = TextEditingController();
+    var preview = ProductImport.parse('', existingBarcodes: existing);
+    var importing = false;
+    final imported = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text('Import from Excel'.tr),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Copy the rows in Excel and paste them here. Columns in this order:'.tr,
+                    style: const TextStyle(fontSize: AppTypography.caption),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    ProductImport.columns.tr,
+                    textDirection: TextDirection.ltr,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: controller,
+                    minLines: 6,
+                    maxLines: 10,
+                    enabled: !importing,
+                    textDirection: TextDirection.ltr,
+                    decoration: const InputDecoration(
+                      hintText: '6281234567890\tBlue pen\tStationery\t0.500\t40\t0.300',
+                    ),
+                    onChanged: (text) => setDialogState(
+                      () => preview = ProductImport.parse(text, existingBarcodes: existing),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    '{ready} ready · {dupes} already in your store · {errors} with problems'
+                        .trArgs({
+                          'ready': preview.ready.length,
+                          'dupes': preview.duplicates.length,
+                          'errors': preview.errors.length,
+                        }),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  for (final error in preview.errors.take(4))
+                    Text(
+                      'Row {line}: {reason}'.trArgs({
+                        'line': error.line,
+                        'reason': error.reason.tr,
+                      }),
+                      style: const TextStyle(
+                        color: AppColors.danger,
+                        fontSize: AppTypography.caption,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: importing ? null : () => Navigator.pop(dialogContext),
+              child: Text('Cancel'.tr),
+            ),
+            FilledButton(
+              onPressed: importing || preview.ready.isEmpty
+                  ? null
+                  : () async {
+                      setDialogState(() => importing = true);
+                      try {
+                        final count = await _importProducts(preview.ready);
+                        if (dialogContext.mounted) Navigator.pop(dialogContext, count);
+                      } catch (error) {
+                        debugPrint('Product import failed: $error');
+                        setDialogState(() => importing = false);
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Import failed. Nothing after the error was saved; try again.'.tr,
+                            ),
+                          ),
+                        );
+                      }
+                    },
+              child: Text(
+                importing
+                    ? 'Importing...'.tr
+                    : 'Import {n} products'.trArgs({'n': preview.ready.length}),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    if (imported != null && imported > 0) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('{n} products imported'.trArgs({'n': imported}))),
+      );
+      unawaited(_loadCosts(storeCode));
+    }
+  }
+
+  /// Writes products (and owner-only costs) in batches Firestore accepts.
+  Future<int> _importProducts(List<ImportedProduct> rows) async {
+    final products = _firestore.collection('products');
+    final ids = <ImportedProduct, String>{};
+    for (var start = 0; start < rows.length; start += 400) {
+      final batch = _firestore.batch();
+      for (final row in rows.skip(start).take(400)) {
+        final ref = products.doc();
+        ids[row] = ref.id;
+        batch.set(ref, {
+          'name': row.name,
+          'category': row.category,
+          'price': row.price,
+          'stock': row.stock,
+          'minStock': 5,
+          'barcode': row.barcode,
+          'image': '',
+          'catalogueSource': null,
+          'storeCode': storeCode,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit().timeout(_requestTimeout);
+    }
+    // Costs reference existing products, so they are written after the products.
+    final costed = rows.where((row) => row.cost != null).toList();
+    for (var start = 0; start < costed.length; start += 400) {
+      final batch = _firestore.batch();
+      for (final row in costed.skip(start).take(400)) {
+        batch.set(_firestore.collection(ProductCosts.collection).doc(ids[row]), {
+          'storeCode': storeCode,
+          'cost': row.cost,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit().timeout(_requestTimeout);
+    }
+    return rows.length;
+  }
+
   Widget _buildNotificationButton() {
     if (storeCode.isEmpty) {
       return const SizedBox(width: 8);
@@ -1385,15 +1721,27 @@ class _ProductsScreenState extends State<ProductsScreen> {
     if (amount == null || amount <= 0) return;
 
     try {
-      // Increment on the server so a sale saved at the same moment is not overwritten.
-      await doc.reference
-          .update({
-            'stock': FieldValue.increment(amount),
-            'updatedAt': FieldValue.serverTimestamp(),
-          })
-          .timeout(_requestTimeout);
+      // A transaction reads the current stock, so a sale saved at the same moment is not
+      // overwritten, and the restock is recorded in the stock history.
+      final result = await StockMoves.adjust(
+        _firestore,
+        product: doc.reference,
+        storeCode: storeCode,
+        reason: 'restock',
+        byUid: _uid,
+        byName: _userName,
+        newStock: (stock) => stock + amount,
+      ).timeout(_requestTimeout);
       messenger.showSnackBar(
-        SnackBar(content: Text('$name restocked: +$amount (now ${current + amount})')),
+        SnackBar(
+          content: Text(
+            '{name} restocked: +{n} (now {total})'.trArgs({
+              'name': name,
+              'n': amount,
+              'total': result.after,
+            }),
+          ),
+        ),
       );
     } catch (e) {
       debugPrint('Restock failed: $e');
@@ -1431,16 +1779,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
               title: Text('Edit product'.tr),
               onTap: () => Navigator.pop(sheetContext, 'edit'),
             ),
-            ListTile(
-              leading: const Icon(Icons.add_box_outlined, color: AppColors.primaryDark),
-              title: Text('Restock'.tr),
-              onTap: () => Navigator.pop(sheetContext, 'restock'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
-              title: Text('Delete product'.tr, style: const TextStyle(color: AppColors.danger)),
-              onTap: () => Navigator.pop(sheetContext, 'delete'),
-            ),
+            if (_mayAdjust)
+              ListTile(
+                leading: const Icon(Icons.add_box_outlined, color: AppColors.primaryDark),
+                title: Text('Restock'.tr),
+                onTap: () => Navigator.pop(sheetContext, 'restock'),
+              ),
+            if (_mayEdit)
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                title: Text('Delete product'.tr, style: const TextStyle(color: AppColors.danger)),
+                onTap: () => Navigator.pop(sheetContext, 'delete'),
+              ),
             const SizedBox(height: 8),
           ],
         ),
@@ -1492,96 +1842,100 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final stockColor = _stockColor(item);
     final low = _stockFrom(item) <= _minStockFrom(item);
     final radius = BorderRadius.circular(AppSpacing.cardRadius);
-    return Tooltip(
-      message: 'Edit product'.tr,
-      child: Material(
-        color: AppColors.surface,
-        borderRadius: radius,
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => _showProductDialog(docId: doc.id, product: item),
-          onLongPress: () => _showProductActions(doc),
-          child: Ink(
-            decoration: BoxDecoration(
-              borderRadius: radius,
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: ProductImage(
-                    source: (item['image'] ?? '').toString(),
-                    fit: BoxFit.cover,
-                    placeholder: _monogram(name, (item['category'] ?? '').toString()),
+    return Semantics(
+      button: true,
+      child: Tooltip(
+        message: 'Edit product'.tr,
+        child: Material(
+          color: AppColors.surface,
+          borderRadius: radius,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => _showProductDialog(docId: doc.id, product: item),
+            onLongPress: () => _showProductActions(doc),
+            child: Ink(
+              decoration: BoxDecoration(
+                borderRadius: radius,
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: ProductImage(
+                      source: (item['image'] ?? '').toString(),
+                      fit: BoxFit.cover,
+                      placeholder: _monogram(name, (item['category'] ?? '').toString()),
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: AppTypography.body,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: AppTypography.body,
+                          ),
                         ),
-                      ),
-                      Text(
-                        _priceLabel(item),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: AppTypography.button,
+                        Text(
+                          _priceLabel(item),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: AppTypography.button,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Align(
-                              alignment: AlignmentDirectional.centerStart,
-                              child: Container(
-                                padding: EdgeInsets.symmetric(horizontal: low ? 8 : 0),
-                                decoration: BoxDecoration(
-                                  color: low ? stockColor.withValues(alpha: 0.12) : null,
-                                  borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
-                                ),
-                                child: Text(
-                                  _stockText(item),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: AppTypography.caption,
-                                    fontWeight: FontWeight.w700,
-                                    color: stockColor,
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Align(
+                                alignment: AlignmentDirectional.centerStart,
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(horizontal: low ? 8 : 0),
+                                  decoration: BoxDecoration(
+                                    color: low ? stockColor.withValues(alpha: 0.12) : null,
+                                    borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
+                                  ),
+                                  child: Text(
+                                    _stockText(item),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: AppTypography.caption,
+                                      fontWeight: FontWeight.w700,
+                                      color: stockColor,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                          SizedBox(
-                            width: 34,
-                            height: 34,
-                            child: IconButton.filledTonal(
-                              tooltip: 'Restock'.tr,
-                              padding: EdgeInsets.zero,
-                              onPressed: () => _showRestockDialog(doc),
-                              style: IconButton.styleFrom(
-                                backgroundColor: AppColors.accentSoft,
-                                foregroundColor: AppColors.primaryDark,
+                            if (_mayAdjust)
+                              SizedBox(
+                                width: 34,
+                                height: 34,
+                                child: IconButton.filledTonal(
+                                  tooltip: 'Restock'.tr,
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () => _showRestockDialog(doc),
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: AppColors.accentSoft,
+                                    foregroundColor: AppColors.primaryDark,
+                                  ),
+                                  icon: const Icon(Icons.add_rounded, size: 20),
+                                ),
                               ),
-                              icon: const Icon(Icons.add_rounded, size: 20),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -1626,86 +1980,90 @@ class _ProductsScreenState extends State<ProductsScreen> {
       if (barcode.isNotEmpty) barcode,
     ].join(' · ');
 
-    return Tooltip(
-      message: 'Edit product'.tr,
-      child: InkWell(
-        onTap: () => _showProductDialog(docId: doc.id, product: item),
-        onLongPress: () => _showProductActions(doc),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-          child: Row(
-            children: [
-              _productThumb((item['image'] ?? '').toString()),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: AppTypography.button,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.text,
-                      ),
-                    ),
-                    if (details.isNotEmpty)
+    return Semantics(
+      button: true,
+      child: Tooltip(
+        message: 'Edit product'.tr,
+        child: InkWell(
+          onTap: () => _showProductDialog(docId: doc.id, product: item),
+          onLongPress: () => _showProductActions(doc),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+            child: Row(
+              children: [
+                _productThumb((item['image'] ?? '').toString()),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        details,
+                        name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: AppTypography.caption,
-                          color: AppColors.muted,
+                          fontSize: AppTypography.button,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.text,
                         ),
                       ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    _priceLabel(item),
-                    style: const TextStyle(
-                      fontSize: AppTypography.button,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.text,
-                    ),
+                      if (details.isNotEmpty)
+                        Text(
+                          details,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: AppTypography.caption,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                    ],
                   ),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: low ? 8 : 0),
-                    decoration: BoxDecoration(
-                      color: low ? stockColor.withValues(alpha: 0.12) : null,
-                      borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
-                    ),
-                    child: Text(
-                      _stockText(item),
-                      style: TextStyle(
-                        fontSize: AppTypography.caption,
-                        fontWeight: FontWeight.w700,
-                        color: stockColor,
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      _priceLabel(item),
+                      style: const TextStyle(
+                        fontSize: AppTypography.button,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.text,
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 8),
-              // Quick restock: add received units without opening the full editor.
-              IconButton.filledTonal(
-                tooltip: 'Restock'.tr,
-                onPressed: () => _showRestockDialog(doc),
-                style: IconButton.styleFrom(
-                  backgroundColor: AppColors.accentSoft,
-                  foregroundColor: AppColors.primaryDark,
-                  fixedSize: const Size(40, 40),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: low ? 8 : 0),
+                      decoration: BoxDecoration(
+                        color: low ? stockColor.withValues(alpha: 0.12) : null,
+                        borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
+                      ),
+                      child: Text(
+                        _stockText(item),
+                        style: TextStyle(
+                          fontSize: AppTypography.caption,
+                          fontWeight: FontWeight.w700,
+                          color: stockColor,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                icon: const Icon(Icons.add_rounded),
-              ),
-            ],
+                const SizedBox(width: 8),
+                // Quick restock: add received units without opening the full editor.
+                if (_mayAdjust)
+                  IconButton.filledTonal(
+                    tooltip: 'Restock'.tr,
+                    onPressed: () => _showRestockDialog(doc),
+                    style: IconButton.styleFrom(
+                      backgroundColor: AppColors.accentSoft,
+                      foregroundColor: AppColors.primaryDark,
+                      fixedSize: const Size(40, 40),
+                    ),
+                    icon: const Icon(Icons.add_rounded),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1785,20 +2143,30 @@ class _ProductsScreenState extends State<ProductsScreen> {
             fontWeight: FontWeight.w800,
           ),
         ),
-        actions: [_buildNotificationButton()],
+        actions: [
+          if (_isOwner)
+            IconButton(
+              tooltip: 'Import from Excel'.tr,
+              onPressed: storeCode.isEmpty ? null : _showImportDialog,
+              icon: const Icon(Icons.upload_file_rounded, color: AppColors.text),
+            ),
+          _buildNotificationButton(),
+        ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: storeCode.isEmpty ? null : () => _showProductDialog(),
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.onBrand,
-        elevation: 2,
-        shape: const StadiumBorder(),
-        icon: const Icon(Icons.add_rounded),
-        label: Text(
-          'Add'.tr,
-          style: TextStyle(fontFamily: AppTypography.family, fontWeight: FontWeight.w800),
-        ),
-      ),
+      floatingActionButton: !_isOwner
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: storeCode.isEmpty ? null : () => _showProductDialog(),
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.onBrand,
+              elevation: 2,
+              shape: const StadiumBorder(),
+              icon: const Icon(Icons.add_rounded),
+              label: Text(
+                'Add'.tr,
+                style: TextStyle(fontFamily: AppTypography.family, fontWeight: FontWeight.w800),
+              ),
+            ),
       body: SafeArea(
         child: isLoadingStore
             ? const Center(child: CircularProgressIndicator())

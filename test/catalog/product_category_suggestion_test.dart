@@ -31,7 +31,7 @@ void main() {
     tester,
   ) async {
     final db = FakeFirebaseFirestore();
-    await db.collection('users').doc('owner').set({'storeCode': 'A'});
+    await db.collection('users').doc('owner').set({'storeCode': 'A', 'role': 'owner'});
     await tester.pumpWidget(
       MaterialApp(
         home: ProductsScreen(firestore: db, currentUserId: () => 'owner'),

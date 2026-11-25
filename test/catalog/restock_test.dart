@@ -15,6 +15,7 @@ void main() {
     await db.collection('users').doc('cashier').set({
       'storeCode': 'A',
       'role': 'cashier',
+      'canAdjustStock': true,
       'isActive': true,
     });
     await db.collection('products').doc('notebook').set({

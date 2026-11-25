@@ -21,6 +21,8 @@ void main() {
     await db.collection('users').doc('cashier').set({
       'storeCode': 'A',
       'role': 'cashier',
+      'canEditProducts': true,
+      'canAdjustStock': true,
       'isActive': true,
     });
     final data = {
@@ -67,6 +69,8 @@ void main() {
     await db.collection('users').doc('cashier').set({
       'storeCode': 'A',
       'role': 'cashier',
+      'canEditProducts': true,
+      'canAdjustStock': true,
       'isActive': true,
     });
     await db.collection('products').doc('ours').set({
@@ -123,7 +127,7 @@ void main() {
         final showProducts = ValueNotifier(true);
         addTearDown(showProducts.dispose);
         final db = FakeFirebaseFirestore();
-        await db.collection('users').doc('owner').set({'storeCode': 'A'});
+        await db.collection('users').doc('owner').set({'storeCode': 'A', 'role': 'owner'});
         final response = Completer<http.Response>();
         final catalog = BarcodeCatalogService(client: MockClient((_) => response.future));
         await tester.pumpWidget(

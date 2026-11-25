@@ -73,6 +73,49 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
     });
   }
 
+  /// The owner decides, per cashier, whether they may change products/prices and stock.
+  /// Firestore rules enforce the same flags, so hiding buttons is not the only guard.
+  Future<void> _updatePermission(String docId, String field, bool value) async {
+    try {
+      await _firestore.collection('users').doc(docId).update({
+        field: value,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Error updating cashier permission: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update cashier'.tr)));
+    }
+  }
+
+  Widget _permissionSwitch({
+    required String docId,
+    required String field,
+    required bool value,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      value: value,
+      activeThumbColor: AppColors.primaryDark,
+      onChanged: (next) => _updatePermission(docId, field, next),
+      secondary: Icon(icon, color: value ? AppColors.primaryDark : AppColors.muted, size: 22),
+      title: Text(
+        title.tr,
+        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: AppTypography.body),
+      ),
+      subtitle: Text(
+        subtitle.tr,
+        style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
+      ),
+    );
+  }
+
   Future<void> _updateCashierStatus({
     required String docId,
     required Map<String, dynamic> data,
@@ -413,6 +456,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
           CircleAvatar(
             backgroundColor: AppColors.surface,
             child: IconButton(
+              tooltip: 'Back'.tr,
               onPressed: () => Navigator.pop(context),
               icon: const Icon(Icons.arrow_back_rounded, color: AppColors.text),
             ),
@@ -496,105 +540,140 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         border: Border.all(color: AppColors.border),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: status.bgColor,
-            child: Icon(
-              status.label == 'Invited' ? Icons.mark_email_unread_rounded : Icons.person_rounded,
-              color: status.color,
-            ),
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: AppTypography.label,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.text,
-                  ),
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: status.bgColor,
+                child: Icon(
+                  status.label == 'Invited'
+                      ? Icons.mark_email_unread_rounded
+                      : Icons.person_rounded,
+                  color: status.color,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  email,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.muted,
-                    fontSize: AppTypography.body,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: status.bgColor,
-                        borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
-                      ),
-                      child: Text(
-                        status.label,
-                        style: TextStyle(
-                          color: status.color,
-                          fontSize: AppTypography.caption,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: AppTypography.label,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.text,
                       ),
                     ),
-                    if (uid.isEmpty) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        'Waiting setup'.tr,
-                        style: TextStyle(
-                          color: AppColors.muted,
-                          fontSize: AppTypography.caption,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    const SizedBox(height: 4),
+                    Text(
+                      email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: AppTypography.body,
+                        fontWeight: FontWeight.w600,
                       ),
-                    ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: status.bgColor,
+                            borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
+                          ),
+                          child: Text(
+                            status.label.tr,
+                            style: TextStyle(
+                              color: status.color,
+                              fontSize: AppTypography.caption,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        if (uid.isEmpty) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            'Waiting setup'.tr,
+                            style: TextStyle(
+                              color: AppColors.muted,
+                              fontSize: AppTypography.caption,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
-              ],
+              ),
+              const SizedBox(width: 8),
+              Semantics(
+                label: 'Account active'.tr,
+                child: Switch(
+                  value: isActive,
+                  activeThumbColor: AppColors.primaryDark,
+                  onChanged: (value) {
+                    _updateCashierStatus(docId: doc.id, data: data, isActive: value);
+                  },
+                ),
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert_rounded),
+                onSelected: (value) {
+                  if (value == 'delete') {
+                    _deleteCashier(doc.id, name);
+                  }
+                },
+                itemBuilder: (context) {
+                  return [
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+                          SizedBox(width: 10),
+                          Text('Delete'.tr, style: TextStyle(color: AppColors.danger)),
+                        ],
+                      ),
+                    ),
+                  ];
+                },
+              ),
+            ],
+          ),
+          const Divider(height: 20),
+          Text(
+            'What this cashier can do'.tr,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: AppTypography.caption,
+              color: AppColors.muted,
             ),
           ),
-          const SizedBox(width: 8),
-          Switch(
-            value: isActive,
-            activeThumbColor: AppColors.primaryDark,
-            onChanged: (value) {
-              _updateCashierStatus(docId: doc.id, data: data, isActive: value);
-            },
+          _permissionSwitch(
+            docId: doc.id,
+            field: 'canEditProducts',
+            value: data['canEditProducts'] == true,
+            icon: Icons.sell_outlined,
+            title: 'Change products and prices',
+            subtitle: 'Edit names, prices and details, and delete products',
           ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert_rounded),
-            onSelected: (value) {
-              if (value == 'delete') {
-                _deleteCashier(doc.id, name);
-              }
-            },
-            itemBuilder: (context) {
-              return [
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      Icon(Icons.delete_outline_rounded, color: AppColors.danger),
-                      SizedBox(width: 10),
-                      Text('Delete'.tr, style: TextStyle(color: AppColors.danger)),
-                    ],
-                  ),
-                ),
-              ];
-            },
+          _permissionSwitch(
+            docId: doc.id,
+            field: 'canAdjustStock',
+            value: data['canAdjustStock'] == true,
+            icon: Icons.inventory_2_outlined,
+            title: 'Adjust stock',
+            subtitle: 'Restock and correct counts; every change is recorded for you',
           ),
         ],
       ),

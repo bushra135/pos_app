@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../../services/product_costs.dart';
 import '../../services/sales_query.dart';
 import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
@@ -53,6 +54,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _salesDocuments = [];
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _productDocuments = [];
 
+  /// Owner-only cost prices (product id -> cost); cashier sales carry no cost.
+  Map<String, double> _costs = const {};
+
   @override
   void initState() {
     super.initState();
@@ -95,12 +99,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
         return productStoreCode == storeCode;
       }).toList();
 
+      final isOwner = userDoc.data()?['role'] == 'owner';
+      var costs = const <String, double>{};
+      if (isOwner) {
+        await ProductCosts.migrateLegacy(_firestore, storeCode, storeProducts);
+        costs = await ProductCosts.load(_firestore, storeCode);
+      }
+
       if (!mounted) return;
 
       setState(() {
-        _canOpenSalesHistory = userDoc.data()?['role'] == 'owner';
+        _canOpenSalesHistory = isOwner;
         _salesDocuments = salesDocs;
         _productDocuments = storeProducts;
+        _costs = costs;
         _isLoading = false;
       });
     } catch (e) {
@@ -144,7 +156,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       categoryByKey[reportProductKey(data, name)] = category.isEmpty ? 'Uncategorized' : category;
       final stock = reportNumber(data, ['stock', 'quantity']);
       final price = reportNumber(data, ['price']);
-      final cost = reportNumber(data, ['cost']);
+      final cost = _costs[doc.id] ?? reportNumber(data, ['cost']);
       if (stock > 0) {
         stockRetailValue += stock * price;
         if (cost > 0) {
@@ -217,7 +229,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
           productSales[item.key] = product;
 
           final paid = item.subtotal * paidShare;
-          final unitCost = reportNumber(rawItem, ['cost', 'unitCost']);
+          // Sales record a cost only when the seller could see it (the owner); otherwise
+          // the owner's current cost price for that product is used.
+          final lineCost = reportNumber(rawItem, ['cost', 'unitCost']);
+          final unitCost = lineCost > 0
+              ? lineCost
+              : _costs[(rawItem['productId'] ?? '').toString()] ?? 0;
           if (unitCost > 0) {
             costedRevenue += paid;
             costOfGoods += unitCost * item.quantity;
