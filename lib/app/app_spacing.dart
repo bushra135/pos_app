@@ -4,8 +4,8 @@
 abstract final class AppSpacing {
   static const double page = 20;
 
-  static const double smallRadius = 10;
-  static const double controlRadius = 14;
-  static const double cardRadius = 20;
+  static const double smallRadius = 8;
+  static const double controlRadius = 10;
+  static const double cardRadius = 14;
   static const double pillRadius = 999;
 }

@@ -2,10 +2,10 @@
 ///
 /// Screens use only these sizes; a size that is not here is a design bug.
 abstract final class AppTypography {
-  static const String family = 'Cairo';
+  static const String family = 'IBMPlexSansArabic';
 
-  /// Chart axis ticks only.
-  static const double micro = 10;
+  /// Chart axis ticks only; 12 px so they stay readable (they scale down to fit if needed).
+  static const double micro = 12;
   static const double caption = 12;
   static const double body = 14;
   static const double label = 14;
