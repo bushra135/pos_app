@@ -344,64 +344,54 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          // One panel instead of four separate cards.
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: AppColors.border,
-                border: Border.all(color: AppColors.border),
-                borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+          // Four separate cards with space between them.
+          GridView.count(
+            crossAxisCount: wide ? 4 : 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            // Taller tiles when the system text size is increased.
+            childAspectRatio: 1.35 / MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _OverviewTile(
+                icon: Icons.warning_amber_rounded,
+                color: AppColors.warning,
+                label: 'Low stock'.tr,
+                value: '$lowStockCount',
+                caption: lowStockCount == 1
+                    ? 'item needs restocking'.tr
+                    : 'items need restocking'.tr,
+                onTap: () => setState(() => _selectedIndex = 1),
               ),
-              child: GridView.count(
-                crossAxisCount: wide ? 4 : 2,
-                crossAxisSpacing: 1,
-                mainAxisSpacing: 1,
-                // Taller tiles when the system text size is increased.
-                childAspectRatio: 1.35 / MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6),
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _OverviewTile(
-                    icon: Icons.warning_amber_rounded,
-                    color: AppColors.warning,
-                    label: 'Low stock'.tr,
-                    value: '$lowStockCount',
-                    caption: lowStockCount == 1
-                        ? 'item needs restocking'.tr
-                        : 'items need restocking'.tr,
-                    onTap: () => setState(() => _selectedIndex = 1),
-                  ),
-                  _OverviewTile(
-                    icon: Icons.inventory_2_outlined,
-                    color: AppColors.primaryDark,
-                    label: 'Products'.tr,
-                    value: '$totalProducts',
-                    caption: 'in your catalogue'.tr,
-                    onTap: () => setState(() => _selectedIndex = 1),
-                  ),
-                  _OverviewTile(
-                    icon: Icons.local_fire_department_outlined,
-                    color: AppColors.danger,
-                    label: 'Best seller'.tr,
-                    value: bestSellerName.isEmpty ? 'No sales yet'.tr : bestSellerName,
-                    caption: bestSellerName.isEmpty
-                        ? 'record a sale to see it'.tr
-                        : '{n} sold today'.trArgs({'n': bestSellerSold}),
-                    smallValue: true,
-                    onTap: _openTopCashiers,
-                  ),
-                  _OverviewTile(
-                    icon: Icons.people_alt_outlined,
-                    color: AppColors.success,
-                    label: 'Cashiers'.tr,
-                    value: '$activeCashierCount/$cashierCount',
-                    caption: 'active right now'.tr,
-                    onTap: _openCashiersManagement,
-                  ),
-                ],
+              _OverviewTile(
+                icon: Icons.inventory_2_outlined,
+                color: AppColors.primaryDark,
+                label: 'Products'.tr,
+                value: '$totalProducts',
+                caption: 'in your catalogue'.tr,
+                onTap: () => setState(() => _selectedIndex = 1),
               ),
-            ),
+              _OverviewTile(
+                icon: Icons.local_fire_department_outlined,
+                color: AppColors.danger,
+                label: 'Best seller'.tr,
+                value: bestSellerName.isEmpty ? 'No sales yet'.tr : bestSellerName,
+                caption: bestSellerName.isEmpty
+                    ? 'record a sale to see it'.tr
+                    : '{n} sold today'.trArgs({'n': bestSellerSold}),
+                smallValue: true,
+                onTap: _openTopCashiers,
+              ),
+              _OverviewTile(
+                icon: Icons.people_alt_outlined,
+                color: AppColors.success,
+                label: 'Cashiers'.tr,
+                value: '$activeCashierCount/$cashierCount',
+                caption: 'active right now'.tr,
+                onTap: _openCashiersManagement,
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Align(
@@ -814,12 +804,19 @@ class _OverviewTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(AppSpacing.cardRadius);
     return Material(
       color: AppColors.surface,
+      borderRadius: radius,
       child: InkWell(
         onTap: onTap,
+        borderRadius: radius,
         child: Ink(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(color: AppColors.border),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
