@@ -62,8 +62,16 @@ service cloud.firestore {
         && request.resource.data.storeCode == code
         && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner'
         && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.storeCode == code;
+      // Owner settings, including the VAT invoice details (NBR): registration flag,
+      // 15-digit VAT account number (empty when not registered) and the store address.
       allow update: if owner(code)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['storeName','benefitNumber','benefitQrBase64','updatedAt']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['storeName','benefitNumber','benefitQrBase64','updatedAt','vatRegistered','vatNumber','storeAddress'])
+        && request.resource.data.get('vatRegistered', false) is bool
+        && request.resource.data.get('vatNumber', '') is string
+        && (request.resource.data.get('vatNumber', '') == '' || request.resource.data.get('vatNumber', '').matches('^[0-9]{15}$'))
+        && (request.resource.data.get('vatRegistered', false) == false || request.resource.data.get('vatNumber', '').size() == 15)
+        && request.resource.data.get('storeAddress', '') is string
+        && request.resource.data.get('storeAddress', '').size() <= 200;
       allow delete: if false;
       match /backups/{backupId} {
         allow read: if owner(code);

@@ -290,3 +290,17 @@ test('bundle offers: only the owner starts them, and receipts may record them',a
   const wrong=receipt('offer-wrong','cashierA',{productIds:[],subtotal:2,discount:0.2,total:2,offerDiscount:0.2});
   denied(await commit([['sales/offer-wrong',wrong]],'cashierA'));
 });
+
+test('VAT invoice details: owner only, 15-digit number required when registered',async()=>{
+  const ok={vatRegistered:true,vatNumber:'123456789012345',storeAddress:'Seef Mall, Shop 12, Manama, Kingdom of Bahrain'};
+  allowed(await patch('stores/A',ok,'ownerA'));
+  denied(await patch('stores/A',ok,'cashierA'));
+  denied(await patch('stores/B',ok,'ownerA'));
+  denied(await patch('stores/A',{vatRegistered:true,vatNumber:'12345'},'ownerA'));
+  denied(await patch('stores/A',{vatRegistered:true,vatNumber:''},'ownerA'));
+  denied(await patch('stores/A',{vatNumber:'12345678901234X'},'ownerA'));
+  denied(await patch('stores/A',{storeAddress:'x'.repeat(201)},'ownerA'));
+  denied(await patch('stores/A',{vatRegistered:'yes'},'ownerA'));
+  // Not registered: no number needed.
+  allowed(await patch('stores/A',{vatRegistered:false,vatNumber:''},'ownerA'));
+});
