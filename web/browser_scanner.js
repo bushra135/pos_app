@@ -1,5 +1,31 @@
 // Browser-owned video avoids Flutter's embedded video rendering on iPhone.
 window.ShopPadBrowserScanner = {
+  // Texts in the app's language, sent by Flutter before each open. Keys missing here
+  // fall back to the English text written at each use.
+  _strings: {},
+  setStrings(json) {
+    try { this._strings = JSON.parse(json) || {}; } catch (_) { this._strings = {}; }
+  },
+  _t(key, english) { return this._strings[key] || english; },
+  // A clear reason for the cashier instead of the browser's raw error name.
+  _cameraError(error) {
+    const t = (key, english) => this._t(key, english);
+    switch (error && error.name) {
+      case 'NotAllowedError':
+      case 'SecurityError':
+        return t('cameraDenied', 'Camera access is blocked. Allow the camera for this site in the browser settings, then tap retry.');
+      case 'NotFoundError':
+      case 'OverconstrainedError':
+        return t('cameraMissing', 'No camera was found. Use a barcode reader or type the barcode.');
+      case 'NotReadableError':
+      case 'AbortError':
+        return t('cameraBusy', 'The camera is being used by another app or tab. Close it, then tap retry.');
+      case 'NotSupportedError':
+        return t('cameraUnsupported', 'This browser cannot open the camera here. Use a barcode reader or type the barcode.');
+      default:
+        return t('cameraFailed', 'The camera could not start. Allow camera access, close other camera tabs, then tap retry.');
+    }
+  },
   close() { this._close?.(); },
   position(bounds) {
     this._bounds = JSON.parse(bounds);
@@ -10,6 +36,7 @@ window.ShopPadBrowserScanner = {
     document.activeElement?.blur?.();
     const continuous = typeof onBarcode === 'function';
     const inline = continuous && !!this._bounds;
+    const t = (key, english) => this._t(key, english);
     return new Promise(resolve => {
       let closed = false, stream, reader, starting = false, processing = false;
       let lastAddedCode;
@@ -17,10 +44,10 @@ window.ShopPadBrowserScanner = {
       const pending = [];
       const overlay = document.createElement('section');
       overlay.id = 'shoppad-browser-scanner';
-      overlay.lang = 'en';
-      overlay.dir = 'ltr';
+      overlay.lang = t('lang', 'en');
+      overlay.dir = t('dir', 'ltr');
       overlay.setAttribute('role', 'dialog');
-      overlay.setAttribute('aria-label', continuous ? 'Scan and sell' : 'Scan product barcode');
+      overlay.setAttribute('aria-label', continuous ? t('scanAndSell', 'Scan and sell') : t('scanProduct', 'Scan product barcode'));
       overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#102d4b;color:white;display:flex;flex-direction:column;padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom);font:16px system-ui;';
       const updateBounds = () => {
         if (!inline) return;
@@ -37,14 +64,14 @@ window.ShopPadBrowserScanner = {
       const header = document.createElement('div');
       header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:16px 0;';
       const title = document.createElement('strong');
-      title.textContent = continuous ? 'Scan & sell' : 'Scan product barcode';
+      title.textContent = continuous ? t('scanTitle', 'Scan & sell') : t('scanProduct', 'Scan product barcode');
       function button(label) {
         const result = document.createElement('button');
         result.textContent = label;
         result.style.cssText = 'padding:12px 16px;margin:4px 0;border:0;border-radius:12px;background:#e5f0fd;color:#102d4b;font:inherit;';
         return result;
       }
-      const close = button('Close');
+      const close = button(t('close', 'Close'));
       const video = document.createElement('video');
       video.muted = true; video.defaultMuted = true; video.playsInline = true;
       for (const flag of ['muted','playsinline','webkit-playsinline']) video.setAttribute(flag, '');
@@ -52,17 +79,17 @@ window.ShopPadBrowserScanner = {
         ? 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:black;'
         : 'width:100%;min-height:0;flex:1;object-fit:contain;background:black;';
       const message = document.createElement('p');
-      message.textContent = 'Starting camera...';
+      message.textContent = t('starting', 'Starting camera...');
       message.style.cssText = 'text-align:center;white-space:pre-wrap;margin:8px 0;';
       const summary = document.createElement('strong');
       summary.textContent = initialSummary;
       summary.style.cssText = 'text-align:center;padding:8px;';
       if (inline) message.style.cssText = 'position:absolute;bottom:0;left:0;right:0;margin:0;padding:8px;background:#102d4bd9;font-size:12px;white-space:pre-wrap;text-align:center;';
-      const retry = button('Start / retry camera');
+      const retry = button(t('retry', 'Start / retry camera'));
       if (inline) retry.style.cssText += 'position:absolute;top:12px;left:12px;right:12px;';
-      const repeat = button('Add same item');
+      const repeat = button(t('repeat', 'Add same item'));
       repeat.disabled = true;
-      const review = button('Review sale');
+      const review = button(t('review', 'Review sale'));
       const stop = () => {
         try { reader?.reset(); } catch (_) {}
         stream?.getTracks().forEach(track => track.stop());
@@ -85,7 +112,7 @@ window.ShopPadBrowserScanner = {
         try {
           while (pending.length && !closed) {
             const code = pending.shift();
-            message.textContent = 'Adding item...';
+            message.textContent = t('adding', 'Adding item...');
             try {
               const response = JSON.parse(await onBarcode(code));
               if (closed) break;
@@ -93,7 +120,7 @@ window.ShopPadBrowserScanner = {
               summary.textContent = response.summary;
               lastAddedCode = response.ok ? code : null;
             } catch (_) {
-              if (!closed) message.textContent = 'Could not add item. Close the camera and check the sale.';
+              if (!closed) message.textContent = t('addFailed', 'Could not add item. Close the camera and check the sale.');
               lastAddedCode = null;
             }
           }
@@ -117,10 +144,10 @@ window.ShopPadBrowserScanner = {
         if (closed || starting) return;
         starting = true; retry.disabled = true;
         if (inline) retry.style.display = 'none';
-        stop(); message.textContent = 'Starting camera...';
+        stop(); message.textContent = t('starting', 'Starting camera...');
         try {
-          if (!navigator.mediaDevices?.getUserMedia) throw new Error('Open this HTTPS link in Safari to use the camera.');
-          if (!window.ZXing) throw new Error('Barcode reader failed to load. Reload the page.');
+          if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error(t('needsHttps', 'Open this HTTPS link in Safari to use the camera.')), {name: 'ShopPadMessage'});
+          if (!window.ZXing) throw Object.assign(new Error(t('readerFailed', 'Barcode reader failed to load. Reload the page.')), {name: 'ShopPadMessage'});
           const acquired = await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'}}});
           if (closed) { acquired.getTracks().forEach(track => track.stop()); return; }
           stream = acquired;
@@ -128,13 +155,17 @@ window.ShopPadBrowserScanner = {
           await reader.decodeFromStream(stream, video, detect);
           if (!closed && inline) retry.style.display = 'none';
           if (!closed) message.textContent = inline
-            ? 'Point at a barcode. Use + in the cart for identical items.'
-            : continuous ? 'Scan items continuously. Use Add same item for identical products.'
-            : 'Hold the barcode steady in front of the back camera.';
+            ? t('pointInline', 'Point at a barcode. Use + in the cart for identical items.')
+            : continuous ? t('pointContinuous', 'Scan items continuously. Use Add same item for identical products.')
+            : t('pointSingle', 'Hold the barcode steady in front of the back camera.');
         } catch (error) {
           stop();
           if (!closed && inline) retry.style.display = '';
-          if (!closed) message.textContent = 'Camera could not start: ' + (error.name || '') + ' ' + error.message + '\nAllow camera access, close other camera tabs, then tap retry.';
+          // The technical reason goes to the console; the cashier gets a clear next step.
+          console.warn('ShopPad camera:', error && error.name, error && error.message);
+          if (!closed) message.textContent = error && error.name === 'ShopPadMessage'
+            ? error.message
+            : window.ShopPadBrowserScanner._cameraError(error);
         } finally { starting = false; if (!closed) retry.disabled = false; }
       }
       close.onclick = dismiss; retry.onclick = start;
