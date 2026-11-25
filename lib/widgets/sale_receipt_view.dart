@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/sale_record.dart';
 import '../app/app_colors.dart';
@@ -8,6 +9,7 @@ import '../app/app_language.dart';
 import '../app/money.dart';
 import '../app/app_typography.dart';
 import '../app/app_spacing.dart';
+import '../utils/receipt_text.dart';
 
 /// Export failures stay on this screen and cannot submit the sale again.
 class SaleReceiptView extends StatefulWidget {
@@ -57,6 +59,62 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
       }
     } finally {
       if (mounted) setState(() => exporting = false);
+    }
+  }
+
+  /// Asks for the customer's number (optional), then opens WhatsApp with the receipt.
+  Future<void> _sendWhatsApp() async {
+    final controller = TextEditingController();
+    String? error;
+    final number = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialog) {
+          void send() {
+            final text = controller.text.trim();
+            if (text.isEmpty) return Navigator.pop(dialogContext, '');
+            final digits = ReceiptText.whatsappNumber(text);
+            if (digits == null) {
+              setDialog(() => error = 'Enter a valid phone number'.tr);
+              return;
+            }
+            Navigator.pop(dialogContext, digits);
+          }
+
+          return AlertDialog(
+            title: Text('Send on WhatsApp'.tr),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                labelText: 'Customer phone (optional)'.tr,
+                hintText: '3300 0000',
+                helperText: 'Leave empty to choose the chat in WhatsApp'.tr,
+                errorText: error,
+                prefixIcon: const Icon(Icons.phone_outlined),
+              ),
+              onSubmitted: (_) => send(),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text('Cancel'.tr)),
+              FilledButton(onPressed: send, child: Text('Send'.tr)),
+            ],
+          );
+        },
+      ),
+    );
+    controller.dispose();
+    if (number == null || !mounted) return;
+    final link = ReceiptText.whatsappLink(widget.sale, number: number.isEmpty ? null : number);
+    final opened = await launchUrl(
+      link,
+      mode: LaunchMode.externalApplication,
+    ).catchError((_) => false);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open WhatsApp. Your sale is already saved.'.tr)),
+      );
     }
   }
 
@@ -140,7 +198,7 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                                   size: 16,
                                   color: AppColors.primaryDark,
                                 ),
-                                label: Text('Cashier: ${sale.cashierName}'),
+                                label: Text('Cashier: {name}'.trArgs({'name': sale.cashierName})),
                               ),
                               Chip(
                                 avatar: const Icon(
@@ -148,7 +206,9 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                                   size: 16,
                                   color: AppColors.primaryDark,
                                 ),
-                                label: Text('Payment: ${sale.paymentMethod}'),
+                                label: Text(
+                                  'Payment: {method}'.trArgs({'method': sale.paymentMethod.tr}),
+                                ),
                               ),
                             ],
                           ),
@@ -202,12 +262,14 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                           // Subtotal, discount and the VAT already inside the total.
                           for (final row in [
                             if (sale.discount > 0) ...[
-                              ('Subtotal', Money.format(sale.subtotal)),
-                              ('Discount', '− ${Money.format(sale.discount)}'),
+                              ('Subtotal'.tr, Money.format(sale.subtotal)),
+                              ('Discount'.tr, '− ${Money.format(sale.discount)}'),
                             ],
                             if (sale.vatRate > 0)
                               (
-                                'VAT ${sale.vatRate.toStringAsFixed(0)}% (included)',
+                                'VAT {rate}% (included)'.trArgs({
+                                  'rate': sale.vatRate.toStringAsFixed(0),
+                                }),
                                 Money.format(sale.tax),
                               ),
                           ])
@@ -229,7 +291,7 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                               borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
                             ),
                             child: Text(
-                              'Total: ${Money.format(sale.total)}',
+                              'Total: {amount}'.trArgs({'amount': Money.format(sale.total)}),
                               style: const TextStyle(
                                 fontSize: AppTypography.title,
                                 fontWeight: FontWeight.w700,
@@ -247,6 +309,11 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                     runSpacing: 8,
                     alignment: WrapAlignment.center,
                     children: [
+                      FilledButton.tonalIcon(
+                        onPressed: exporting ? null : _sendWhatsApp,
+                        icon: const Icon(Icons.chat_outlined),
+                        label: Text('Send on WhatsApp'.tr),
+                      ),
                       OutlinedButton.icon(
                         onPressed: exporting ? null : () => _export(print: false),
                         icon: const Icon(Icons.ios_share_rounded),
@@ -278,7 +345,7 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                 child: FilledButton.icon(
                   onPressed: exporting ? null : widget.onNewSale,
                   icon: Icon(widget.actionIcon),
-                  label: Text(widget.actionLabel),
+                  label: Text(widget.actionLabel.tr),
                 ),
               ),
             ),
