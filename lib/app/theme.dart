@@ -23,7 +23,7 @@ abstract final class AppTheme {
       tertiary: AppColors.primary,
       onTertiary: AppColors.onBrand,
       surfaceContainerLowest: AppColors.surface,
-      surfaceContainerLow: AppColors.background,
+      surfaceContainerLow: AppColors.accentSoft,
       surfaceContainer: AppColors.soft,
       surfaceContainerHigh: AppColors.soft,
       surfaceContainerHighest: AppColors.border,

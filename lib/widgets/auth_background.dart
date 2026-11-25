@@ -70,7 +70,7 @@ class _FrostPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [AppColors.hero, AppColors.hero.withValues(alpha: 0.5), AppColors.background],
+          colors: [AppColors.backdrop, AppColors.backdrop.withValues(alpha: 0.5), AppColors.background],
           stops: const [0, 0.55, 1],
         ).createShader(wash),
     );

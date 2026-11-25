@@ -28,14 +28,18 @@ abstract final class AppColors {
 
   /// Neutral light grey page ground; blue is kept for actions and selection.
   static const Color background = Color(0xFFF4F5F7);
+
+  /// A slightly deeper grey for backdrop bands behind content (sign-in light,
+  /// Create account header).
+  static const Color backdrop = Color(0xFFECEEF2);
   static const Color surface = Color(0xFFFFFFFF);
   static const Color text = navy;
-  static const Color muted = Color(0xFF5B6472);
-  static const Color border = Color(0xFFE1E4E9);
+  static const Color muted = Color(0xFF556A86);
+  static const Color border = Color(0xFFDCE6F1);
 
-  /// Outline of text fields: 3.5:1 on white, so a field's edge is visible (WCAG 1.4.11).
-  static const Color fieldBorder = Color(0xFF838A96);
-  static const Color soft = Color(0xFFEEF0F3);
+  /// Outline of text fields: 3.4:1 on white, so a field's edge is visible (WCAG 1.4.11).
+  static const Color fieldBorder = Color(0xFF7A8CA6);
+  static const Color soft = Color(0xFFEAF2FB);
   static const Color successSoft = Color(0xFFE6F5EE);
   static const Color warningSoft = Color(0xFFFFF3E2);
   static const Color dangerSoft = Color(0xFFFDECEE);
@@ -47,19 +51,19 @@ abstract final class AppColors {
   /// Secondary text on filled [primary] surfaces.
   static const Color onBrandMuted = Color(0xFFE6EFFF);
 
-  /// Large summary cards (today's sales, reports, profile): light grey with navy text.
-  static const Color hero = Color(0xFFECEEF2);
+  /// Large summary cards (today's sales, reports, profile): ice with navy text.
+  static const Color hero = Color(0xFFE6F2FF);
   static const Color onHero = navy;
-  static const Color onHeroMuted = Color(0xFF4B5361);
+  static const Color onHeroMuted = Color(0xFF41597A);
 
   /// Dividers and outlines drawn on [hero].
-  static const Color heroLine = Color(0xFFD7DBE2);
+  static const Color heroLine = Color(0xFFC9DEF5);
 
-  /// The summary cards: a barely-there tonal shift between two light greys.
+  /// The summary cards: a barely-there tonal shift from light ice to ice.
   static const LinearGradient heroGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF3F4F7), Color(0xFFE9ECF0)],
+    colors: [Color(0xFFEAF4FF), ice],
   );
 
   /// Primary actions that deserve weight (Start sale): electric blue, almost flat.

@@ -404,7 +404,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   // the title draws in once, echoing the scanner frame on sign-in.
   Widget _header() => DecoratedBox(
     decoration: const BoxDecoration(
-      color: AppColors.hero,
+      color: AppColors.backdrop,
       borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
     ),
     child: SafeArea(
