@@ -277,6 +277,20 @@ class LocalPosStore {
     return products.take(limit).toList();
   }
 
+  /// Products carrying a bundle offer the owner switched on.
+  Future<List<Map<String, dynamic>>> offerProducts(String storeCode) async {
+    final records = await _products.find(
+      database,
+      finder: Finder(
+        filter: Filter.and([
+          Filter.equals('storeCode', storeCode),
+          Filter.equals('offerActive', true),
+        ]),
+      ),
+    );
+    return records.map((r) => Map<String, dynamic>.from(r.value)).toList();
+  }
+
   Future<Map<String, dynamic>?> productById(String storeCode, String id) async {
     final product = await _products.record(_productKey(storeCode, id)).get(database);
     return product == null ? null : Map<String, dynamic>.from(product);

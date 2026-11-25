@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/sale_record.dart';
+import '../utils/active_offers.dart';
 import '../utils/cart_manager.dart';
 import 'local_pos_store.dart';
 import 'sale_gateway.dart';
@@ -197,6 +198,19 @@ class SaleSyncService extends ChangeNotifier {
     final context = await store.contextFor(uid) ?? await loadContext(uid);
     final profile = Map<String, dynamic>.from(context['profile'] as Map);
     return store.quickProducts(profile['storeCode'].toString());
+  }
+
+  /// Active bundle offers, from the offline catalogue (works without internet).
+  Future<List<ActiveOffer>> activeOffers() async {
+    final uid = currentUserId();
+    if (uid == null) return const [];
+    final context = await store.contextFor(uid) ?? await loadContext(uid);
+    final profile = Map<String, dynamic>.from(context['profile'] as Map);
+    final products = await store.offerProducts(profile['storeCode'].toString());
+    return [
+      for (final product in products)
+        ?ActiveOffer.fromProduct((product['id'] ?? '').toString(), product),
+    ];
   }
 
   /// Store products matching a name, from the offline catalogue.

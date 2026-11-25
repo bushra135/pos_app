@@ -28,7 +28,9 @@ abstract final class ReceiptText {
       '',
       if (sale.discount > 0) ...[
         '${'Subtotal'.tr}: ${Money.format(sale.subtotal)}',
-        '${'Discount'.tr}: − ${Money.format(sale.discount)}',
+        if (sale.offerDiscount > 0) '${'Bundle offer'.tr}: − ${Money.format(sale.offerDiscount)}',
+        if (sale.discount - sale.offerDiscount > 0.0005)
+          '${'Discount'.tr}: − ${Money.format(sale.discount - sale.offerDiscount)}',
       ],
       if (sale.vatRate > 0)
         '${'VAT {rate}% (included)'.trArgs({'rate': sale.vatRate.toStringAsFixed(0)})}: '

@@ -12,6 +12,7 @@ import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 import '../../models/sale_record.dart';
 import '../../services/sale_sync_service.dart';
+import '../../utils/active_offers.dart';
 import '../../utils/cart_manager.dart';
 import '../../widgets/adaptive_layout.dart';
 import '../../widgets/receipt_card.dart';
@@ -41,10 +42,24 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
   static double _fils(double value) => (value * 1000).roundToDouble() / 1000;
   double get _subtotal => _fils(CartManager.total);
-  double get _discountAmount {
+
+  /// The cashier's own discount (percent of the subtotal or a fixed amount).
+  double get _manualDiscountAmount {
     final raw = _discountIsPercent ? _subtotal * _discountValue / 100 : _discountValue;
     return _fils(raw.clamp(0, _subtotal).toDouble());
   }
+
+  /// Bundle offers the owner switched on; applied automatically to complete pairs.
+  List<ActiveOffer> _offers = const [];
+  List<AppliedOffer> get _appliedOffers => OfferMath.apply([
+    for (final item in CartManager.items)
+      (productId: item.productId, price: item.price, quantity: item.quantity),
+  ], _offers);
+  double get _offerAmount => OfferMath.total(_appliedOffers);
+
+  /// Everything taken off the subtotal: bundle offers plus the cashier's discount.
+  double get _discountAmount =>
+      _fils((_offerAmount + _manualDiscountAmount).clamp(0, _subtotal).toDouble());
 
   double get _total => _fils(_subtotal - _discountAmount);
 
@@ -181,6 +196,13 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       final fetchedStoreName = (storeData['storeName'] ?? userData['storeName'] ?? '').toString();
       final fetchedBenefitNumber = (storeData['benefitNumber'] ?? '').toString();
       final fetchedBenefitQrBase64 = (storeData['benefitQrBase64'] ?? '').toString();
+      // Offers come from the offline catalogue; without them the sale simply has none.
+      var offers = const <ActiveOffer>[];
+      try {
+        offers = await sync.activeOffers();
+      } catch (e) {
+        debugPrint('Offers not loaded: $e');
+      }
 
       if (!mounted) return;
 
@@ -190,6 +212,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         storeCode = fetchedStoreCode;
         benefitNumber = fetchedBenefitNumber;
         benefitQrBase64 = fetchedBenefitQrBase64;
+        _offers = offers;
         isLoading = false;
       });
     } catch (e) {
@@ -262,6 +285,11 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
         correctStockShortages: true,
         discount: _discountAmount,
         vatRate: SaleRecord.bahrainVatRate,
+        offerDiscount: _offerAmount.clamp(0, _discountAmount).toDouble(),
+        offerNames: [
+          for (final applied in _appliedOffers)
+            '${applied.offer.anchorName} + ${applied.offer.slowName} ${applied.offer.percent}%',
+        ],
       );
       final result = await sync.submit(sale);
 
@@ -674,13 +702,13 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                   OutlinedButton.icon(
                                     onPressed: isSavingSale ? null : _editDiscount,
                                     icon: Icon(
-                                      _discountAmount > 0
+                                      _manualDiscountAmount > 0
                                           ? Icons.edit_outlined
                                           : Icons.local_offer_outlined,
                                       size: 18,
                                     ),
                                     label: Text(
-                                      _discountAmount > 0
+                                      _manualDiscountAmount > 0
                                           ? (_discountIsPercent
                                                 ? 'Discount {value}% · Edit'.trArgs({
                                                     'value': _discountValue.toStringAsFixed(
@@ -688,7 +716,9 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                                     ),
                                                   })
                                                 : 'Discount BD {amount} · Edit'.trArgs({
-                                                    'amount': _discountAmount.toStringAsFixed(3),
+                                                    'amount': _manualDiscountAmount.toStringAsFixed(
+                                                      3,
+                                                    ),
                                                   }))
                                           : 'Add discount'.tr,
                                     ),
@@ -852,6 +882,39 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                       ),
                                     ],
                                   ),
+                                  for (final applied in _appliedOffers) ...[
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.local_offer_rounded,
+                                          size: 16,
+                                          color: AppColors.success,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            'Offer: {slow} {percent}% off with {anchor}'.trArgs({
+                                              'slow': applied.offer.slowName,
+                                              'percent': applied.offer.percent,
+                                              'anchor': applied.offer.anchorName,
+                                            }),
+                                            style: const TextStyle(
+                                              color: AppColors.success,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        Text(
+                                          '− ${Money.format(applied.amount)}',
+                                          style: const TextStyle(
+                                            color: AppColors.success,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                   const SizedBox(height: 8),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -866,12 +929,12 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                         ),
                                       ),
                                       Text(
-                                        _discountAmount > 0
-                                            ? '− ${Money.format(_discountAmount)}'
+                                        _manualDiscountAmount > 0
+                                            ? '− ${Money.format(_manualDiscountAmount)}'
                                             : Money.format(0),
                                         style: TextStyle(
                                           fontWeight: FontWeight.w600,
-                                          color: _discountAmount > 0
+                                          color: _manualDiscountAmount > 0
                                               ? AppColors.success
                                               : AppColors.text,
                                         ),

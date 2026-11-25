@@ -54,6 +54,8 @@ class SaleRecord {
     this.correctStockShortages = false,
     this.discount = 0,
     this.vatRate = 0,
+    this.offerDiscount = 0,
+    this.offerNames = const [],
   }) : items = List.unmodifiable(items);
 
   /// Bahrain standard VAT (percent). Shelf prices include it.
@@ -74,6 +76,12 @@ class SaleRecord {
 
   /// VAT percent included in the prices; 0 for receipts made before VAT was shown.
   final double vatRate;
+
+  /// Part of [discount] that came from the owner's bundle offers (0 when none).
+  final double offerDiscount;
+
+  /// The bundle offers used, e.g. "Blue pen + Ruler 20%", for the receipt and reports.
+  final List<String> offerNames;
 
   /// Sum of the lines before any discount.
   double get subtotal => _fils(items.fold(0.0, (sum, item) => sum + item.subtotal));
@@ -102,6 +110,8 @@ class SaleRecord {
     if (correctStockShortages) 'correctStockShortages': true,
     if (discount > 0) 'discountAmount': discount,
     if (vatRate > 0) 'vatRate': vatRate,
+    if (offerDiscount > 0) 'offerDiscount': offerDiscount,
+    if (offerNames.isNotEmpty) 'offers': offerNames,
   };
 
   factory SaleRecord.fromJson(Map<String, dynamic> json) => SaleRecord(
@@ -115,6 +125,8 @@ class SaleRecord {
     correctStockShortages: json['correctStockShortages'] == true,
     discount: (json['discountAmount'] as num?)?.toDouble() ?? 0,
     vatRate: (json['vatRate'] as num?)?.toDouble() ?? 0,
+    offerDiscount: (json['offerDiscount'] as num?)?.toDouble() ?? 0,
+    offerNames: [for (final name in (json['offers'] as List?) ?? const []) name.toString()],
     items: (json['items'] as List)
         .map((item) => SaleLine.fromJson(Map<String, dynamic>.from(item as Map)))
         .toList(),
