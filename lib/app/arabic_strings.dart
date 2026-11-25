@@ -94,6 +94,7 @@ const Map<String, String> arabicStrings = {
   'Ask about your store…': 'اسأل عن متجرك…',
   'Ask your store owner for the store code': 'اطلب رمز المتجر من صاحب المتجر',
   'Assistant': 'المساعد',
+  'At least 12 characters': '12 حرفاً على الأقل',
   'Aug': 'أغسطس',
   'Average': 'المتوسط',
   'Avoid discounts on {names}: the profit on them is under 15%.':
@@ -369,6 +370,7 @@ const Map<String, String> arabicStrings = {
   'Item lines do not add up to the receipt subtotal': 'مجموع بنود الفاتورة لا يساوي المجموع الفرعي',
   'Items': 'المنتجات',
   'Jan': 'يناير',
+  'Join with a store code': 'انضم برمز المتجر',
   'Joint top cashier · ': 'الأفضل بالتساوي · ',
   'Jul': 'يوليو',
   'Jun': 'يونيو',
@@ -482,6 +484,10 @@ const Map<String, String> arabicStrings = {
   'Offers used on {n} receipts': 'استُخدمت العروض في {n} فاتورة',
   'On duty': 'في الدوام',
   'One less {name}': 'واحد أقل من {name}',
+  'One lowercase letter': 'حرف إنجليزي صغير واحد',
+  'One number': 'رقم واحد',
+  'One special character': 'رمز خاص واحد مثل ! أو @',
+  'One uppercase letter': 'حرف إنجليزي كبير واحد',
   'Open Scan to add products using the camera or enter a barcode manually.':
       'افتح المسح لإضافة المنتجات بالكاميرا أو أدخل الباركود يدوياً.',
   'Open dashboard': 'فتح لوحة التحكم',
@@ -507,6 +513,7 @@ const Map<String, String> arabicStrings = {
   'Password is too weak': 'كلمة المرور ضعيفة جداً',
   'Password reset link sent to {email}': 'تم إرسال رابط تغيير كلمة المرور إلى {email}',
   'Passwords do not match': 'كلمتا المرور غير متطابقتين',
+  'Passwords do not match.': 'كلمتا المرور غير متطابقتين.',
   'Pause sales on all store devices and synchronize them first. This copies server products, sales and store/payment settings. Unsynchronized sales on other devices are not included. Internet is required.':
       'أوقف البيع على كل أجهزة المتجر وزامنها أولاً. تنسخ هذه العملية المنتجات والمبيعات وإعدادات المتجر والدفع من الخادم، ولا تشمل المبيعات غير المتزامنة على الأجهزة الأخرى. يتطلب اتصالاً بالإنترنت.',
   'Pay': 'ادفع',
@@ -528,6 +535,7 @@ const Map<String, String> arabicStrings = {
   'Please enter store code': 'يرجى إدخال رمز المتجر',
   'Please enter your store name': 'يرجى إدخال اسم المتجر',
   'Please fill in all required fields': 'يرجى تعبئة جميع الحقول المطلوبة',
+  'Please meet all password requirements.': 'يرجى استيفاء جميع شروط كلمة المرور.',
   'Point at a barcode. Use + in the cart for identical items.':
       'وجّه الكاميرا إلى الباركود. استخدم + في السلة للمنتجات المتطابقة.',
   'Preparing image...': 'جارٍ تجهيز الصورة...',
@@ -693,6 +701,7 @@ const Map<String, String> arabicStrings = {
   'Sep': 'سبتمبر',
   'Set up BenefitPay': 'إعداد BenefitPay',
   'Set up VAT invoice details': 'أدخل بيانات الفاتورة الضريبية',
+  'Set up a new store': 'أنشئ متجراً جديداً',
   'Set up your store or join one as a cashier.': 'أنشئ متجرك أو انضم إلى متجر ككاشير.',
   'Share PDF': 'مشاركة PDF',
   'Share Z-report PDF': 'مشاركة تقرير Z بصيغة PDF',

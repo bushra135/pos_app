@@ -12,6 +12,9 @@ import '../../app/app_typography.dart';
 import 'verify_email_screen.dart';
 import '../../app/app_language.dart';
 
+/// Strong ease-out for entrances and state changes (Emil Kowalski's UI curve).
+const _easeOut = Cubic(0.23, 1, 0.32, 1);
+
 /// Creates an owner/store or a cashier awaiting approval; passwords belong to Firebase Auth.
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({
@@ -266,7 +269,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           Icon(isMet ? Icons.check_circle : Icons.radio_button_unchecked, size: 17, color: color),
           const SizedBox(width: 8),
           Text(
-            label,
+            label.tr,
             style: TextStyle(fontSize: AppTypography.caption, color: color),
           ),
         ],
@@ -301,32 +304,153 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     );
   }
 
+  // A role tile: icon, name and what it does. The chosen one gets the brand
+  // border, an ice fill and a check that pops in.
   Widget _roleOption({required bool owner}) {
     final selected = _isOwner == owner;
+    final reduced = Motion.reduced(context);
+    final duration = reduced ? Duration.zero : const Duration(milliseconds: 200);
+    final radius = BorderRadius.circular(AppSpacing.cardRadius);
     return Expanded(
-      child: Material(
-        color: selected ? AppColors.primaryDark : Colors.transparent,
-        borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
-        child: InkWell(
-          onTap: () => setState(() => _isOwner = owner),
-          borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  owner ? Icons.storefront_outlined : Icons.point_of_sale_outlined,
-                  size: 18,
-                  color: selected ? AppColors.onBrand : AppColors.muted,
+      child: Semantics(
+        selected: selected,
+        button: true,
+        child: PressableScale(
+          child: AnimatedContainer(
+            duration: duration,
+            curve: _easeOut,
+            decoration: BoxDecoration(
+              color: selected ? AppColors.ice : AppColors.surface,
+              borderRadius: radius,
+              border: Border.all(
+                color: selected ? AppColors.primary : AppColors.border,
+                width: selected ? 2 : 1,
+              ),
+            ),
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: () => setState(() => _isOwner = owner),
+                borderRadius: radius,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(14, 14, 14, selected ? 13 : 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          AnimatedContainer(
+                            duration: duration,
+                            curve: _easeOut,
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: selected ? AppColors.primary : AppColors.soft,
+                              borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+                            ),
+                            child: Icon(
+                              owner ? Icons.storefront_outlined : Icons.point_of_sale_outlined,
+                              size: 20,
+                              color: selected ? AppColors.onBrand : AppColors.navy,
+                            ),
+                          ),
+                          const Spacer(),
+                          AnimatedScale(
+                            scale: selected ? 1 : 0.6,
+                            duration: duration,
+                            curve: _easeOut,
+                            child: AnimatedOpacity(
+                              opacity: selected ? 1 : 0,
+                              duration: duration,
+                              child: const Icon(
+                                Icons.check_circle_rounded,
+                                size: 20,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        (owner ? 'Owner' : 'Cashier').tr,
+                        style: const TextStyle(
+                          color: AppColors.text,
+                          fontSize: AppTypography.subtitle,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        (owner ? 'Set up a new store' : 'Join with a store code').tr,
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: AppTypography.caption,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 8),
-                Text(
-                  owner ? 'Owner' : 'Cashier',
-                  style: TextStyle(
-                    color: selected ? AppColors.onBrand : AppColors.text,
-                    fontSize: AppTypography.label,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // The ice header: back, then a start-aligned title. The short scan line under
+  // the title draws in once, echoing the scanner frame on sign-in.
+  Widget _header() => DecoratedBox(
+    decoration: const BoxDecoration(
+      color: AppColors.ice,
+      borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+    ),
+    child: SafeArea(
+      bottom: false,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 468),
+          child: Padding(
+            padding: const EdgeInsetsDirectional.fromSTEB(12, 4, 24, 26),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                IconButton(
+                  tooltip: 'Back to sign in'.tr,
+                  onPressed: () => Navigator.pop(context),
+                  icon: const BackButtonIcon(),
+                  color: AppColors.navy,
+                ),
+                const SizedBox(height: 14),
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(start: 12),
+                  child: FadeSlideIn(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Create your account'.tr,
+                          style: TextStyle(
+                            color: AppColors.navy,
+                            fontSize: AppTypography.display,
+                            fontWeight: FontWeight.w800,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const _ScanRule(),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Set up your store or join one as a cashier.'.tr,
+                          style: TextStyle(
+                            color: AppColors.onHeroMuted,
+                            fontSize: AppTypography.button,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -334,8 +458,8 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 
   // One field layout keeps labels, spacing and decoration consistent.
   Widget _accountField({
@@ -369,214 +493,235 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Theme(
-          // Same roles as sign-in: indigo brand, ink focus and secondary actions.
-          data: Theme.of(context).copyWith(
-            inputDecorationTheme: Theme.of(context).inputDecorationTheme.copyWith(
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
-              ),
+      body: Theme(
+        // Same roles as sign-in: electric blue brand and focus.
+        data: Theme.of(context).copyWith(
+          inputDecorationTheme: Theme.of(context).inputDecorationTheme.copyWith(
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+              borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
             ),
-            textSelectionTheme: const TextSelectionThemeData(cursorColor: AppColors.primary),
           ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 420),
-                child: FadeSlideIn(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: IconButton(
-                          tooltip: 'Back to sign in'.tr,
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.text),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Center(
-                        child: Text(
-                          'Create your account'.tr,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: AppColors.text,
-                            fontSize: AppTypography.display,
-                            fontWeight: FontWeight.w800,
-                            height: 1.2,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Center(
-                        child: Text(
-                          'Set up your store or join one as a cashier.'.tr,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: AppColors.muted, fontSize: AppTypography.button),
-                        ),
-                      ),
-                      const SizedBox(height: 26),
-                      Text(
-                        'I am a...'.tr,
-                        style: TextStyle(fontSize: AppTypography.body, fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Row(
+          textSelectionTheme: const TextSelectionThemeData(cursorColor: AppColors.primary),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _header(),
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: FadeSlideIn(
+                        index: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _roleOption(owner: true),
-                            const SizedBox(width: 4),
-                            _roleOption(owner: false),
-                          ],
-                        ),
-                      ),
+                            Text(
+                              'I am a...'.tr,
+                              style: TextStyle(
+                                fontSize: AppTypography.body,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            IntrinsicHeight(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _roleOption(owner: true),
+                                  const SizedBox(width: 12),
+                                  _roleOption(owner: false),
+                                ],
+                              ),
+                            ),
 
-                      const SizedBox(height: 30),
+                            const SizedBox(height: 30),
 
-                      _accountField(
-                        label: 'Full name'.tr,
-                        controller: _fullNameController,
-                        hint: 'Enter your full name',
-                        icon: Icons.person_outline,
-                      ),
-                      const SizedBox(height: 20),
-                      _accountField(
-                        label: 'Email'.tr,
-                        controller: _emailController,
-                        hint: 'Enter your email',
-                        icon: Icons.email_outlined,
-                      ),
-                      const SizedBox(height: 20),
-                      _accountField(
-                        label: 'Password'.tr,
-                        controller: _passwordController,
-                        hint: 'Create a password',
-                        icon: Icons.lock_outline,
-                        obscureText: !_isPasswordVisible,
-                        onChanged: (_) => setState(() => _hasStartedPassword = true),
-                        errorText:
-                            _hasAttemptedSubmit && !_isStrongPassword(_passwordController.text)
-                            ? 'Please meet all password requirements.'
-                            : null,
-                        suffixIcon: _passwordToggle(
-                          _isPasswordVisible,
-                          () => setState(() => _isPasswordVisible = !_isPasswordVisible),
-                        ),
-                      ),
-                      if (_hasStartedPassword) _passwordRequirements(_passwordController.text),
-                      const SizedBox(height: 20),
-                      _accountField(
-                        label: 'Confirm password'.tr,
-                        controller: _confirmPasswordController,
-                        hint: 'Confirm your password',
-                        icon: Icons.lock_outline,
-                        obscureText: !_isConfirmPasswordVisible,
-                        onChanged: (_) => setState(() {}),
-                        errorText:
-                            _hasAttemptedSubmit &&
-                                _confirmPasswordController.text.isNotEmpty &&
-                                _confirmPasswordController.text != _passwordController.text
-                            ? 'Passwords do not match.'
-                            : null,
-                        suffixIcon: _passwordToggle(
-                          _isConfirmPasswordVisible,
-                          () => setState(
-                            () => _isConfirmPasswordVisible = !_isConfirmPasswordVisible,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      _accountField(
-                        label: _isOwner ? 'Store name' : 'Store code',
-                        controller: _isOwner ? _storeNameController : _storeCodeController,
-                        hint: _isOwner ? 'Enter your store name' : 'Enter store code',
-                        icon: _isOwner ? Icons.store_outlined : Icons.numbers,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _isOwner
-                            ? "You'll create a new store and receive a store code"
-                            : 'Ask your store owner for the store code',
-                        style: const TextStyle(
-                          fontSize: AppTypography.caption,
-                          color: AppColors.muted,
-                        ),
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      ElevatedButton(
-                        onPressed: _isLoading ? null : _handleCreateAccount,
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(54),
-                          backgroundColor: AppColors.primaryDark,
-                          foregroundColor: AppColors.onBrand,
-                          disabledBackgroundColor: AppColors.primaryDark,
-                          disabledForegroundColor: AppColors.onBrand,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                          ),
-                          textStyle: const TextStyle(
-                            fontFamily: AppTypography.family,
-                            fontSize: AppTypography.subtitle,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  color: AppColors.onBrand,
-                                  strokeWidth: 2.4,
+                            _accountField(
+                              label: 'Full name'.tr,
+                              controller: _fullNameController,
+                              hint: 'Enter your full name',
+                              icon: Icons.person_outline,
+                            ),
+                            const SizedBox(height: 20),
+                            _accountField(
+                              label: 'Email'.tr,
+                              controller: _emailController,
+                              hint: 'Enter your email',
+                              icon: Icons.email_outlined,
+                            ),
+                            const SizedBox(height: 20),
+                            _accountField(
+                              label: 'Password'.tr,
+                              controller: _passwordController,
+                              hint: 'Create a password',
+                              icon: Icons.lock_outline,
+                              obscureText: !_isPasswordVisible,
+                              onChanged: (_) => setState(() => _hasStartedPassword = true),
+                              errorText:
+                                  _hasAttemptedSubmit &&
+                                      !_isStrongPassword(_passwordController.text)
+                                  ? 'Please meet all password requirements.'.tr
+                                  : null,
+                              suffixIcon: _passwordToggle(
+                                _isPasswordVisible,
+                                () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                              ),
+                            ),
+                            if (_hasStartedPassword)
+                              _passwordRequirements(_passwordController.text),
+                            const SizedBox(height: 20),
+                            _accountField(
+                              label: 'Confirm password'.tr,
+                              controller: _confirmPasswordController,
+                              hint: 'Confirm your password',
+                              icon: Icons.lock_outline,
+                              obscureText: !_isConfirmPasswordVisible,
+                              onChanged: (_) => setState(() {}),
+                              errorText:
+                                  _hasAttemptedSubmit &&
+                                      _confirmPasswordController.text.isNotEmpty &&
+                                      _confirmPasswordController.text != _passwordController.text
+                                  ? 'Passwords do not match.'.tr
+                                  : null,
+                              suffixIcon: _passwordToggle(
+                                _isConfirmPasswordVisible,
+                                () => setState(
+                                  () => _isConfirmPasswordVisible = !_isConfirmPasswordVisible,
                                 ),
-                              )
-                            : Text('Create account'.tr),
-                      ),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            _accountField(
+                              label: _isOwner ? 'Store name' : 'Store code',
+                              controller: _isOwner ? _storeNameController : _storeCodeController,
+                              hint: _isOwner ? 'Enter your store name' : 'Enter store code',
+                              icon: _isOwner ? Icons.store_outlined : Icons.numbers,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              (_isOwner
+                                      ? "You'll create a new store and receive a store code"
+                                      : 'Ask your store owner for the store code')
+                                  .tr,
+                              style: const TextStyle(
+                                fontSize: AppTypography.caption,
+                                color: AppColors.muted,
+                              ),
+                            ),
 
-                      const SizedBox(height: 20),
+                            const SizedBox(height: 30),
 
-                      Center(
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.pop(context);
-                          },
-                          child: Text.rich(
-                            TextSpan(
-                              text: "Already have an account? ".tr,
-                              children: [
-                                TextSpan(
-                                  text: "Sign in".tr,
-                                  style: TextStyle(
-                                    color: AppColors.primary,
-                                    fontSize: AppTypography.button,
+                            PressableScale(
+                              enabled: !_isLoading,
+                              child: ElevatedButton(
+                                onPressed: _isLoading ? null : _handleCreateAccount,
+                                style: ElevatedButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(54),
+                                  backgroundColor: AppColors.primaryDark,
+                                  foregroundColor: AppColors.onBrand,
+                                  disabledBackgroundColor: AppColors.primaryDark,
+                                  disabledForegroundColor: AppColors.onBrand,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontFamily: AppTypography.family,
+                                    fontSize: AppTypography.subtitle,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                              ],
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        width: 22,
+                                        height: 22,
+                                        child: CircularProgressIndicator(
+                                          color: AppColors.onBrand,
+                                          strokeWidth: 2.4,
+                                        ),
+                                      )
+                                    : Text('Create account'.tr),
+                              ),
                             ),
-                            style: TextStyle(fontSize: AppTypography.body, color: AppColors.muted),
-                          ),
+
+                            const SizedBox(height: 20),
+
+                            Center(
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.pop(context);
+                                },
+                                child: Text.rich(
+                                  TextSpan(
+                                    text: "Already have an account? ".tr,
+                                    children: [
+                                      TextSpan(
+                                        text: "Sign in".tr,
+                                        style: TextStyle(
+                                          color: AppColors.primary,
+                                          fontSize: AppTypography.button,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  style: TextStyle(
+                                    fontSize: AppTypography.body,
+                                    color: AppColors.muted,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A short electric-blue line under the title that draws in from the start edge
+/// once (the scan line). Shown complete with reduced motion.
+class _ScanRule extends StatelessWidget {
+  const _ScanRule();
+
+  @override
+  Widget build(BuildContext context) {
+    const line = SizedBox(
+      width: 44,
+      height: 3,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.primary,
+          borderRadius: BorderRadius.all(Radius.circular(2)),
+        ),
+      ),
+    );
+    if (Motion.reduced(context)) return line;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 640),
+      curve: const Interval(0.3, 1, curve: _easeOut),
+      builder: (context, t, child) => Align(
+        alignment: AlignmentDirectional.centerStart,
+        widthFactor: 1,
+        child: ClipRect(
+          child: Align(alignment: AlignmentDirectional.centerStart, widthFactor: t, child: child),
+        ),
+      ),
+      child: line,
     );
   }
 }
