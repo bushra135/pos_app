@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
+import '../../widgets/auth_background.dart';
 import '../../widgets/auth_motion.dart';
 import '../../widgets/motion.dart';
 import 'create_account_screen.dart';
@@ -106,45 +107,51 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) => SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 40, 24, 28),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: math.max(0, constraints.maxHeight - 68)),
-              child: Center(
+      // The animated background sits behind the form; the form stays on top and readable.
+      body: Stack(
+        children: [
+          const Positioned.fill(child: AuthBackground()),
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 40, 24, 28),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: IntrinsicHeight(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        FadeSlideIn(
-                          child: Align(
-                            alignment: AlignmentDirectional.centerEnd,
-                            child: TextButton.icon(
-                              onPressed: AppLanguage.toggle,
-                              style: TextButton.styleFrom(foregroundColor: AppColors.text),
-                              icon: const Icon(Icons.translate_rounded, size: 18),
-                              // Each language is written in itself so it can be found.
-                              label: Text(AppLanguage.isArabic ? 'English' : 'العربية'),
+                  constraints: BoxConstraints(minHeight: math.max(0, constraints.maxHeight - 68)),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 420),
+                      child: IntrinsicHeight(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            FadeSlideIn(
+                              child: Align(
+                                alignment: AlignmentDirectional.centerEnd,
+                                child: TextButton.icon(
+                                  onPressed: AppLanguage.toggle,
+                                  style: TextButton.styleFrom(foregroundColor: AppColors.text),
+                                  icon: const Icon(Icons.translate_rounded, size: 18),
+                                  // Each language is written in itself so it can be found.
+                                  label: Text(AppLanguage.isArabic ? 'English' : 'العربية'),
+                                ),
+                              ),
                             ),
-                          ),
+                            _brand(),
+                            const SizedBox(height: 28),
+                            _form(),
+                            const Spacer(),
+                            const SizedBox(height: 32),
+                            FadeSlideIn(index: 6, child: _createAccount()),
+                          ],
                         ),
-                        _brand(),
-                        const SizedBox(height: 28),
-                        _form(),
-                        const Spacer(),
-                        const SizedBox(height: 32),
-                        FadeSlideIn(index: 6, child: _createAccount()),
-                      ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

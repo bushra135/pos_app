@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pos_app/app/theme.dart';
+import 'package:pos_app/widgets/auth_background.dart';
 import 'package:pos_app/widgets/auth_motion.dart';
 
 Widget _app(Widget child, {bool reduced = false}) => MaterialApp(
@@ -75,5 +76,18 @@ void main() {
     await tester.pump();
     expect(find.byType(Hero), findsOneWidget);
     expect(find.byType(TweenAnimationBuilder<double>), findsNothing);
+  });
+
+  testWidgets('the sign-in background keeps moving, and stops with reduced motion', (tester) async {
+    await tester.pumpWidget(_app(const SizedBox(height: 400, child: AuthBackground())));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.binding.hasScheduledFrame, isTrue, reason: 'animating');
+    expect(tester.takeException(), isNull);
+
+    await tester.pumpWidget(
+      _app(const SizedBox(height: 400, child: AuthBackground()), reduced: true),
+    );
+    await tester.pumpAndSettle(); // settles: nothing is animating
+    expect(tester.binding.hasScheduledFrame, isFalse);
   });
 }
