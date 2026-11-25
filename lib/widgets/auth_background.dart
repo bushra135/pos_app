@@ -8,7 +8,7 @@ import 'motion.dart';
 /// Strong ease-out for entrances (Emil Kowalski's UI curve).
 const _easeOut = Cubic(0.23, 1, 0.32, 1);
 
-/// The sign-in backdrop: an ice-blue light falls from the top of the screen and
+/// The sign-in backdrop: a soft grey wash with a white light that falls from the top of the screen and
 /// drifts slowly from side to side, like daylight on a shop counter.
 /// It is the quiet layer; the scanner frame around the logo is the moment.
 /// A still picture with reduced motion.
@@ -62,7 +62,7 @@ class _FrostPainter extends CustomPainter {
     final rect = Offset.zero & size;
     canvas.drawRect(rect, Paint()..color = AppColors.background);
 
-    // Layer 1: an ice wash over the top of the screen that fades into the page.
+    // Layer 1: a grey wash over the top of the screen that fades into the page.
     final wash = Rect.fromLTWH(0, 0, size.width, size.height * 0.52);
     canvas.drawRect(
       wash,
@@ -70,7 +70,7 @@ class _FrostPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [AppColors.ice, AppColors.ice.withValues(alpha: 0.45), AppColors.background],
+          colors: [AppColors.hero, AppColors.hero.withValues(alpha: 0.5), AppColors.background],
           stops: const [0, 0.55, 1],
         ).createShader(wash),
     );
