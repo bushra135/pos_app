@@ -15,6 +15,7 @@ import '../backup/backup_screen.dart';
 import '../../app/app_language.dart';
 import '../../widgets/adaptive_layout.dart';
 import '../../services/profile_edits.dart';
+import 'vat_settings_card.dart';
 
 /// Shows user details and payment settings shared by store employees.
 /// Shows account details, payment settings, sync status and owner recovery access.
@@ -36,6 +37,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String storeName = '';
   String storeCode = '';
   String benefitQrBase64 = '';
+  Map<String, dynamic> storeData = const {};
 
   bool isLoading = true;
   bool isSaving = false;
@@ -114,6 +116,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         if (storeDoc.exists) {
           final storeData = storeDoc.data()!;
+          this.storeData = storeData;
           fetchedStoreName = storeData['storeName'] ?? fetchedStoreName;
           fetchedBenefitNumber = storeData['benefitNumber'] ?? '';
           fetchedBenefitQrBase64 = storeData['benefitQrBase64'] ?? '';
@@ -480,7 +483,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
     } catch (e) {
-      debugPrint('Password reset email failed: $e');
+      // Only the error code: the full error may carry the address.
+      debugPrint('Reset email failed: ${e is FirebaseAuthException ? e.code : e.runtimeType}');
       message = 'Could not send the link. Try again later.';
     }
     if (!sheetContext.mounted) return;
@@ -690,6 +694,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
                 const SaleSyncPanel(inProfile: true),
                 const SizedBox(height: 16),
+                if (isOwner && storeCode.isNotEmpty) ...[
+                  VatSettingsCard(
+                    key: ValueKey(storeData.hashCode),
+                    storeCode: storeCode,
+                    store: storeData,
+                    onSaved: _loadUserData,
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(18),

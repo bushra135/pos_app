@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../utils/vat_invoice.dart';
 import 'offers_screen.dart';
 import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
@@ -60,6 +61,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
   /// For the first-run checklist: whether BenefitPay payments are set up.
   bool hasBenefitNumber = true;
+  bool hasVatDetails = true;
   int activeCashierCount = 0;
 
   /// Today's receipts that look unusual (see ReceiptAudit), for the owner to check.
@@ -132,6 +134,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           : const GetOptions();
       final storeData = (await _firestore.collection('stores').doc(code).get(options)).data();
       final benefitReady = (storeData?['benefitNumber'] ?? '').toString().trim().isNotEmpty;
+      final vatReady = StoreVat.fromStore(storeData).configured;
       // Count only users with the cashier role in this store.
       final cashiersSnapshot = await _firestore
           .collection('users')
@@ -219,6 +222,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         totalProducts = total;
         cashierCount = totalCashiers;
         hasBenefitNumber = benefitReady;
+        hasVatDetails = vatReady;
         activeCashierCount = activeCashiers;
         stockCorrections = corrections;
         receiptsToReview = reviewCount;
@@ -331,7 +335,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             _buildCorrectionsAlert(),
           ],
           if (receiptsToReview > 0) ...[const SizedBox(height: 14), _buildReviewAlert()],
-          if (totalProducts == 0 || cashierCount == 0 || !hasBenefitNumber) ...[
+          if (totalProducts == 0 || cashierCount == 0 || !hasBenefitNumber || !hasVatDetails) ...[
             const SizedBox(height: 14),
             _buildSetupChecklist(),
           ],
@@ -562,6 +566,13 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         icon: Icons.qr_code_2_rounded,
         title: 'Set up BenefitPay',
         hint: 'Add your BenefitPay number and QR in Profile',
+        open: () => setState(() => _selectedIndex = 4),
+      ),
+      (
+        done: hasVatDetails,
+        icon: Icons.receipt_long_outlined,
+        title: 'Set up VAT invoice details',
+        hint: 'Registered or not, VAT number and address, in Profile',
         open: () => setState(() => _selectedIndex = 4),
       ),
     ];
