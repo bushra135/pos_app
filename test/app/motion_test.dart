@@ -3,6 +3,8 @@ import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pos_app/app/theme.dart';
+import 'package:pos_app/screens/owner/offers_screen.dart';
+import 'package:pos_app/screens/products/products_screen.dart';
 import 'package:pos_app/screens/reports/reports_screen.dart';
 import 'package:pos_app/widgets/motion.dart';
 import 'package:pos_app/widgets/welcome_overlay.dart';
@@ -121,6 +123,22 @@ void main() {
     expect(find.text('Most important now'), findsOneWidget);
     expect(find.text('Urgent'), findsOneWidget);
     expect(find.textContaining('Juice is out of stock'), findsOneWidget);
+
+    // The highlighted card opens that recommendation and its action, not all insights.
+    await tester.tap(find.text('Most important now'));
+    await tester.pumpAndSettle();
+    expect(find.text('Based on your sales in the last 30 days.'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Open products'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Open products'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ProductsScreen), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    // Insights opens every recommendation, offer and tip.
+    await tester.tap(find.text('Insights'));
+    await tester.pumpAndSettle();
+    expect(find.byType(OffersScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

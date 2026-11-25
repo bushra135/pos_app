@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../products/products_screen.dart';
 import '../owner/offers_screen.dart';
 import '../../services/product_costs.dart';
 import '../../services/sales_query.dart';
@@ -469,11 +470,127 @@ class _ReportsScreenState extends State<ReportsScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         FadeSlideIn(
-          child: _TopRecommendationCard(rec: top, onTap: openInsights),
+          child: _TopRecommendationCard(rec: top, onTap: () => _showRecommendation(top)),
         ),
         const SizedBox(height: 12),
         shortcuts,
       ],
+    );
+  }
+
+  /// The highlighted recommendation in full, with the one action that answers it.
+  /// "Insights" stays the way to every recommendation, offer and tip.
+  void _showRecommendation(Recommendation rec) {
+    final (label, color, soft) = _priorityStyle(rec.priority);
+    final title = switch (rec.kind) {
+      'outOfStock' => 'Out of stock',
+      'reorder' => 'Time to reorder',
+      'trendUp' => 'Sales are growing',
+      'trendDown' => 'Sales are slowing',
+      'peakHour' => 'Your busiest hour',
+      'priceUp' => 'Check this price',
+      'refunds' => 'Refunds are high',
+      'discounts' => 'Discounts are high',
+      'category' => 'Your strongest category',
+      'cashier' => 'Top cashier',
+      _ => 'Most important now',
+    };
+    void go(Widget screen) {
+      Navigator.pop(context);
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    }
+
+    final action = switch (rec.kind) {
+      'outOfStock' || 'reorder' || 'priceUp' || 'category' => (
+        icon: Icons.inventory_2_outlined,
+        text: 'Open products',
+        run: () => go(ProductsScreen(firestore: _firestore, currentUserId: widget.currentUserId)),
+      ),
+      'refunds' || 'discounts' => (
+        icon: Icons.receipt_long_outlined,
+        text: 'Open sales history',
+        run: () =>
+            go(SalesHistoryScreen(firestore: _firestore, currentUserId: widget.currentUserId)),
+      ),
+      'trendDown' => (
+        icon: Icons.local_offer_outlined,
+        text: 'Start a bundle offer',
+        run: () => go(OffersScreen(firestore: _firestore, currentUserId: widget.currentUserId)),
+      ),
+      _ => null,
+    };
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: AppColors.surface,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(AppSpacing.page, 0, AppSpacing.page, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(color: soft, shape: BoxShape.circle),
+                    child: Icon(Icons.auto_awesome_rounded, color: color, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title.tr,
+                      style: const TextStyle(
+                        fontSize: AppTypography.section,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: soft,
+                      borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
+                    ),
+                    child: Text(
+                      label.tr,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: AppTypography.caption,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                rec.text.trArgs(rec.args),
+                style: const TextStyle(fontSize: AppTypography.body, height: 1.6),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Based on your sales in the last 30 days.'.tr,
+                style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
+              ),
+              const SizedBox(height: 18),
+              if (action != null)
+                FilledButton.icon(
+                  onPressed: action.run,
+                  icon: Icon(action.icon),
+                  label: Text(action.text.tr),
+                )
+              else
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(sheetContext),
+                  child: Text('Got it'.tr),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -2046,6 +2163,12 @@ class _ProfitFigure extends StatelessWidget {
 enum _DashboardSection { sales, profit, products }
 
 /// The single most important recommendation, made to stand out on the dashboard.
+(String, Color, Color) _priorityStyle(int priority) => switch (priority) {
+  0 => ('Urgent', AppColors.danger, AppColors.dangerSoft),
+  1 => ('Worth doing', AppColors.warning, AppColors.warningSoft),
+  _ => ('Good to know', AppColors.success, AppColors.successSoft),
+};
+
 class _TopRecommendationCard extends StatelessWidget {
   const _TopRecommendationCard({required this.rec, required this.onTap});
 
@@ -2054,11 +2177,7 @@ class _TopRecommendationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (label, color, soft) = switch (rec.priority) {
-      0 => ('Urgent', AppColors.danger, AppColors.dangerSoft),
-      1 => ('Worth doing', AppColors.warning, AppColors.warningSoft),
-      _ => ('Good to know', AppColors.success, AppColors.successSoft),
-    };
+    final (label, color, soft) = _priorityStyle(rec.priority);
     final radius = BorderRadius.circular(AppSpacing.cardRadius);
     return PressableScale(
       child: Material(
