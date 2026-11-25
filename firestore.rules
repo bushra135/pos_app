@@ -42,8 +42,14 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['uid','fullName','email','role','storeCode','isActive','status','createdAt','createdBy'])
         && request.resource.data.role == 'cashier' && request.resource.data.uid == ''
         && request.resource.data.status == 'invited';
+      // Own profile: name, duty, optional phone, and the email only once Firebase Auth
+      // has confirmed it (it must equal the signed-in email).
       allow update: if (signedIn() && uid == request.auth.uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName','onDuty','updatedAt']))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName','onDuty','updatedAt','phone','email'])
+        && (!('email' in request.resource.data.diff(resource.data).affectedKeys())
+          || request.resource.data.email == request.auth.token.email)
+        && (!('phone' in request.resource.data.diff(resource.data).affectedKeys())
+          || (request.resource.data.phone is string && request.resource.data.phone.size() <= 20)))
         || (owner(resource.data.storeCode) && resource.data.role == 'cashier'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fullName','isActive','status','updatedAt','canEditProducts','canAdjustStock'])
         && request.resource.data.get('canEditProducts', false) is bool

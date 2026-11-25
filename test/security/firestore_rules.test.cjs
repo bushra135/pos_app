@@ -260,3 +260,16 @@ test('cashier receipts must add up and carry a real sale time',async()=>{
   // Offline sales may sync later within the 30-day window.
   allowed(await commit(saleWith('offline-receipt',{createdAt:new Date(Date.now()-3*86400000)}),'cashierA'));
 });
+
+test('users edit their own phone and confirmed email, nothing else',async()=>{
+  allowed(await patch('users/cashierA',{phone:'+973 3300 0000'},'cashierA'));
+  allowed(await patch('users/cashierA',{phone:''},'cashierA'));
+  denied(await patch('users/cashierA',{phone:'1'.repeat(21)},'cashierA'));
+  denied(await patch('users/cashierA',{phone:12345},'cashierA'));
+  // The email must be the one Firebase Auth confirmed for this sign-in.
+  allowed(await patch('users/cashierA',{email:'cashierA@test.invalid'},'cashierA'));
+  denied(await patch('users/cashierA',{email:'ownerA@test.invalid'},'cashierA'));
+  // Nobody edits another person's phone or email.
+  denied(await patch('users/cashierA',{phone:'+973 1'},'cashierB'));
+  denied(await patch('users/ownerA',{email:'cashierA@test.invalid'},'cashierA'));
+});
