@@ -56,6 +56,13 @@ class SaleRecord {
     this.vatRate = 0,
     this.offerDiscount = 0,
     this.offerNames = const [],
+    this.invoiceNumber = '',
+    this.invoiceKind = '',
+    this.storeVatNumber = '',
+    this.storeAddress = '',
+    this.buyerName = '',
+    this.buyerAddress = '',
+    this.buyerVatNumber = '',
   }) : items = List.unmodifiable(items);
 
   /// Bahrain standard VAT (percent). Shelf prices include it.
@@ -82,6 +89,21 @@ class SaleRecord {
 
   /// The bundle offers used, e.g. "Blue pen + Ruler 20%", for the receipt and reports.
   final List<String> offerNames;
+
+  /// Sequential invoice number (INV-device-counter); empty on older receipts.
+  final String invoiceNumber;
+
+  /// receipt | simplified | full (see InvoiceKind); empty on older receipts.
+  final String invoiceKind;
+
+  /// The store's VAT details as printed when the sale was made, so reprints match.
+  final String storeVatNumber;
+  final String storeAddress;
+
+  /// Customer details for a full tax invoice (empty otherwise).
+  final String buyerName;
+  final String buyerAddress;
+  final String buyerVatNumber;
 
   /// Sum of the lines before any discount.
   double get subtotal => _fils(items.fold(0.0, (sum, item) => sum + item.subtotal));
@@ -112,6 +134,13 @@ class SaleRecord {
     if (vatRate > 0) 'vatRate': vatRate,
     if (offerDiscount > 0) 'offerDiscount': offerDiscount,
     if (offerNames.isNotEmpty) 'offers': offerNames,
+    if (invoiceNumber.isNotEmpty) 'invoiceNumber': invoiceNumber,
+    if (invoiceKind.isNotEmpty) 'invoiceKind': invoiceKind,
+    if (storeVatNumber.isNotEmpty) 'storeVatNumber': storeVatNumber,
+    if (storeAddress.isNotEmpty) 'storeAddress': storeAddress,
+    if (buyerName.isNotEmpty) 'buyerName': buyerName,
+    if (buyerAddress.isNotEmpty) 'buyerAddress': buyerAddress,
+    if (buyerVatNumber.isNotEmpty) 'buyerVatNumber': buyerVatNumber,
   };
 
   factory SaleRecord.fromJson(Map<String, dynamic> json) => SaleRecord(
@@ -127,6 +156,13 @@ class SaleRecord {
     vatRate: (json['vatRate'] as num?)?.toDouble() ?? 0,
     offerDiscount: (json['offerDiscount'] as num?)?.toDouble() ?? 0,
     offerNames: [for (final name in (json['offers'] as List?) ?? const []) name.toString()],
+    invoiceNumber: (json['invoiceNumber'] ?? '').toString(),
+    invoiceKind: (json['invoiceKind'] ?? '').toString(),
+    storeVatNumber: (json['storeVatNumber'] ?? '').toString(),
+    storeAddress: (json['storeAddress'] ?? '').toString(),
+    buyerName: (json['buyerName'] ?? '').toString(),
+    buyerAddress: (json['buyerAddress'] ?? '').toString(),
+    buyerVatNumber: (json['buyerVatNumber'] ?? '').toString(),
     items: (json['items'] as List)
         .map((item) => SaleLine.fromJson(Map<String, dynamic>.from(item as Map)))
         .toList(),
