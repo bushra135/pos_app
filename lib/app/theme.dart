@@ -220,7 +220,8 @@ abstract final class AppTheme {
       progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.primaryDark),
       dividerColor: AppColors.border,
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.primary,
+        // Navy, so confirmations read as calm system messages, not as another button.
+        backgroundColor: AppColors.navy,
         contentTextStyle: const TextStyle(
           fontFamily: AppTypography.family,
           color: Colors.white,

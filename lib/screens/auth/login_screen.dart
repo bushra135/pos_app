@@ -320,7 +320,7 @@ class _LoginScreenState extends State<LoginScreen> {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.text,
           backgroundColor: AppColors.surface,
-          side: const BorderSide(color: Color(0xFFD9D9D2)),
+          side: const BorderSide(color: AppColors.border),
           minimumSize: const Size.fromHeight(52),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppSpacing.controlRadius),

@@ -621,7 +621,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                         ),
                         Text(
                           'Scan a barcode to add items'.tr,
-                          style: TextStyle(color: Color(0xFFDCDAFB), fontSize: AppTypography.body),
+                          style: TextStyle(color: AppColors.ice, fontSize: AppTypography.body),
                         ),
                       ],
                     ),
