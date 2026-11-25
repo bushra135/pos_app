@@ -10,6 +10,7 @@ import 'package:pos_app/screens/ai/ai_assistant_screen.dart';
 import 'package:pos_app/screens/cart/cart_screen.dart';
 import 'package:pos_app/screens/cashier/cashier_home_screen.dart';
 import 'package:pos_app/screens/checkout/checkout_receipt_screen.dart';
+import 'package:pos_app/screens/owner/offers_screen.dart';
 import 'package:pos_app/screens/owner/owner_home_screen.dart';
 import 'package:pos_app/screens/products/products_screen.dart';
 import 'package:pos_app/screens/reports/reports_screen.dart';
@@ -195,6 +196,8 @@ void main() {
       status: 'Synchronized'.tr,
       onNewSale: () {},
     ),
+    'offers and tips': () async =>
+        OffersScreen(firestore: await _seed(), currentUserId: () => 'owner'),
     'assistant': () async =>
         AiAssistantScreen(firestore: await _seed(), currentUserId: () => 'owner'),
   };

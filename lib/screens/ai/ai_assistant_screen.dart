@@ -136,43 +136,81 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final data = await _loadStoreData();
     final q = question.toLowerCase();
 
-    if (_containsAny(q, ['bundle', 'offer', 'promotion', 'promo', 'combo', 'deal'])) {
+    if (_containsAny(q, [
+      'bundle',
+      'offer',
+      'promotion',
+      'promo',
+      'combo',
+      'deal',
+      'عرض',
+      'عروض',
+      'باقة',
+      'تخفيض',
+    ])) {
       return _bundleOffers(data);
     }
 
-    if (_containsAny(q, ['low stock', 'stock alert', 'out of stock', 'empty stock'])) {
+    if (_containsAny(q, [
+      'low stock',
+      'stock alert',
+      'out of stock',
+      'empty stock',
+      'نقص',
+      'منخفض',
+      'نفد',
+      'نفاد',
+    ])) {
       return _lowStockAlerts(data);
     }
 
-    if (_containsAny(q, ['restock', 'reorder', 'recommend', 'order stock'])) {
+    if (_containsAny(q, [
+      'restock',
+      'reorder',
+      'recommend',
+      'order stock',
+      'إعادة تعبئة',
+      'اطلب',
+      'توصي',
+      'أطلب',
+    ])) {
       return _restockRecommendations(data);
     }
 
-    if (_containsAny(q, ['slow', 'least', 'not selling', 'lowest selling'])) {
+    if (_containsAny(q, [
+      'slow',
+      'least',
+      'not selling',
+      'lowest selling',
+      'بطيء',
+      'بطيئة',
+      'الأقل',
+      'راكد',
+    ])) {
       return _slowMovingProducts(data);
     }
 
-    if (_containsAny(q, ['top revenue', 'highest revenue', 'most money'])) {
+    if (_containsAny(q, ['top revenue', 'highest revenue', 'most money', 'إيراد', 'دخل'])) {
       return _topRevenueProducts(data);
     }
 
-    if (_containsAny(q, ['top', 'best', 'seller', 'selling product'])) {
+    if (_containsAny(q, ['top', 'best', 'seller', 'selling product', 'الأكثر', 'الاكثر', 'أفضل'])) {
       return _topProductsThisWeek(data);
     }
 
-    if (_containsAny(q, ['payment', 'cash', 'benefit', 'card'])) {
+    if (_containsAny(q, ['payment', 'cash', 'benefit', 'card', 'دفع', 'نقد', 'كاش', 'بنفت'])) {
       return _paymentSummary(data);
     }
 
-    if (_containsAny(q, ['best hour', 'busy hour', 'peak hour', 'sales hour'])) {
+    if (_containsAny(q, ['best hour', 'busy hour', 'peak hour', 'sales hour', 'ساعة'])) {
       return _bestSalesHourToday(data);
     }
 
-    if (_containsAny(q, ['discount', 'refund', 'net sales'])) {
+    if (_containsAny(q, ['discount', 'refund', 'net sales', 'خصومات', 'استرجاع', 'صافي'])) {
       return _netSalesSummary(data);
     }
 
-    if (_containsAny(q, ['week sales', 'this week'])) {
+    if (_containsAny(q, ['week sales', 'this week', 'الأسبوع', 'اسبوع'])) {
       return _periodSalesSummary(
         data: data,
         title: 'This week sales summary'.tr,
@@ -180,7 +218,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       );
     }
 
-    if (_containsAny(q, ['month sales', 'this month'])) {
+    if (_containsAny(q, ['month sales', 'this month', 'الشهر', 'شهر'])) {
       return _periodSalesSummary(
         data: data,
         title: 'This month sales summary'.tr,
@@ -188,7 +226,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       );
     }
 
-    if (_containsAny(q, ['today', 'sales summary', 'daily summary'])) {
+    if (_containsAny(q, ['today', 'sales summary', 'daily summary', 'اليوم', 'ملخص'])) {
       return _todaySalesSummary(data);
     }
 
@@ -282,15 +320,18 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final topProduct = topProducts.isEmpty ? null : topProducts.first;
 
     return [
-      "Today's sales summary:",
+      'Today\'s sales summary:'.tr,
       "",
-      "- Gross sales: ${_money(gross)}",
-      "- Net sales: ${_money(total)}",
-      "- Orders: $orders",
-      "- Average order value: ${_money(averageOrder)}",
+      '- Gross sales: {amount}'.trArgs({'amount': _money(gross)}),
+      '- Net sales: {amount}'.trArgs({'amount': _money(total)}),
+      '- Orders: {n}'.trArgs({'n': orders}),
+      '- Average order value: {amount}'.trArgs({'amount': _money(averageOrder)}),
       if (topProduct != null)
-        "- Top product: ${topProduct.name} (${topProduct.quantity.toStringAsFixed(0)} sold)",
-      if (orders == 0) "- No sales have been recorded today yet.",
+        '- Top product: {name} ({n} sold)'.trArgs({
+          'name': topProduct.name,
+          'n': topProduct.quantity.toStringAsFixed(0),
+        }),
+      if (orders == 0) '- No sales have been recorded today yet.'.tr,
     ].join('\n');
   }
 
@@ -309,14 +350,14 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final averageOrder = orders == 0 ? 0.0 : total / orders;
 
     return [
-      "$title:",
+      '$title:',
       "",
-      "- Gross sales: ${_money(gross)}",
-      "- Net sales: ${_money(total)}",
-      "- Orders: $orders",
-      "- Average order value: ${_money(averageOrder)}",
-      "- Discounts: ${_money(discounts)}",
-      "- Refunds: ${_money(refunds)}",
+      '- Gross sales: {amount}'.trArgs({'amount': _money(gross)}),
+      '- Net sales: {amount}'.trArgs({'amount': _money(total)}),
+      '- Orders: {n}'.trArgs({'n': orders}),
+      '- Average order value: {amount}'.trArgs({'amount': _money(averageOrder)}),
+      '- Discounts: {amount}'.trArgs({'amount': _money(discounts)}),
+      '- Refunds: {amount}'.trArgs({'amount': _money(refunds)}),
     ].join('\n');
   }
 
@@ -334,17 +375,22 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         });
 
     if (products.isEmpty) {
-      return "No products have been sold this week yet.";
+      return 'No products have been sold this week yet.'.tr;
     }
 
     final lines = products.take(10).toList().asMap().entries.map((entry) {
       final index = entry.key + 1;
       final product = entry.value;
 
-      return "$index. ${product.name}: ${product.quantity.toStringAsFixed(0)} sold (${_money(product.revenue)})";
+      return '{i}. {name}: {n} sold ({amount})'.trArgs({
+        'i': index,
+        'name': product.name,
+        'n': product.quantity.toStringAsFixed(0),
+        'amount': _money(product.revenue),
+      });
     });
 
-    return ["Top selling products this week:", "", ...lines].join('\n');
+    return ['Top selling products this week:'.tr, '', ...lines].join('\n');
   }
 
   String _topRevenueProducts(_StoreData data) {
@@ -356,17 +402,22 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     }).toList()..sort((a, b) => b.revenue.compareTo(a.revenue));
 
     if (products.isEmpty) {
-      return "No product revenue data found this month.";
+      return 'No product revenue data found this month.'.tr;
     }
 
     final lines = products.take(10).toList().asMap().entries.map((entry) {
       final index = entry.key + 1;
       final product = entry.value;
 
-      return "$index. ${product.name}: ${_money(product.revenue)} (${product.quantity.toStringAsFixed(0)} sold)";
+      return '{i}. {name}: {amount} ({n} sold)'.trArgs({
+        'i': index,
+        'name': product.name,
+        'amount': _money(product.revenue),
+        'n': product.quantity.toStringAsFixed(0),
+      });
     });
 
-    return ["Top revenue products this month:", "", ...lines].join('\n');
+    return ['Top revenue products this month:'.tr, '', ...lines].join('\n');
   }
 
   String _slowMovingProducts(_StoreData data) {
@@ -391,23 +442,27 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         });
 
     if (products.isEmpty) {
-      return "No products found in your inventory.";
+      return 'No products found in your inventory.'.tr;
     }
 
     final lines = products.take(10).toList().asMap().entries.map((entry) {
       final index = entry.key + 1;
       final product = entry.value;
 
-      return "$index. ${product.name}: ${product.quantity.toStringAsFixed(0)} sold";
+      return '{i}. {name}: {n} sold'.trArgs({
+        'i': index,
+        'name': product.name,
+        'n': product.quantity.toStringAsFixed(0),
+      });
     });
 
-    return ["Slow moving products this month:", "", ...lines].join('\n');
+    return ['Slow moving products this month:'.tr, '', ...lines].join('\n');
   }
 
   // Pair best sellers with slow-moving stock over the last 30 days.
   String _bundleOffers(_StoreData data) {
     if (data.products.isEmpty) {
-      return "No products found in your inventory.";
+      return 'No products found in your inventory.'.tr;
     }
 
     final from = DateTime.now().subtract(const Duration(days: 30));
@@ -430,9 +485,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
     if (offers.isEmpty) {
       return [
-        "No bundle offers to suggest right now.",
+        'No bundle offers to suggest right now.'.tr,
         "",
-        "Offers need at least one product that sells well and another product with stock that sells much less. Record more sales and try again.",
+        'Offers need at least one product that sells well and another product with stock that sells much less. Record more sales and try again.'
+            .tr,
       ].join('\n');
     }
 
@@ -441,33 +497,55 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       final offer = offers[i];
       final slow = offer.slowMover;
       lines
-        ..add("${i + 1}. Buy ${offer.anchor.name}, get ${slow.name} ${offer.discountPercent}% off")
         ..add(
-          "   - ${offer.anchor.name}: ${offer.anchor.soldRecently.toStringAsFixed(0)} sold (best seller)",
+          '{i}. Buy {anchor}, get {slow} {percent}% off'.trArgs({
+            'i': i + 1,
+            'anchor': offer.anchor.name,
+            'slow': slow.name,
+            'percent': offer.discountPercent,
+          }),
         )
         ..add(
-          "   - ${slow.name}: ${slow.soldRecently.toStringAsFixed(0)} sold, ${slow.stock} in stock",
+          '   - {name}: {n} sold (best seller)'.trArgs({
+            'name': offer.anchor.name,
+            'n': offer.anchor.soldRecently.toStringAsFixed(0),
+          }),
+        )
+        ..add(
+          '   - {name}: {n} sold, {stock} in stock'.trArgs({
+            'name': slow.name,
+            'n': slow.soldRecently.toStringAsFixed(0),
+            'stock': slow.stock,
+          }),
         );
       if (slow.price > 0) {
-        lines.add("   - Offer price: ${_money(slow.price)} → ${_money(offer.discountedPrice)}");
+        lines.add(
+          '   - Offer price: {from} → {to}'.trArgs({
+            'from': _money(slow.price),
+            'to': _money(offer.discountedPrice),
+          }),
+        );
       }
       if (offer.sameCategory) {
-        lines.add("   - Same category, so customers are likely to want both");
+        lines.add(
+          '   - {text}'.trArgs({'text': 'Same category, so customers are likely to want both'.tr}),
+        );
       }
       lines.add("");
     }
 
     return [
-      "Bundle offer ideas (last 30 days):",
+      'Bundle offer ideas (last 30 days):'.tr,
       "",
       ...lines,
-      "Each offer uses a popular product to help sell items that are not moving.",
+      'Each offer uses a popular product to help sell items that are not moving.'.tr,
+      'Start an offer from Home → Offers & tips; cashiers get it automatically.'.tr,
     ].join('\n');
   }
 
   String _lowStockAlerts(_StoreData data) {
     if (data.products.isEmpty) {
-      return "I couldn't find any products for this store. Please check that products have the correct storeCode.";
+      return 'No products found in your inventory.'.tr;
     }
 
     final lowStock = data.products.where((product) {
@@ -475,15 +553,20 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     }).toList()..sort((a, b) => a.stock.compareTo(b.stock));
 
     if (lowStock.isEmpty) {
-      return "No low stock products were found right now.";
+      return 'No low stock products were found right now.'.tr;
     }
 
     final lines = lowStock.take(10).map((product) {
-      final status = product.stock <= 0 ? "Out of stock" : "Low stock";
-      return "- ${product.name}: ${product.stock} left ($status, minimum ${product.minStock})";
+      final status = (product.stock <= 0 ? 'Out of stock' : 'Low stock').tr;
+      return '- {name}: {n} left ({status}, minimum {min})'.trArgs({
+        'name': product.name,
+        'n': product.stock,
+        'status': status,
+        'min': product.minStock,
+      });
     });
 
-    return ["Low stock alerts:", "", ...lines].join('\n');
+    return ['Low stock alerts:'.tr, '', ...lines].join('\n');
   }
 
   String _restockRecommendations(_StoreData data) {
@@ -518,14 +601,18 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     recommendations.sort((a, b) => b.recommendedQty.compareTo(a.recommendedQty));
 
     if (recommendations.isEmpty) {
-      return "No restock needed right now. Your inventory looks healthy.";
+      return 'No restock needed right now. Your inventory looks healthy.'.tr;
     }
 
     final lines = recommendations.take(10).map((item) {
-      return "- ${item.name}: current ${item.currentStock}, recommended reorder ${item.recommendedQty}";
+      return '- {name}: current {n}, recommended reorder {qty}'.trArgs({
+        'name': item.name,
+        'n': item.currentStock,
+        'qty': item.recommendedQty,
+      });
     });
 
-    return ["Restock recommendations:", "", ...lines].join('\n');
+    return ['Restock recommendations:'.tr, '', ...lines].join('\n');
   }
 
   String _paymentSummary(_StoreData data) {
@@ -539,7 +626,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     }
 
     if (payments.isEmpty) {
-      return "No payment data found for this month yet.";
+      return 'No payment data found for this month yet.'.tr;
     }
 
     final entries = payments.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
@@ -548,10 +635,14 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
     final lines = entries.map((entry) {
       final percent = total == 0 ? 0 : (entry.value / total) * 100;
-      return "- ${entry.key}: ${_money(entry.value)} (${percent.toStringAsFixed(1)}%)";
+      return '- {method}: {amount} ({percent}%)'.trArgs({
+        'method': entry.key.tr,
+        'amount': _money(entry.value),
+        'percent': percent.toStringAsFixed(1),
+      });
     });
 
-    return ["Payment methods this month:", "", ...lines].join('\n');
+    return ['Payment methods this month:'.tr, '', ...lines].join('\n');
   }
 
   String _bestSalesHourToday(_StoreData data) {
@@ -578,15 +669,15 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     }
 
     if (bestAmount == 0) {
-      return "No sales have been recorded today yet.";
+      return 'No sales have been recorded today yet.'.tr;
     }
 
     return [
-      "Best sales hour today:",
+      'Best sales hour today:'.tr,
       "",
-      "- Hour: ${bestHour.toString().padLeft(2, '0')}:00",
-      "- Sales: ${_money(bestAmount)}",
-      "- Orders: ${hourlyOrders[bestHour]}",
+      '- Hour: {hour}:00'.trArgs({'hour': bestHour.toString().padLeft(2, '0')}),
+      '- Sales: {amount}'.trArgs({'amount': _money(bestAmount)}),
+      '- Orders: {n}'.trArgs({'n': hourlyOrders[bestHour]}),
     ].join('\n');
   }
 
@@ -600,12 +691,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final net = sales.fold<double>(0, (subtotal, sale) => subtotal + sale.netTotal);
 
     return [
-      "Net sales summary this month:",
+      'Net sales summary this month:'.tr,
       "",
-      "- Gross sales: ${_money(gross)}",
-      "- Discounts: ${_money(discounts)}",
-      "- Refunds: ${_money(refunds)}",
-      "- Net sales: ${_money(net)}",
+      '- Gross sales: {amount}'.trArgs({'amount': _money(gross)}),
+      '- Discounts: {amount}'.trArgs({'amount': _money(discounts)}),
+      '- Refunds: {amount}'.trArgs({'amount': _money(refunds)}),
+      '- Net sales: {amount}'.trArgs({'amount': _money(net)}),
     ].join('\n');
   }
 
@@ -630,16 +721,19 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     final topProduct = topProducts.isEmpty ? null : topProducts.first;
 
     return [
-      "Store overview:",
+      'Store overview:'.tr,
       "",
-      "- Today sales: ${_money(todaySales)}",
-      "- Today orders: $todayOrders",
-      "- This month sales: ${_money(monthSales)}",
-      "- This month orders: $monthOrders",
-      "- Products in inventory: ${data.products.length}",
-      "- Low stock products: $lowStockCount",
+      '- Today sales: {amount}'.trArgs({'amount': _money(todaySales)}),
+      '- Today orders: {n}'.trArgs({'n': todayOrders}),
+      '- This month sales: {amount}'.trArgs({'amount': _money(monthSales)}),
+      '- This month orders: {n}'.trArgs({'n': monthOrders}),
+      '- Products in inventory: {n}'.trArgs({'n': data.products.length}),
+      '- Low stock products: {n}'.trArgs({'n': lowStockCount}),
       if (topProduct != null)
-        "- Top product this month: ${topProduct.name} (${topProduct.quantity.toStringAsFixed(0)} sold)",
+        '- Top product this month: {name} ({n} sold)'.trArgs({
+          'name': topProduct.name,
+          'n': topProduct.quantity.toStringAsFixed(0),
+        }),
     ].join('\n');
   }
 
