@@ -458,23 +458,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             ],
           ),
         ),
-        const SizedBox(width: 8),
-        IconButton(
-          tooltip: 'Low stock alerts'.tr,
-          onPressed: isLoading ? null : _showStockAlerts,
-          icon: Badge(
-            isLabelVisible: lowStockCount > 0,
-            label: Text('$lowStockCount'),
-            backgroundColor: AppColors.danger,
-            child: Icon(
-              lowStockCount > 0
-                  ? Icons.notifications_active_outlined
-                  : Icons.notifications_none_rounded,
-              color: lowStockCount > 0 ? AppColors.danger : AppColors.text,
-            ),
-          ),
-        ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 12),
         Tooltip(
           message: 'Switch to cashier'.tr,
           child: FilledButton.icon(

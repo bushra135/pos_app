@@ -5,7 +5,9 @@ import 'package:pos_app/app/theme.dart';
 import 'package:pos_app/screens/owner/owner_home_screen.dart';
 
 void main() {
-  testWidgets('the bell counts low stock and lists it, out of stock first', (tester) async {
+  testWidgets('a notice counts low stock and its View lists it, out of stock first', (
+    tester,
+  ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(430, 1400);
     addTearDown(tester.view.resetPhysicalSize);
@@ -32,10 +34,10 @@ void main() {
 
     // Once per session: a notice with a View action.
     expect(find.text('2 products are low on stock'), findsOneWidget);
-    final bell = find.byTooltip('Low stock alerts');
-    expect(find.descendant(of: bell, matching: find.text('2')), findsOneWidget);
+    // No bell at the top of Home (removed at the owner's request).
+    expect(find.byTooltip('Low stock alerts'), findsNothing);
 
-    await tester.tap(bell);
+    await tester.tap(find.text('View'));
     await tester.pumpAndSettle();
     final juice = tester.getTopLeft(find.text('Juice'));
     final book = tester.getTopLeft(find.text('Notebook'));
