@@ -398,8 +398,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           icon: const Icon(Icons.arrow_back_rounded, color: AppColors.text),
                         ),
                       ),
-                      const Center(child: BrandLogo(size: 80)),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 24),
                       Center(
                         child: Text(
                           'Create your account'.tr,
