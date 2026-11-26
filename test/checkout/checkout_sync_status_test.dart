@@ -25,11 +25,7 @@ class DelayedGateway implements SaleGateway {
 
 class QueuedCheckout extends SaleSyncService {
   QueuedCheckout(LocalPosStore store)
-    : super(
-        store: store,
-        gateway: DelayedGateway(),
-        currentUserId: () => 'cashier',
-      );
+    : super(store: store, gateway: DelayedGateway(), currentUserId: () => 'cashier');
   int calls = 0;
   void confirmLater() {
     online = true;
@@ -59,27 +55,14 @@ SaleRecord sample() => SaleRecord(
   cashierName: 'Cashier',
   paymentMethod: 'Cash',
   createdAt: DateTime.utc(2026),
-  items: const [
-    SaleLine(
-      productId: 'p1',
-      barcode: '123',
-      name: 'Pen',
-      price: 3,
-      quantity: 1,
-    ),
-  ],
+  items: const [SaleLine(productId: 'p1', barcode: '123', name: 'Pen', price: 3, quantity: 1)],
 );
 
 void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
-    await (FontLoader(
-      'Cairo',
-    )..addFont(rootBundle.load('assets/fonts/Cairo.ttf'))).load();
-    for (final name in [
-      'xyz.luan/audioplayers.global/events',
-      'xyz.luan/audioplayers.global',
-    ]) {
+    await (FontLoader('Cairo')..addFont(rootBundle.load('assets/fonts/Cairo.ttf'))).load();
+    for (final name in ['xyz.luan/audioplayers.global/events', 'xyz.luan/audioplayers.global']) {
       binding.defaultBinaryMessenger.setMockMethodCallHandler(
         MethodChannel(name),
         (_) async => null,
@@ -102,9 +85,7 @@ void main() {
   testWidgets(
     'queued receipt is ready without a spinner behind the notice or duplicate submission',
     (tester) async {
-      final database = await databaseFactoryMemory.openDatabase(
-        'checkout-ready',
-      );
+      final database = await databaseFactoryMemory.openDatabase('checkout-ready');
       final sync = QueuedCheckout(LocalPosStore(database));
       SaleSyncService.maybeInstance = sync;
       addTearDown(() async {
@@ -133,11 +114,7 @@ void main() {
       await tester.pumpAndSettle();
       final confirm = find.text('Confirm cash payment');
       // The page list is the first scrollable; the cash field has its own.
-      await tester.scrollUntilVisible(
-        confirm,
-        350,
-        scrollable: find.byType(Scrollable).first,
-      );
+      await tester.scrollUntilVisible(confirm, 350, scrollable: find.byType(Scrollable).first);
       final button = tester.widget<ElevatedButton>(
         find.ancestor(of: confirm, matching: find.byType(ElevatedButton)),
       );
@@ -154,73 +131,55 @@ void main() {
       expect(find.byType(SaleReceiptView), findsOneWidget);
       sync.confirmLater();
       await tester.pump();
-      expect(
-        tester.widget<SaleReceiptView>(find.byType(SaleReceiptView)).status,
-        'Synchronized',
-      );
+      expect(tester.widget<SaleReceiptView>(find.byType(SaleReceiptView)).status, 'Synchronized');
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },
   );
   for (final succeeds in [true, false]) {
-    test(
-      'late server confirmation cleans queue only on success: $succeeds',
-      () async {
-        final database = await databaseFactoryMemory.openDatabase(
-          'late-$succeeds',
-        );
-        final local = LocalPosStore(database);
-        final gateway = DelayedGateway();
-        final firestore = FakeFirebaseFirestore();
-        await firestore.collection('products').doc('p1').set({
-          'storeCode': 'A',
-          'barcode': '123',
-          'name': 'Pen',
-          'stock': 10,
-          'price': 3,
-        });
-        final sync = SaleSyncService(
-          store: local,
-          gateway: gateway,
-          currentUserId: () => 'cashier',
-          firestore: firestore,
-          requestTimeout: const Duration(milliseconds: 30),
-        );
-        addTearDown(() async {
-          sync.dispose();
-          await database.close();
-        });
-        await sync.bind('cashier', 'A');
+    test('late server confirmation cleans queue only on success: $succeeds', () async {
+      final database = await databaseFactoryMemory.openDatabase('late-$succeeds');
+      final local = LocalPosStore(database);
+      final gateway = DelayedGateway();
+      final firestore = FakeFirebaseFirestore();
+      await firestore.collection('products').doc('p1').set({
+        'storeCode': 'A',
+        'barcode': '123',
+        'name': 'Pen',
+        'stock': 10,
+        'price': 3,
+      });
+      final sync = SaleSyncService(
+        store: local,
+        gateway: gateway,
+        currentUserId: () => 'cashier',
+        firestore: firestore,
+        requestTimeout: const Duration(milliseconds: 30),
+      );
+      addTearDown(() async {
+        sync.dispose();
+        await database.close();
+      });
+      await sync.bind('cashier', 'A');
+      await Future<void>.delayed(Duration.zero);
+      await local.cacheProducts('A', [
+        {'id': 'p1', 'storeCode': 'A', 'barcode': '123', 'name': 'Pen', 'stock': 10, 'price': 3},
+      ]);
+      sync.online = true;
+      final response = await sync.submit(sample());
+      expect(response.status, SaleSubmissionStatus.queued);
+      expect(response.message, contains('background'));
+      expect(await local.pendingSales('cashier', 'A'), hasLength(1));
+      if (succeeds) {
+        gateway.result.complete();
+      } else {
+        gateway.result.completeError(StateError('Server unavailable'));
+      }
+      for (var i = 0; i < 10; i++) {
         await Future<void>.delayed(Duration.zero);
-        await local.cacheProducts('A', [
-          {
-            'id': 'p1',
-            'storeCode': 'A',
-            'barcode': '123',
-            'name': 'Pen',
-            'stock': 10,
-            'price': 3,
-          },
-        ]);
-        sync.online = true;
-        final response = await sync.submit(sample());
-        expect(response.status, SaleSubmissionStatus.queued);
-        expect(response.message, contains('background'));
-        expect(await local.pendingSales('cashier', 'A'), hasLength(1));
-        if (succeeds) {
-          gateway.result.complete();
-        } else {
-          gateway.result.completeError(StateError('Server unavailable'));
-        }
-        for (var i = 0; i < 10; i++) {
-          await Future<void>.delayed(Duration.zero);
-        }
-        expect(
-          await local.pendingSales('cashier', 'A'),
-          succeeds ? isEmpty : hasLength(1),
-        );
-        expect(gateway.calls, 1);
-      },
-    );
+      }
+      expect(await local.pendingSales('cashier', 'A'), succeeds ? isEmpty : hasLength(1));
+      expect(gateway.calls, 1);
+    });
   }
 }

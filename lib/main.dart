@@ -66,4 +66,3 @@ class ShopPadApp extends StatelessWidget {
     );
   }
 }
- 

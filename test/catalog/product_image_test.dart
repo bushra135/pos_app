@@ -16,104 +16,68 @@ void main() {
     smallImage = await _createPng(16, 8);
   });
 
-  test(
-    'large photos become decodable images within the document budget',
-    () async {
-      final source = await _createPng(1200, 800, noisy: true);
-      final data = await ProductImageData.prepare(source);
-      final bytes = Uri.parse(data).data!.contentAsBytes();
-      expect(bytes.length, lessThanOrEqualTo(ProductImageData.maxStoredBytes));
-      expect(utf8.encode(data).length, lessThan(250 * 1024));
-      final codec = await ui.instantiateImageCodec(bytes);
-      final image = (await codec.getNextFrame()).image;
-      expect(max(image.width, image.height), lessThanOrEqualTo(640));
-      expect(image.width / image.height, closeTo(1.5, 0.02));
-      image.dispose();
-      codec.dispose();
-    },
-  );
+  test('large photos become decodable images within the document budget', () async {
+    final source = await _createPng(1200, 800, noisy: true);
+    final data = await ProductImageData.prepare(source);
+    final bytes = Uri.parse(data).data!.contentAsBytes();
+    expect(bytes.length, lessThanOrEqualTo(ProductImageData.maxStoredBytes));
+    expect(utf8.encode(data).length, lessThan(250 * 1024));
+    final codec = await ui.instantiateImageCodec(bytes);
+    final image = (await codec.getNextFrame()).image;
+    expect(max(image.width, image.height), lessThanOrEqualTo(640));
+    expect(image.width / image.height, closeTo(1.5, 0.02));
+    image.dispose();
+    codec.dispose();
+  });
 
-  test(
-    'small transparent images retain their dimensions and transparency',
-    () async {
-      final data = await ProductImageData.prepare(smallImage);
-      final codec = await ui.instantiateImageCodec(
-        Uri.parse(data).data!.contentAsBytes(),
-      );
-      final image = (await codec.getNextFrame()).image;
-      expect(image.width, 16);
-      expect(image.height, 8);
-      final rgba = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-      expect(rgba!.getUint8(3), 0);
-      image.dispose();
-      codec.dispose();
-    },
-  );
+  test('small transparent images retain their dimensions and transparency', () async {
+    final data = await ProductImageData.prepare(smallImage);
+    final codec = await ui.instantiateImageCodec(Uri.parse(data).data!.contentAsBytes());
+    final image = (await codec.getNextFrame()).image;
+    expect(image.width, 16);
+    expect(image.height, 8);
+    final rgba = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    expect(rgba!.getUint8(3), 0);
+    image.dispose();
+    codec.dispose();
+  });
 
-  test(
-    'invalid files fail instead of producing an unusable saved image',
-    () async {
-      await expectLater(
-        ProductImageData.prepare(Uint8List(0)),
-        throwsFormatException,
-      );
-      await expectLater(
-        ProductImageData.prepare(Uint8List.fromList([1, 2, 3])),
-        throwsA(anything),
-      );
-    },
-  );
+  test('invalid files fail instead of producing an unusable saved image', () async {
+    await expectLater(ProductImageData.prepare(Uint8List(0)), throwsFormatException);
+    await expectLater(ProductImageData.prepare(Uint8List.fromList([1, 2, 3])), throwsA(anything));
+  });
 
-  testWidgets(
-    'embedded product images use memory and survive ordinary rebuilds',
-    (tester) async {
-      final source = 'data:image/png;base64,${base64Encode(smallImage)}';
-      Widget build() => MaterialApp(
-        home: ProductImage(
-          source: source,
-          placeholder: const Icon(Icons.inventory),
-        ),
-      );
-      await tester.pumpWidget(build());
-      final initial = tester.widget<Image>(find.byType(Image)).image;
-      expect(initial, isA<MemoryImage>());
-      expect((initial as MemoryImage).bytes, orderedEquals(smallImage));
-      await tester.pumpWidget(build());
-      expect(tester.widget<Image>(find.byType(Image)).image, same(initial));
-      expect(tester.takeException(), isNull);
-    },
-  );
+  testWidgets('embedded product images use memory and survive ordinary rebuilds', (tester) async {
+    final source = 'data:image/png;base64,${base64Encode(smallImage)}';
+    Widget build() => MaterialApp(
+      home: ProductImage(source: source, placeholder: const Icon(Icons.inventory)),
+    );
+    await tester.pumpWidget(build());
+    final initial = tester.widget<Image>(find.byType(Image)).image;
+    expect(initial, isA<MemoryImage>());
+    expect((initial as MemoryImage).bytes, orderedEquals(smallImage));
+    await tester.pumpWidget(build());
+    expect(tester.widget<Image>(find.byType(Image)).image, same(initial));
+    expect(tester.takeException(), isNull);
+  });
 
-  testWidgets(
-    'invalid saved data shows a placeholder and recovers after replacement',
-    (tester) async {
-      Widget build(String source) => MaterialApp(
-        home: ProductImage(
-          source: source,
-          placeholder: const Icon(Icons.inventory),
-        ),
-      );
-      await tester.pumpWidget(build('data:image/png;base64,%%%'));
-      expect(find.byIcon(Icons.inventory), findsOneWidget);
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(
-        build('data:image/png;base64,${base64Encode(smallImage)}'),
-      );
-      expect(
-        tester.widget<Image>(find.byType(Image)).image,
-        isA<MemoryImage>(),
-      );
-      await tester.pumpWidget(build(''));
-      expect(find.byIcon(Icons.inventory), findsOneWidget);
-    },
-  );
+  testWidgets('invalid saved data shows a placeholder and recovers after replacement', (
+    tester,
+  ) async {
+    Widget build(String source) => MaterialApp(
+      home: ProductImage(source: source, placeholder: const Icon(Icons.inventory)),
+    );
+    await tester.pumpWidget(build('data:image/png;base64,%%%'));
+    expect(find.byIcon(Icons.inventory), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(build('data:image/png;base64,${base64Encode(smallImage)}'));
+    expect(tester.widget<Image>(find.byType(Image)).image, isA<MemoryImage>());
+    await tester.pumpWidget(build(''));
+    expect(find.byIcon(Icons.inventory), findsOneWidget);
+  });
 }
 
-Future<Uint8List> _createPng(
-  int width,
-  int height, {
-  bool noisy = false,
-}) async {
+Future<Uint8List> _createPng(int width, int height, {bool noisy = false}) async {
   final pixels = Uint8List(width * height * 4);
   final random = Random(23);
   for (var offset = 0; offset < pixels.length; offset += 4) {

@@ -586,10 +586,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
         color: Colors.transparent,
         borderRadius: radius,
         child: Ink(
-          decoration: BoxDecoration(
-            gradient: AppColors.brandGradient,
-            borderRadius: radius,
-          ),
+          decoration: BoxDecoration(gradient: AppColors.brandGradient, borderRadius: radius),
           child: InkWell(
             onTap: () => setState(() => selectedIndex = 1),
             borderRadius: radius,

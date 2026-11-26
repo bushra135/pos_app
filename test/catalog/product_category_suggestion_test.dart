@@ -6,10 +6,7 @@ import 'package:pos_app/utils/product_category_suggestion.dart';
 
 void main() {
   test('suggests food and nonfood categories in English and Arabic', () {
-    expect(
-      ProductCategorySuggestion.fromName('Blue ballpoint pen 2 pack'),
-      'Stationery',
-    );
+    expect(ProductCategorySuggestion.fromName('Blue ballpoint pen 2 pack'), 'Stationery');
     expect(ProductCategorySuggestion.fromName('دفتر جامعي'), 'Stationery');
     expect(ProductCategorySuggestion.fromName('حليب المراعي'), 'Dairy');
     expect(ProductCategorySuggestion.fromName('USB charger'), 'Electronics');
@@ -21,15 +18,10 @@ void main() {
     expect(ProductCategorySuggestion.fromName(''), isNull);
   });
   test('ambiguous names stay blank and specific phrases win', () {
-    expect(
-      ProductCategorySuggestion.fromName('Milk chocolate notebook'),
-      isNull,
-    );
+    expect(ProductCategorySuggestion.fromName('Milk chocolate notebook'), isNull);
     expect(ProductCategorySuggestion.fromName('Chocolate milk 1L'), 'Dairy');
   });
-  testWidgets('name suggestions update and never replace a manual category', (
-    tester,
-  ) async {
+  testWidgets('name suggestions update and never replace a manual category', (tester) async {
     final db = FakeFirebaseFirestore();
     await db.collection('users').doc('owner').set({'storeCode': 'A', 'role': 'owner'});
     await tester.pumpWidget(

@@ -91,21 +91,22 @@ void main() {
     expect(tester.binding.hasScheduledFrame, isFalse);
   });
 
-  testWidgets('the scanner frame scans, keeps scanning while busy, and is still with reduced motion', (
-    tester,
-  ) async {
-    const box = SizedBox.square(dimension: 120);
-    await tester.pumpWidget(_app(const ScanFrame(child: box)));
-    await tester.pump(const Duration(seconds: 2));
-    expect(tester.binding.hasScheduledFrame, isTrue, reason: 'idle beam');
+  testWidgets(
+    'the scanner frame scans, keeps scanning while busy, and is still with reduced motion',
+    (tester) async {
+      const box = SizedBox.square(dimension: 120);
+      await tester.pumpWidget(_app(const ScanFrame(child: box)));
+      await tester.pump(const Duration(seconds: 2));
+      expect(tester.binding.hasScheduledFrame, isTrue, reason: 'idle beam');
 
-    await tester.pumpWidget(_app(const ScanFrame(scanning: true, child: box)));
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(tester.binding.hasScheduledFrame, isTrue, reason: 'scanning beam');
-    expect(tester.takeException(), isNull);
+      await tester.pumpWidget(_app(const ScanFrame(scanning: true, child: box)));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(tester.binding.hasScheduledFrame, isTrue, reason: 'scanning beam');
+      expect(tester.takeException(), isNull);
 
-    await tester.pumpWidget(_app(const ScanFrame(scanning: true, child: box), reduced: true));
-    await tester.pumpAndSettle();
-    expect(tester.binding.hasScheduledFrame, isFalse);
-  });
+      await tester.pumpWidget(_app(const ScanFrame(scanning: true, child: box), reduced: true));
+      await tester.pumpAndSettle();
+      expect(tester.binding.hasScheduledFrame, isFalse);
+    },
+  );
 }

@@ -67,21 +67,14 @@ class _BufferedTransaction implements Transaction {
   }
 
   @override
-  Transaction set<T>(
-    DocumentReference<T> documentReference,
-    T data, [
-    SetOptions? options,
-  ]) {
+  Transaction set<T>(DocumentReference<T> documentReference, T data, [SetOptions? options]) {
     writtenPaths.add(documentReference.path);
     writes.add(() => documentReference.set(data, options));
     return this;
   }
 
   @override
-  Transaction update(
-    DocumentReference documentReference,
-    Map<String, dynamic> data,
-  ) {
+  Transaction update(DocumentReference documentReference, Map<String, dynamic> data) {
     writtenPaths.add(documentReference.path);
     writes.add(() => documentReference.update(data));
     return this;

@@ -35,10 +35,7 @@ void main() {
     () async {
       final saved = receipt(lines: 100);
       CartManager.clearCart();
-      final bytes = await ReceiptService.generatePdf(
-        saved,
-        status: 'Synchronization pending',
-      );
+      final bytes = await ReceiptService.generatePdf(saved, status: 'Synchronization pending');
       expect(ascii.decode(bytes.take(5).toList()), '%PDF-');
       expect(saved.total, 225);
       expect(bytes.length, greaterThan(1000));
@@ -46,45 +43,41 @@ void main() {
   );
 
   for (final width in [320.0, 800.0]) {
-    testWidgets(
-      'Completed receipt is usable at width $width after the cart clears',
-      (tester) async {
-        tester.view.physicalSize = Size(width, 700);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        CartManager.clearCart();
-        var newSales = 0;
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: SaleReceiptView(
-                sale: receipt(),
-                status: 'Saved on device — synchronization pending',
-                onNewSale: () => newSales++,
-              ),
+    testWidgets('Completed receipt is usable at width $width after the cart clears', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      CartManager.clearCart();
+      var newSales = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SaleReceiptView(
+              sale: receipt(),
+              status: 'Saved on device — synchronization pending',
+              onNewSale: () => newSales++,
             ),
           ),
-        );
-        expect(find.text('Sale saved'), findsOneWidget);
-        expect(find.text('الإجمالي · Total'), findsOneWidget);
-        expect(find.text('BD 4.500'), findsWidgets);
-        await tester.scrollUntilVisible(
-          find.text('Share PDF'),
-          120,
-          scrollable: find
-              .descendant(
-                of: find.byType(ListView),
-                matching: find.byType(Scrollable),
-              )
-              .first,
-        );
-        expect(find.text('Share PDF'), findsOneWidget);
-        await tester.tap(find.text('New sale'));
-        await tester.pump();
-        expect(newSales, 1);
-        expect(tester.takeException(), isNull);
-      },
-    );
+        ),
+      );
+      expect(find.text('Sale saved'), findsOneWidget);
+      expect(find.text('الإجمالي · Total'), findsOneWidget);
+      expect(find.text('BD 4.500'), findsWidgets);
+      await tester.scrollUntilVisible(
+        find.text('Share PDF'),
+        120,
+        scrollable: find
+            .descendant(of: find.byType(ListView), matching: find.byType(Scrollable))
+            .first,
+      );
+      expect(find.text('Share PDF'), findsOneWidget);
+      await tester.tap(find.text('New sale'));
+      await tester.pump();
+      expect(newSales, 1);
+      expect(tester.takeException(), isNull);
+    });
   }
 }
