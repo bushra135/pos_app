@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import '../app/app_language.dart';
+import '../../app/app_language.dart';
 
 /// Texts for the browser camera overlay (web/browser_scanner.js), in the app's
 /// current language. The overlay keeps its English text for any key left out.

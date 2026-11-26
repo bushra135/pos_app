@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pos_app/app/app_language.dart';
-import 'package:pos_app/services/browser_scanner_strings.dart';
+import 'package:pos_app/services/platform/browser_scanner_strings.dart';
 
 void main() {
   tearDown(() => AppLanguage.locale.value = AppLanguage.english);

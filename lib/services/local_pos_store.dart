@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:sembast/sembast.dart';
 
 import '../models/sale_record.dart';
-import 'local_pos_database.dart';
+import 'platform/local_pos_database.dart';
 
 /// A durable receipt waiting for server acknowledgement, optionally with a conflict.
 class PendingSale {

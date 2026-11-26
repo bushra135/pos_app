@@ -75,7 +75,7 @@ Top cashiers opens from the cashier summary card on the owner home. It ranks com
 ## Browser-specific code
 
 - `web/browser_scanner.js`: browser-owned video and decoding for the mobile web camera.
-- `services/browser_scanner.dart`: conditional interface selecting web or native behavior.
+- `services/platform/browser_scanner.dart`: conditional interface selecting web or native behavior.
 - `web/flutter_bootstrap.js`: versioned app entrypoint to avoid loading an older cached bundle.
 - `web/report_export.js`: downloads the XLSX workbook on the user's device without uploading the report.
 - Conditional database implementations select IndexedDB on web and a device database on native platforms.

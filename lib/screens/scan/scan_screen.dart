@@ -10,7 +10,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../app/app_colors.dart';
 import '../../app/app_typography.dart';
 import '../../services/barcode_catalog_service.dart';
-import '../../services/browser_scanner.dart';
+import '../../services/platform/browser_scanner.dart';
 import '../../widgets/motion.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/scanner_error_panel.dart';

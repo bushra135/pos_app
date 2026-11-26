@@ -13,7 +13,7 @@ import '../../app/app_colors.dart';
 import '../../app/app_spacing.dart';
 import '../../app/app_typography.dart';
 import '../../services/barcode_catalog_service.dart';
-import '../../services/browser_scanner.dart';
+import '../../services/platform/browser_scanner.dart';
 import '../../utils/product_category_suggestion.dart';
 import '../../utils/product_image_data.dart';
 import '../../widgets/motion.dart';
