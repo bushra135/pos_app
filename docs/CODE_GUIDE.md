@@ -17,10 +17,11 @@ Read these files in this order. Do not start by memorizing widget layouts.
 
 | Folder | Responsibility |
 | --- | --- |
-| `lib/app` | Shared colors, typography, spacing and theme |
+| `lib/app` | Shared colors, typography, spacing, theme, money formatting and translations |
 | `lib/models` | Data structures, fixed sale snapshots and read-only report interpretation |
 | `lib/screens` | Feature pages and their event handlers |
 | `lib/services` | Storage, Firebase operations, synchronization, catalog lookup and exports |
+| `lib/services/platform` | Web and phone versions of the scanner, local database and file download, picked by conditional imports |
 | `lib/utils` | Small reusable calculations and input helpers |
 | `lib/widgets` | Reusable visual components |
 | `web` | Browser startup, camera integration and local file download |
