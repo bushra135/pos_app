@@ -18,6 +18,7 @@ import '../../widgets/adaptive_layout.dart';
 import '../../services/profile_edits.dart';
 import '../../utils/profile_photo_data.dart';
 import 'vat_settings_card.dart';
+import '../../widgets/qr_image_box.dart';
 
 /// Shows user details and payment settings shared by store employees.
 /// Shows account details, payment settings, sync status and owner recovery access.
@@ -596,43 +597,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ).showSnackBar(SnackBar(content: Text(message.trArgs({'email': address}))));
   }
 
-  Widget _buildQrPlaceholder() {
-    return Container(
-      height: 160,
-      width: 160,
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-      ),
-      child: const Icon(Icons.qr_code_2, size: 70, color: AppColors.muted),
-    );
-  }
-
-  /// The saved BenefitPay QR image, or a placeholder.
-  Widget _buildQrPreview() {
-    if (benefitQrBase64.isEmpty) return _buildQrPlaceholder();
-
-    try {
-      final Uint8List bytes = base64Decode(benefitQrBase64);
-
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-        child: Image.memory(
-          bytes,
-          height: 160,
-          width: 160,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return _buildQrPlaceholder();
-          },
-        ),
-      );
-    } catch (_) {
-      // Invalid data and unsupported images use the same placeholder.
-      return _buildQrPlaceholder();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
@@ -907,7 +871,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 12),
-                                _buildQrPreview(),
+                                QrImageBox(
+                                  base64: benefitQrBase64,
+                                  size: 160,
+                                  placeholderColor: AppColors.surface,
+                                  placeholderIcon: Icons.qr_code_2,
+                                ),
                                 if (isOwner) ...[
                                   const SizedBox(height: 14),
                                   OutlinedButton.icon(

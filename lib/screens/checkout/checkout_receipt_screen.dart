@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
@@ -22,6 +21,7 @@ import '../../widgets/receipt_card.dart';
 import '../../widgets/sale_receipt_view.dart';
 import '../../app/app_language.dart';
 import '../../app/money.dart';
+import '../../widgets/qr_image_box.dart';
 
 /// Reviews the receipt, confirms payment, saves the sale, and updates stock.
 class CheckoutReceiptScreen extends StatefulWidget {
@@ -649,43 +649,6 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     );
   }
 
-  Widget _buildQrPlaceholder() {
-    return Container(
-      height: 180,
-      width: 180,
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-      ),
-      child: const Icon(Icons.qr_code, size: 70, color: AppColors.muted),
-    );
-  }
-
-  /// The store's BenefitPay QR image, or a placeholder when none is saved.
-  Widget _buildQrPreview() {
-    if (benefitQrBase64.isEmpty) return _buildQrPlaceholder();
-
-    try {
-      final Uint8List bytes = base64Decode(benefitQrBase64);
-
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-        child: Image.memory(
-          bytes,
-          height: 180,
-          width: 180,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return _buildQrPlaceholder();
-          },
-        ),
-      );
-    } catch (_) {
-      // Show a placeholder when the stored Base64 data is invalid.
-      return _buildQrPlaceholder();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (completedSale != null) {
@@ -903,7 +866,12 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                               style: TextStyle(fontWeight: FontWeight.w600),
                                             ),
                                             const SizedBox(height: 12),
-                                            _buildQrPreview(),
+                                            QrImageBox(
+                                              base64: benefitQrBase64,
+                                              size: 180,
+                                              placeholderColor: AppColors.background,
+                                              placeholderIcon: Icons.qr_code,
+                                            ),
                                           ],
                                         ),
                                       ),

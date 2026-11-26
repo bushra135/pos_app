@@ -27,28 +27,31 @@ abstract final class InsightsFromDocs {
       sales: [
         for (final data in sales)
           if (reportDate(data['createdAt']) case final created? when !created.isBefore(from))
-            (
-              createdAt: created,
-              total: reportNumber(data, ['total']),
-              subtotal: reportNumber(data, ['subtotal', 'total']),
-              discount: reportNumber(data, ['discount']),
-              isRefund: data['type'] == 'refund',
-              cashierName: (data['cashierName'] ?? '').toString(),
-              items: [
-                for (final item in (data['items'] as List?) ?? const [])
-                  if (item is Map)
-                    (
-                      productId: (item['productId'] ?? '').toString(),
-                      quantity: (item['quantity'] as num?)?.toDouble() ?? 0,
-                      revenue:
-                          ((item['price'] as num?)?.toDouble() ?? 0) *
-                          ((item['quantity'] as num?)?.toDouble() ?? 0),
-                    ),
-              ],
-            ),
+            sale(data, created),
       ],
       now: now,
       money: money,
     );
   }
+
+  /// One Firestore sale map as [InsightSale] (lines carry quantity and revenue).
+  static InsightSale sale(Map<String, dynamic> data, DateTime created) => (
+    createdAt: created,
+    total: reportNumber(data, ['total']),
+    subtotal: reportNumber(data, ['subtotal', 'total']),
+    discount: reportNumber(data, ['discount']),
+    isRefund: data['type'] == 'refund',
+    cashierName: (data['cashierName'] ?? '').toString(),
+    items: [
+      for (final item in (data['items'] as List?) ?? const [])
+        if (item is Map)
+          (
+            productId: (item['productId'] ?? '').toString(),
+            quantity: (item['quantity'] as num?)?.toDouble() ?? 0,
+            revenue:
+                ((item['price'] as num?)?.toDouble() ?? 0) *
+                ((item['quantity'] as num?)?.toDouble() ?? 0),
+          ),
+    ],
+  );
 }

@@ -13,6 +13,7 @@ import '../../services/sales_query.dart';
 import '../../utils/active_offers.dart';
 import '../../utils/bundle_offer_planner.dart';
 import '../../utils/offer_tips.dart';
+import '../../utils/insights_from_docs.dart';
 import '../../utils/store_insights.dart';
 import '../../widgets/adaptive_layout.dart';
 
@@ -89,25 +90,7 @@ class _OffersScreenState extends State<OffersScreen> {
         final created = reportDate(data['createdAt']);
         if (created == null || created.isBefore(from)) continue;
         final refund = data['type'] == 'refund';
-        insightSales.add((
-          createdAt: created,
-          total: reportNumber(data, ['total']),
-          subtotal: reportNumber(data, ['subtotal', 'total']),
-          discount: reportNumber(data, ['discount']),
-          isRefund: refund,
-          cashierName: (data['cashierName'] ?? '').toString(),
-          items: [
-            for (final item in (data['items'] as List?) ?? const [])
-              if (item is Map)
-                (
-                  productId: (item['productId'] ?? '').toString(),
-                  quantity: (item['quantity'] as num?)?.toDouble() ?? 0,
-                  revenue:
-                      ((item['price'] as num?)?.toDouble() ?? 0) *
-                      ((item['quantity'] as num?)?.toDouble() ?? 0),
-                ),
-          ],
-        ));
+        insightSales.add(InsightsFromDocs.sale(data, created));
         if (refund) continue;
         sales.add((
           createdAt: created,
