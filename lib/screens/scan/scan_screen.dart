@@ -680,7 +680,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         child: SizedBox.expand(
           key: _cameraPreviewKey,
           child: ColoredBox(
-            color: AppColors.primary,
+            color: AppColors.navy,
             child: Center(
               child: _browserPreviewFailed
                   ? FilledButton.icon(
@@ -701,7 +701,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
           child: ColoredBox(
-            color: AppColors.primary,
+            color: AppColors.navy,
             child: Stack(
               fit: StackFit.expand,
               children: [

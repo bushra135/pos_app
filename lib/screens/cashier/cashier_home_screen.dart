@@ -459,6 +459,9 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                     minimumSize: const Size(48, 44),
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     shape: const StadiumBorder(),
+                    // 60/30/10: a secondary action, so ice (30%), not electric blue (10%).
+                    backgroundColor: AppColors.accentSoft,
+                    foregroundColor: AppColors.primaryDark,
                   ),
                   icon: const Icon(Icons.swap_horiz_rounded, size: 20),
                   label: Text('Owner'.tr),
