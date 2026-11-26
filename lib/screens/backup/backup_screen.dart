@@ -107,7 +107,7 @@ class _BackupScreenState extends State<BackupScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '${summary.createdAt.toLocal()}\n${summary.products} products Ã‚| ${summary.sales} sales\n\n'
+                  '${summary.createdAt.toLocal()}\n${summary.products} products · ${summary.sales} sales\n\n'
                   'Only missing records are restored. Existing records stay unchanged. Recovered products start at zero stock and require a physical count. Sales keep their original IDs and are not charged or deducted again.\n\n'
                   'Pause sales on all devices. If interrupted, some records may already be restored; retrying skips them.',
                 ),
@@ -191,7 +191,7 @@ class _BackupScreenState extends State<BackupScreen> {
               Card(
                 child: ListTile(
                   title: Text(backup.createdAt.toLocal().toString().split('.').first),
-                  subtitle: Text('${backup.products} products Ã‚| ${backup.sales} sales'),
+                  subtitle: Text('${backup.products} products · ${backup.sales} sales'),
                   trailing: IconButton(
                     tooltip: 'Preview recovery'.tr,
                     onPressed: _isBusy ? null : () => _restoreBackup(backup),
