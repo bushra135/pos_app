@@ -152,8 +152,6 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
 
   double _amount(TextEditingController controller) => double.tryParse(controller.text.trim()) ?? 0;
 
-  String _money(double value) => Money.format(value);
-
   String get _dateLabel =>
       '${_day.day.toString().padLeft(2, '0')}/${_day.month.toString().padLeft(2, '0')}/${_day.year}';
 
@@ -196,19 +194,20 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
               pw.Text(_storeWide ? 'Whole store'.tr : 'Cashier: $_personName'),
               pw.Divider(),
               row('Receipts', '${summary.receipts}'),
-              row('Gross sales', _money(summary.gross)),
-              row('Discounts', '- ${_money(summary.discounts)}'),
-              row('Refunds', '- ${_money(summary.refunds)}'),
-              row('Net sales', _money(summary.net), bold: true),
-              row('VAT included (10%)', _money(summary.vat)),
+              row('Gross sales', Money.format(summary.gross)),
+              row('Discounts', '- ${Money.format(summary.discounts)}'),
+              row('Refunds', '- ${Money.format(summary.refunds)}'),
+              row('Net sales', Money.format(summary.net), bold: true),
+              row('VAT included (10%)', Money.format(summary.vat)),
               pw.Divider(),
-              for (final entry in summary.byPayment.entries) row(entry.key, _money(entry.value)),
+              for (final entry in summary.byPayment.entries)
+                row(entry.key, Money.format(entry.value)),
               pw.Divider(),
-              row('Opening float', _money(opening)),
-              row('Expected cash in drawer', _money(expected)),
+              row('Opening float', Money.format(opening)),
+              row('Expected cash in drawer', Money.format(expected)),
               if (countedText.isNotEmpty) ...[
-                row('Counted cash', _money(counted)),
-                row('Difference', _money(counted - expected), bold: true),
+                row('Counted cash', Money.format(counted)),
+                row('Difference', Money.format(counted - expected), bold: true),
               ],
               pw.SizedBox(height: 24),
               pw.Text('Signature: ____________________'.tr),
@@ -328,7 +327,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
                 fit: BoxFit.scaleDown,
                 alignment: AlignmentDirectional.centerStart,
                 child: Text(
-                  _money(summary.net),
+                  Money.format(summary.net),
                   style: const TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.w800,
@@ -347,18 +346,18 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
         ),
         const SizedBox(height: 14),
         card('Sales', [
-          row('Gross sales', _money(summary.gross)),
-          row('Discounts', '- ${_money(summary.discounts)}'),
-          row('Refunds', '- ${_money(summary.refunds)}'),
+          row('Gross sales', Money.format(summary.gross)),
+          row('Discounts', '- ${Money.format(summary.discounts)}'),
+          row('Refunds', '- ${Money.format(summary.refunds)}'),
           const Divider(height: 20),
-          row('Net sales', _money(summary.net), bold: true),
-          row('VAT included (10%)', _money(summary.vat)),
+          row('Net sales', Money.format(summary.net), bold: true),
+          row('VAT included (10%)', Money.format(summary.vat)),
         ]),
         const SizedBox(height: 14),
         card('By payment method', [
           if (summary.byPayment.isEmpty)
             Text('No payments yet today.'.tr, style: TextStyle(color: AppColors.muted)),
-          for (final entry in summary.byPayment.entries) row(entry.key, _money(entry.value)),
+          for (final entry in summary.byPayment.entries) row(entry.key, Money.format(entry.value)),
         ]),
         const SizedBox(height: 14),
         card('Cash drawer', [
@@ -384,7 +383,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
             decoration: InputDecoration(labelText: 'Counted cash'.tr, suffixText: Money.symbol),
           ),
           const SizedBox(height: 10),
-          row('Expected in drawer', _money(expected), bold: true),
+          row('Expected in drawer', Money.format(expected), bold: true),
           if (hasCount)
             Container(
               margin: const EdgeInsets.only(top: 8),
@@ -413,8 +412,8 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
                       balanced
                           ? 'Drawer balanced'.tr
                           : difference > 0
-                          ? 'Over by {amount}'.trArgs({'amount': _money(difference)})
-                          : 'Short by {amount}'.trArgs({'amount': _money(-difference)}),
+                          ? 'Over by {amount}'.trArgs({'amount': Money.format(difference)})
+                          : 'Short by {amount}'.trArgs({'amount': Money.format(-difference)}),
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ),

@@ -433,7 +433,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       sales: _salesDocuments.map((d) => d.data()),
       costs: _costs,
       now: DateTime.now(),
-      money: _money,
+      money: Money.format,
     );
     final top = recs.isEmpty ? null : recs.first;
     final shortcuts = Row(
@@ -924,7 +924,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             alignment: AlignmentDirectional.centerStart,
             child: CountUpText(
               value: data.netSales,
-              format: _money,
+              format: Money.format,
               style: const TextStyle(
                 color: AppColors.onHero,
                 fontSize: AppTypography.display,
@@ -938,9 +938,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
             children: [
               figure('Orders'.tr, '${data.ordersCount}'),
               const SizedBox(width: 8),
-              figure('Average'.tr, _money(data.averageOrder)),
+              figure('Average'.tr, Money.format(data.averageOrder)),
               const SizedBox(width: 8),
-              figure('Gross'.tr, _money(data.grossSales)),
+              figure('Gross'.tr, Money.format(data.grossSales)),
             ],
           ),
         ],
@@ -960,8 +960,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
         );
     // Sales, net sales, orders and average order are in the hero card above.
     final cards = [
-      stat('Discounts', _money(data.discounts), Icons.local_offer_rounded, AppColors.warning),
-      stat('Refunds', _money(data.refunds), Icons.undo_rounded, AppColors.danger),
+      stat('Discounts', Money.format(data.discounts), Icons.local_offer_rounded, AppColors.warning),
+      stat('Refunds', Money.format(data.refunds), Icons.undo_rounded, AppColors.danger),
     ];
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1050,7 +1050,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       subtitle: first == null
           ? emptySubtitle
           : mode == _ProductSheetMode.revenue
-          ? _money(first.revenue)
+          ? Money.format(first.revenue)
           : '{n} sold'.trArgs({'n': first.quantity.toStringAsFixed(0)}),
       onTap: () => _showProductSheet(title: sheetTitle, products: products, mode: mode),
     );
@@ -1082,7 +1082,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 Expanded(
                   child: _ProfitFigure(
                     label: 'Gross profit'.tr,
-                    value: _money(data.grossProfit),
+                    value: Money.format(data.grossProfit),
                     color: data.grossProfit >= 0 ? AppColors.success : AppColors.danger,
                   ),
                 ),
@@ -1097,21 +1097,21 @@ class _ReportsScreenState extends State<ReportsScreen> {
               ],
             ),
             const SizedBox(height: 14),
-            _AmountRow('Sales with a cost price', _money(data.costedRevenue)),
-            _AmountRow('Cost of goods sold', '- ${_money(data.costOfGoods)}'),
+            _AmountRow('Sales with a cost price', Money.format(data.costedRevenue)),
+            _AmountRow('Cost of goods sold', '- ${Money.format(data.costOfGoods)}'),
             if (data.uncostedRevenue > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  '${_money(data.uncostedRevenue)} of sales had no cost price and are not counted.',
+                  '${Money.format(data.uncostedRevenue)} of sales had no cost price and are not counted.',
                   style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
                 ),
               ),
           ],
           const Divider(height: 24),
-          _AmountRow('Stock value at selling price', _money(data.stockRetailValue)),
+          _AmountRow('Stock value at selling price', Money.format(data.stockRetailValue)),
           if (data.stockCostValue > 0)
-            _AmountRow('Stock value at cost', _money(data.stockCostValue)),
+            _AmountRow('Stock value at cost', Money.format(data.stockCostValue)),
           if (data.uncostedProducts > 0)
             Padding(
               padding: const EdgeInsets.only(top: 6),
@@ -1142,7 +1142,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     child: _ProgressRow(
                       title: category.name,
                       trailing:
-                          '${_money(category.amount)} · ${total == 0 ? 0 : (category.amount / total * 100).toStringAsFixed(0)}%',
+                          '${Money.format(category.amount)} · ${total == 0 ? 0 : (category.amount / total * 100).toStringAsFixed(0)}%',
                       progress: total == 0 ? 0 : category.amount / total,
                       color: AppColors.primaryDark,
                     ),
@@ -1249,10 +1249,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
       }),
       child: Column(
         children: [
-          _AmountRow('Sales including VAT', _money(data.netSales)),
-          _AmountRow('Sales excluding VAT', _money(excluding < 0 ? 0 : excluding)),
+          _AmountRow('Sales including VAT', Money.format(data.netSales)),
+          _AmountRow('Sales excluding VAT', Money.format(excluding < 0 ? 0 : excluding)),
           const Divider(height: 24),
-          _AmountRow('VAT collected', _money(data.vatCollected), highlighted: true),
+          _AmountRow('VAT collected', Money.format(data.vatCollected), highlighted: true),
         ],
       ),
     );
@@ -1264,11 +1264,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
       subtitle: 'Gross sales minus discounts and refunds'.tr,
       child: Column(
         children: [
-          _AmountRow('Gross sales', _money(data.grossSales)),
-          _AmountRow('Discounts', '- ${_money(data.discounts)}'),
-          _AmountRow('Refunds', '- ${_money(data.refunds)}'),
+          _AmountRow('Gross sales', Money.format(data.grossSales)),
+          _AmountRow('Discounts', '- ${Money.format(data.discounts)}'),
+          _AmountRow('Refunds', '- ${Money.format(data.refunds)}'),
           const Divider(height: 24),
-          _AmountRow('Net sales', _money(data.netSales), highlighted: true),
+          _AmountRow('Net sales', Money.format(data.netSales), highlighted: true),
         ],
       ),
     );
@@ -1293,7 +1293,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   padding: const EdgeInsets.only(bottom: 14),
                   child: _ProgressRow(
                     title: method.name.tr,
-                    trailing: _money(method.amount),
+                    trailing: Money.format(method.amount),
                     progress: progress,
                     color: AppColors.accent,
                   ),
@@ -1366,14 +1366,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             itemBuilder: (context, index) {
                               final product = list[index];
                               final trailing = mode == _ProductSheetMode.revenue
-                                  ? _money(product.revenue)
+                                  ? Money.format(product.revenue)
                                   : '{n} sold'.trArgs({'n': product.quantity.toStringAsFixed(0)});
 
                               return _RankedProductTile(
                                 rank: index + 1,
                                 title: product.name,
                                 subtitle:
-                                    '${product.quantity.toStringAsFixed(0)} sold - ${_money(product.revenue)}',
+                                    '${product.quantity.toStringAsFixed(0)} sold - ${Money.format(product.revenue)}',
                                 trailing: trailing,
                               );
                             },
@@ -1386,10 +1386,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         );
       },
     );
-  }
-
-  String _money(double value) {
-    return Money.format(value);
   }
 }
 

@@ -1,3 +1,5 @@
+import '../app/money.dart';
+
 /// A fixed copy of a cart line; later cart edits cannot change queued sales.
 class SaleLine {
   const SaleLine({
@@ -106,16 +108,15 @@ class SaleRecord {
   final String buyerVatNumber;
 
   /// Sum of the lines before any discount.
-  double get subtotal => _fils(items.fold(0.0, (sum, item) => sum + item.subtotal));
+  double get subtotal => Money.round(items.fold(0.0, (sum, item) => sum + item.subtotal));
 
   /// Amount the customer pays.
-  double get total => _fils(subtotal - discount);
+  double get total => Money.round(subtotal - discount);
 
   /// VAT already contained in [total] (prices are VAT-inclusive).
-  double get tax => vatRate <= 0 ? 0 : _fils(total * vatRate / (100 + vatRate));
+  double get tax => vatRate <= 0 ? 0 : Money.round(total * vatRate / (100 + vatRate));
 
   /// Rounds to fils (3 decimals) so stored and recomputed totals match exactly.
-  static double _fils(double value) => (value * 1000).roundToDouble() / 1000;
   String get receiptNumber => 'RCPT-$id';
 
   Map<String, dynamic> toJson() => {

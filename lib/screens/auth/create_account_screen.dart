@@ -12,9 +12,6 @@ import '../../app/app_typography.dart';
 import 'verify_email_screen.dart';
 import '../../app/app_language.dart';
 
-/// Strong ease-out for entrances and state changes (Emil Kowalski's UI curve).
-const _easeOut = Cubic(0.23, 1, 0.32, 1);
-
 /// Creates an owner/store or a cashier awaiting approval; passwords belong to Firebase Auth.
 class CreateAccountScreen extends StatefulWidget {
   const CreateAccountScreen({
@@ -318,7 +315,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
         child: PressableScale(
           child: AnimatedContainer(
             duration: duration,
-            curve: _easeOut,
+            curve: Motion.easeOut,
             decoration: BoxDecoration(
               color: selected ? AppColors.ice : AppColors.surface,
               borderRadius: radius,
@@ -341,7 +338,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                         children: [
                           AnimatedContainer(
                             duration: duration,
-                            curve: _easeOut,
+                            curve: Motion.easeOut,
                             width: 38,
                             height: 38,
                             decoration: BoxDecoration(
@@ -358,7 +355,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                           AnimatedScale(
                             scale: selected ? 1 : 0.6,
                             duration: duration,
-                            curve: _easeOut,
+                            curve: Motion.easeOut,
                             child: AnimatedOpacity(
                               opacity: selected ? 1 : 0,
                               duration: duration,
@@ -713,7 +710,7 @@ class _ScanRule extends StatelessWidget {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: const Duration(milliseconds: 640),
-      curve: const Interval(0.3, 1, curve: _easeOut),
+      curve: const Interval(0.3, 1, curve: Motion.easeOut),
       builder: (context, t, child) => Align(
         alignment: AlignmentDirectional.centerStart,
         widthFactor: 1,

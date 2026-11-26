@@ -1,11 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../app/money.dart';
 
 /// Owner-approved returns. A refund is its own sales document (`type: refund`) that links
 /// to the original receipt, so the original stays unchanged for the audit trail.
 /// Returned units go back into stock in the same transaction.
 abstract final class RefundService {
-  static double _fils(double value) => (value * 1000).roundToDouble() / 1000;
-
   static int _int(Object? value) => value is num ? value.toInt() : 0;
   static double _num(Object? value) => value is num ? value.toDouble() : 0;
 
@@ -92,11 +91,11 @@ abstract final class RefundService {
         'name': (line['name'] ?? '').toString(),
         'price': price,
         'quantity': entry.value,
-        'subtotal': _fils(price * entry.value),
+        'subtotal': Money.round(price * entry.value),
       });
     }
-    amount = _fils(amount);
-    final tax = vatRate <= 0 ? 0.0 : _fils(amount * vatRate / (100 + vatRate));
+    amount = Money.round(amount);
+    final tax = vatRate <= 0 ? 0.0 : Money.round(amount * vatRate / (100 + vatRate));
 
     final refundRef = db.collection('sales').doc();
     final when = now ?? DateTime.now();

@@ -5,9 +5,6 @@ import 'package:flutter/material.dart';
 import '../app/app_colors.dart';
 import 'motion.dart';
 
-/// Strong ease-out for entrances (Emil Kowalski's UI curve).
-const _easeOut = Cubic(0.23, 1, 0.32, 1);
-
 /// The sign-in backdrop: a soft grey wash with a white light that falls from the top of the screen and
 /// drifts slowly from side to side, like daylight on a shop counter.
 /// It is the quiet layer; the scanner frame around the logo is the moment.
@@ -70,7 +67,11 @@ class _FrostPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [AppColors.backdrop, AppColors.backdrop.withValues(alpha: 0.5), AppColors.background],
+          colors: [
+            AppColors.backdrop,
+            AppColors.backdrop.withValues(alpha: 0.5),
+            AppColors.background,
+          ],
           stops: const [0, 0.55, 1],
         ).createShader(wash),
     );
@@ -123,7 +124,7 @@ class _ScanFrameState extends State<ScanFrame> with TickerProviderStateMixin {
   )..addStatusListener(_onIntro);
   late final Animation<double> _corners = CurvedAnimation(
     parent: _intro,
-    curve: const Interval(0.3, 1, curve: _easeOut),
+    curve: const Interval(0.3, 1, curve: Motion.easeOut),
   );
   late final AnimationController _beam = AnimationController(vsync: this);
   bool _reduced = false;

@@ -12,6 +12,9 @@ abstract final class Motion {
   static const slow = Duration(milliseconds: 900);
   static const curve = Curves.easeOutCubic;
 
+  /// Strong ease-out for entrances and state changes (Emil Kowalski's UI curve).
+  static const easeOut = Cubic(0.23, 1, 0.32, 1);
+
   static bool reduced(BuildContext context) =>
       MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 }

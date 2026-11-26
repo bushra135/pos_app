@@ -340,10 +340,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     return [
       'Today\'s sales summary:'.tr,
       "",
-      '- Gross sales: {amount}'.trArgs({'amount': _money(gross)}),
-      '- Net sales: {amount}'.trArgs({'amount': _money(total)}),
+      '- Gross sales: {amount}'.trArgs({'amount': Money.format(gross)}),
+      '- Net sales: {amount}'.trArgs({'amount': Money.format(total)}),
       '- Orders: {n}'.trArgs({'n': orders}),
-      '- Average order value: {amount}'.trArgs({'amount': _money(averageOrder)}),
+      '- Average order value: {amount}'.trArgs({'amount': Money.format(averageOrder)}),
       if (topProduct != null)
         '- Top product: {name} ({n} sold)'.trArgs({
           'name': topProduct.name,
@@ -370,12 +370,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     return [
       '$title:',
       "",
-      '- Gross sales: {amount}'.trArgs({'amount': _money(gross)}),
-      '- Net sales: {amount}'.trArgs({'amount': _money(total)}),
+      '- Gross sales: {amount}'.trArgs({'amount': Money.format(gross)}),
+      '- Net sales: {amount}'.trArgs({'amount': Money.format(total)}),
       '- Orders: {n}'.trArgs({'n': orders}),
-      '- Average order value: {amount}'.trArgs({'amount': _money(averageOrder)}),
-      '- Discounts: {amount}'.trArgs({'amount': _money(discounts)}),
-      '- Refunds: {amount}'.trArgs({'amount': _money(refunds)}),
+      '- Average order value: {amount}'.trArgs({'amount': Money.format(averageOrder)}),
+      '- Discounts: {amount}'.trArgs({'amount': Money.format(discounts)}),
+      '- Refunds: {amount}'.trArgs({'amount': Money.format(refunds)}),
     ].join('\n');
   }
 
@@ -404,7 +404,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         'i': index,
         'name': product.name,
         'n': product.quantity.toStringAsFixed(0),
-        'amount': _money(product.revenue),
+        'amount': Money.format(product.revenue),
       });
     });
 
@@ -430,7 +430,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       return '{i}. {name}: {amount} ({n} sold)'.trArgs({
         'i': index,
         'name': product.name,
-        'amount': _money(product.revenue),
+        'amount': Money.format(product.revenue),
         'n': product.quantity.toStringAsFixed(0),
       });
     });
@@ -539,8 +539,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       if (slow.price > 0) {
         lines.add(
           '   - Offer price: {from} → {to}'.trArgs({
-            'from': _money(slow.price),
-            'to': _money(offer.discountedPrice),
+            'from': Money.format(slow.price),
+            'to': Money.format(offer.discountedPrice),
           }),
         );
       }
@@ -591,7 +591,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           ),
       ],
       now: DateTime.now(),
-      money: _money,
+      money: Money.format,
     );
     if (recs.isEmpty) {
       return 'Your store looks healthy. Record more sales for more recommendations.'.tr;
@@ -700,7 +700,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       final percent = total == 0 ? 0 : (entry.value / total) * 100;
       return '- {method}: {amount} ({percent}%)'.trArgs({
         'method': entry.key.tr,
-        'amount': _money(entry.value),
+        'amount': Money.format(entry.value),
         'percent': percent.toStringAsFixed(1),
       });
     });
@@ -739,7 +739,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       'Best sales hour today:'.tr,
       "",
       '- Hour: {hour}:00'.trArgs({'hour': bestHour.toString().padLeft(2, '0')}),
-      '- Sales: {amount}'.trArgs({'amount': _money(bestAmount)}),
+      '- Sales: {amount}'.trArgs({'amount': Money.format(bestAmount)}),
       '- Orders: {n}'.trArgs({'n': hourlyOrders[bestHour]}),
     ].join('\n');
   }
@@ -756,10 +756,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     return [
       'Net sales summary this month:'.tr,
       "",
-      '- Gross sales: {amount}'.trArgs({'amount': _money(gross)}),
-      '- Discounts: {amount}'.trArgs({'amount': _money(discounts)}),
-      '- Refunds: {amount}'.trArgs({'amount': _money(refunds)}),
-      '- Net sales: {amount}'.trArgs({'amount': _money(net)}),
+      '- Gross sales: {amount}'.trArgs({'amount': Money.format(gross)}),
+      '- Discounts: {amount}'.trArgs({'amount': Money.format(discounts)}),
+      '- Refunds: {amount}'.trArgs({'amount': Money.format(refunds)}),
+      '- Net sales: {amount}'.trArgs({'amount': Money.format(net)}),
     ].join('\n');
   }
 
@@ -786,9 +786,9 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     return [
       'Store overview:'.tr,
       "",
-      '- Today sales: {amount}'.trArgs({'amount': _money(todaySales)}),
+      '- Today sales: {amount}'.trArgs({'amount': Money.format(todaySales)}),
       '- Today orders: {n}'.trArgs({'n': todayOrders}),
-      '- This month sales: {amount}'.trArgs({'amount': _money(monthSales)}),
+      '- This month sales: {amount}'.trArgs({'amount': Money.format(monthSales)}),
       '- This month orders: {n}'.trArgs({'n': monthOrders}),
       '- Products in inventory: {n}'.trArgs({'n': data.products.length}),
       '- Low stock products: {n}'.trArgs({'n': lowStockCount}),
@@ -860,10 +860,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         curve: Curves.easeOut,
       );
     });
-  }
-
-  String _money(double value) {
-    return Money.format(value);
   }
 
   void _startNewConversation() {

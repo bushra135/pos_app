@@ -43,13 +43,12 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   double _discountValue = 0;
   bool _discountIsPercent = true;
 
-  static double _fils(double value) => (value * 1000).roundToDouble() / 1000;
-  double get _subtotal => _fils(CartManager.total);
+  double get _subtotal => Money.round(CartManager.total);
 
   /// The cashier's own discount (percent of the subtotal or a fixed amount).
   double get _manualDiscountAmount {
     final raw = _discountIsPercent ? _subtotal * _discountValue / 100 : _discountValue;
-    return _fils(raw.clamp(0, _subtotal).toDouble());
+    return Money.round(raw.clamp(0, _subtotal).toDouble());
   }
 
   /// Bundle offers the owner switched on; applied automatically to complete pairs.
@@ -62,15 +61,15 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
   /// Everything taken off the subtotal: bundle offers plus the cashier's discount.
   double get _discountAmount =>
-      _fils((_offerAmount + _manualDiscountAmount).clamp(0, _subtotal).toDouble());
+      Money.round((_offerAmount + _manualDiscountAmount).clamp(0, _subtotal).toDouble());
 
-  double get _total => _fils(_subtotal - _discountAmount);
+  double get _total => Money.round(_subtotal - _discountAmount);
 
   /// Cash the customer handed over (optional); used only to show the change.
   final _cashController = TextEditingController();
   double? get _cashReceived {
     final value = double.tryParse(_cashController.text.trim());
-    return value == null ? null : _fils(value);
+    return value == null ? null : Money.round(value);
   }
 
   bool get _cashShort =>
@@ -97,7 +96,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   /// VAT contained in the VAT-inclusive total (0 when the store is not registered).
   double get _vat {
     final rate = _storeVat.rate;
-    return rate <= 0 ? 0 : _fils(_total * rate / (100 + rate));
+    return rate <= 0 ? 0 : Money.round(_total * rate / (100 + rate));
   }
 
   /// Customer details for a full tax invoice (registered stores, when asked for).
@@ -467,7 +466,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   /// Cash received and change, so the cashier never works the change out by hand.
   Widget _buildCashPanel() {
     final received = _cashReceived;
-    final change = received == null ? null : _fils(received - _total);
+    final change = received == null ? null : Money.round(received - _total);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(

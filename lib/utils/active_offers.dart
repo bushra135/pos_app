@@ -1,3 +1,5 @@
+import '../app/money.dart';
+
 /// Bundle offers the owner switched on: "buy [anchorName], get [slowName] [percent]% off".
 ///
 /// An offer is stored on the slow-moving product itself (offerActive, offerWithId,
@@ -60,8 +62,6 @@ typedef OfferCartLine = ({String productId, double price, int quantity});
 typedef AppliedOffer = ({ActiveOffer offer, int pairs, double amount});
 
 abstract final class OfferMath {
-  static double _fils(double value) => (value * 1000).roundToDouble() / 1000;
-
   /// Discount for every complete pair in the cart: each anchor unit unlocks one slow
   /// unit at the offer price. Lines with a missing anchor get nothing.
   static List<AppliedOffer> apply(List<OfferCartLine> cart, List<ActiveOffer> offers) {
@@ -82,14 +82,14 @@ abstract final class OfferMath {
         quantity[offer.anchorId] ?? 0,
       ].reduce((a, b) => a < b ? a : b);
       if (pairs <= 0) continue;
-      final amount = _fils(pairs * (price[offer.slowId] ?? 0) * offer.percent / 100);
+      final amount = Money.round(pairs * (price[offer.slowId] ?? 0) * offer.percent / 100);
       if (amount > 0) applied.add((offer: offer, pairs: pairs, amount: amount));
     }
     return applied;
   }
 
   static double total(List<AppliedOffer> applied) =>
-      _fils(applied.fold(0.0, (sum, a) => sum + a.amount));
+      Money.round(applied.fold(0.0, (sum, a) => sum + a.amount));
 
   /// Largest whole-percent discount that still sells at or above cost (capped at 50%).
   /// Without a cost the cap is 30%, a cautious default.
