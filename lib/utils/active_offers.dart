@@ -61,6 +61,7 @@ typedef OfferCartLine = ({String productId, double price, int quantity});
 /// An offer that applied to this cart.
 typedef AppliedOffer = ({ActiveOffer offer, int pairs, double amount});
 
+/// Applies running bundle offers to a cart.
 abstract final class OfferMath {
   /// Discount for every complete pair in the cart: each anchor unit unlocks one slow
   /// unit at the offer price. Lines with a missing anchor get nothing.

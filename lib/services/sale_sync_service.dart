@@ -24,8 +24,11 @@ class OutOfStockException extends StateError {
   final String productName;
 }
 
+/// Outcome of submitting a sale: saved to the server, queued on the device, or
+/// queued but needing review (for example a stock conflict).
 enum SaleSubmissionStatus { synced, queued, conflict }
 
+/// The result of a checkout, with an optional message for the cashier.
 class SaleSubmission {
   const SaleSubmission(this.status, [this.message]);
   final SaleSubmissionStatus status;
@@ -76,6 +79,7 @@ class SaleSyncService extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
+  /// Forgets the signed-in user and store (on sign-out) and stops all listeners.
   void clearSession() {
     _uid = null;
     _storeCode = null;
@@ -89,6 +93,8 @@ class SaleSyncService extends ChangeNotifier {
     _changed();
   }
 
+  /// Attaches the service to a user and store: restores their cart, loads pending
+  /// sales from the device and starts watching the queue and product catalogue.
   Future<void> bind(String uid, String storeCode) async {
     if (_uid == uid && _storeCode == storeCode) return;
     await _queueSubscription?.cancel();
@@ -281,6 +287,8 @@ class SaleSyncService extends ChangeNotifier {
     return result;
   }
 
+  /// Saves the sale on the device first (so it is never lost), then tries to send it.
+  /// Offline, only cash sales are accepted; they sync later.
   Future<SaleSubmission> _submit(SaleRecord sale) async {
     if (sale.cashierUid != currentUserId() ||
         sale.cashierUid != _uid ||
@@ -307,6 +315,8 @@ class SaleSyncService extends ChangeNotifier {
     return _send(sale);
   }
 
+  /// Sends one queued sale to Firestore. On success it leaves the device queue; on a
+  /// temporary network error it stays queued; on a stock conflict it is kept for review.
   Future<SaleSubmission> _send(SaleRecord sale) async {
     if (sale.cashierUid != currentUserId() ||
         sale.cashierUid != _uid ||
@@ -358,6 +368,7 @@ class SaleSyncService extends ChangeNotifier {
     }
   }
 
+  /// If a send timed out but later succeeds, removes the sale from the queue then.
   Future<void> _observeLateConfirmation(SaleRecord sale, Future<void> confirmation) async {
     try {
       await confirmation;
@@ -384,6 +395,8 @@ class SaleSyncService extends ChangeNotifier {
     }
   }
 
+  /// Sends every pending sale for the current user and store, one at a time, oldest first.
+  /// Stops if the user, store or offline mode changes in the meantime.
   Future<void> _synchronize() async {
     final uid = _uid;
     final code = _storeCode;
@@ -417,6 +430,7 @@ class SaleSyncService extends ChangeNotifier {
     await synchronize();
   }
 
+  /// Turns the app's offline mode on or off; going back online syncs pending sales.
   Future<void> setOffline(bool enabled) async {
     if (enabled) {
       await firestore.disableNetwork();
@@ -431,6 +445,7 @@ class SaleSyncService extends ChangeNotifier {
     _changed();
   }
 
+  /// Firestore errors that mean try again later rather than the sale is invalid.
   static bool _temporary(FirebaseException error) => [
     'unavailable',
     'deadline-exceeded',

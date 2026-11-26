@@ -18,6 +18,8 @@ class CashiersManagementScreen extends StatefulWidget {
   State<CashiersManagementScreen> createState() => _CashiersManagementScreenState();
 }
 
+/// Lists the store's cashiers live and lets the owner invite, approve, disable,
+/// delete them and set their permissions.
 class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -40,6 +42,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
         .snapshots();
   }
 
+  /// Saves an invite for a new cashier email; throws if that email is already in the store.
   Future<void> _createCashierInvite() async {
     final name = _nameController.text.trim();
     final email = _emailController.text.trim().toLowerCase();
@@ -90,6 +93,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
     }
   }
 
+  /// A switch for one cashier permission (edit products, adjust stock), saved immediately.
   Widget _permissionSwitch({
     required String docId,
     required String field,
@@ -116,6 +120,8 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
     );
   }
 
+  /// Turns a cashier on or off. Enabling a registered account makes it active;
+  /// an invite that has not signed up yet stays invited.
   Future<void> _updateCashierStatus({
     required String docId,
     required Map<String, dynamic> data,
@@ -148,6 +154,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
     }
   }
 
+  /// Asks for confirmation, then deletes the cashier's record from the store.
   Future<void> _deleteCashier(String docId, String name) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -185,6 +192,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
     }
   }
 
+  /// Dialog with name and email fields that creates a cashier invite.
   Future<void> _showAddCashierDialog() async {
     _nameController.clear();
     _emailController.clear();
@@ -382,6 +390,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
     );
   }
 
+  /// Filled, borderless field style used in the invite dialog.
   InputDecoration _inputDecoration({required String label, required IconData icon}) {
     return InputDecoration(
       labelText: label,
@@ -446,6 +455,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
     return sorted;
   }
 
+  /// Back button, title and short explanation at the top of the screen.
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
@@ -491,6 +501,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
     );
   }
 
+  /// Counts of active, invited and disabled cashiers.
   Widget _buildSummary(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
     int active = 0;
     int invited = 0;
@@ -524,6 +535,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
     );
   }
 
+  /// One cashier: name, email, status, on/off switch, permissions and delete.
   Widget _buildCashierCard(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data();
 
@@ -682,6 +694,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
     );
   }
 
+  /// Shown when the store has no cashiers yet, with an invite button.
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
@@ -813,6 +826,7 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
   }
 }
 
+/// Coloured pill with a count, used in the status summary.
 class _SummaryPill extends StatelessWidget {
   final String label;
   final String value;
@@ -854,6 +868,7 @@ class _SummaryPill extends StatelessWidget {
   }
 }
 
+/// Display label and colours for a cashier's status.
 class _CashierStatus {
   final String label;
   final Color color;

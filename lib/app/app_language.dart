@@ -40,6 +40,7 @@ abstract final class AppLanguage {
   static Future<void> toggle() => set(isArabic ? english : arabic);
 }
 
+/// Adds .tr and .trArgs to English UI strings.
 extension Translate on String {
   /// This text in the current app language.
   String get tr => AppLanguage.isArabic ? (arabicStrings[this] ?? this) : this;

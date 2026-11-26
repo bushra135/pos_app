@@ -19,11 +19,15 @@ abstract final class CartManager {
   static String? saveError;
   static bool get saving => _pendingWrites > 0;
   static bool get canSave => _store != null;
+
+  /// Whether the cart currently belongs to this device store, user and shop.
   static bool isBoundTo(LocalPosStore store, String? uid, String? code) =>
       _store == store && _uid == uid && _code == code;
   static List<Map<String, Object?>> get heldSales => List.unmodifiable(_held);
   static void _changed() => revision.value++;
 
+  /// Loads the saved active and held carts for a user and store from the device.
+  /// [_generation] makes an older, slower load give way to a newer one.
   static Future<void> bind(LocalPosStore store, String uid, String code) async {
     if (_store == store && _uid == uid && _code == code) return;
     detach();
@@ -71,6 +75,7 @@ abstract final class CartManager {
     'held': held ?? _held,
   };
 
+  /// Reads saved cart lines, refusing any that belong to another store or look invalid.
   static List<CartItem> _readItems(Object? value, String code) =>
       (value as List? ?? []).map((entry) {
         final row = Map<String, dynamic>.from(entry as Map);
@@ -97,6 +102,7 @@ abstract final class CartManager {
         );
       }).toList();
 
+  /// Fills in missing product images from the device's product cache.
   static Future<List<CartItem>> _withCachedImages(
     LocalPosStore store,
     String code,
@@ -125,6 +131,7 @@ abstract final class CartManager {
     return restored;
   }
 
+  /// Writes the cart to the device in order, one write after another.
   static void _save() {
     final store = _store;
     final uid = _uid, code = _code;
@@ -160,6 +167,7 @@ abstract final class CartManager {
     if (saveError != null) throw StateError(saveError!);
   }
 
+  /// Adds one unit of a product, or raises the quantity if it is already in the cart.
   static void addItem({
     required String name,
     required double price,
@@ -250,6 +258,7 @@ abstract final class CartManager {
     await _replace(active: _readItems(selected['items'], _code!), held: next);
   }
 
+  /// Swaps the active and held carts (hold / resume a sale) and saves the result.
   static Future<void> _replace({
     required List<CartItem> active,
     required List<Map<String, Object?>> held,

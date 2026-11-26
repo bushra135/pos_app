@@ -48,6 +48,8 @@ class SalesHistoryScreen extends StatefulWidget {
   State<SalesHistoryScreen> createState() => _SalesHistoryScreenState();
 }
 
+/// Streams the store's receipts and applies the period, cashier, payment, product,
+/// status and search filters on the device.
 class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   final _search = TextEditingController();
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _subscription;
@@ -87,9 +89,12 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
   /// Current selling prices (product id -> price), to flag receipts sold below them.
   Map<String, double> _catalogPrices = const {};
 
+  /// Checks a receipt for problems worth a look (totals, prices, late sync).
   List<String> _issues(_HistorySale sale) =>
       ReceiptAudit.issues(sale.data, catalogPrices: _catalogPrices);
 
+  /// Checks the user is the store owner, loads product prices and starts listening
+  /// to the store's receipts. [_generation] drops results from an older load.
   Future<void> _load() async {
     final generation = ++_generation;
     await _subscription?.cancel();
@@ -163,6 +168,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     }
   }
 
+  /// Takes a new snapshot of receipts, newest first, and clears filters that no longer match.
   void _accept(QuerySnapshot<Map<String, dynamic>> snapshot) {
     final records = snapshot.docs.map((doc) => _HistorySale(doc.id, doc.data())).toList()
       ..sort((a, b) => (b.date ?? DateTime(1970)).compareTo(a.date ?? DateTime(1970)));
@@ -246,6 +252,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
         : math.max(0, sale.total - refund);
   }
 
+  /// Units sold of the filtered product across completed (non-refund) receipts.
   double _matchingSoldUnits(List<_HistorySale> sales) => sales
       .where((sale) => sale.completed && !sale.refund)
       .fold<double>(
@@ -253,6 +260,8 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
         (total, sale) =>
             total + _matchingItems(sale).fold<double>(0, (units, item) => units + _quantity(item)),
       );
+
+  /// Value sold of the filtered product across completed (non-refund) receipts.
   double _matchingSoldValue(List<_HistorySale> sales) => sales
       .where((sale) => sale.completed && !sale.refund)
       .fold<double>(
@@ -264,6 +273,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
             ).fold<double>(0, (value, item) => value + _quantity(item) * _price(item)),
       );
 
+  /// Applies a preset period, or opens the date-range picker for a custom range.
   Future<void> _changePeriod(String value) async {
     FocusScope.of(context).unfocus();
     if (value != 'Custom range') {
@@ -295,6 +305,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     });
   }
 
+  /// Resets every filter and the search back to All time.
   void _clearFilters() {
     FocusScope.of(context).unfocus();
     setState(() {
@@ -311,6 +322,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     });
   }
 
+  /// Bottom sheet with the payment, product, status and corrections-only filters.
   Future<void> _showFilters() async {
     FocusScope.of(context).unfocus();
     var payment = _payment, product = _product, status = _status;
@@ -723,6 +735,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     );
   }
 
+  /// Cashiers ranked by sales in the current period (Top cashiers).
   Widget _leaderboard() {
     final rows = _rankings();
     if (rows.isEmpty) {
@@ -865,6 +878,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     }
   }
 
+  /// Bottom sheet with the full receipt, its issues, and the refund action.
   Future<void> _details(_HistorySale sale) async {
     FocusScope.of(context).unfocus();
     await showModalBottomSheet<void>(
@@ -1085,6 +1099,7 @@ class _HistorySale {
   }
 }
 
+/// Order count and total (in fils) for one cashier in the leaderboard.
 class _CashierTotal {
   _CashierTotal(this.key, this.name);
   final String key, name;
@@ -1133,6 +1148,7 @@ class _RefundDialog extends StatefulWidget {
   State<_RefundDialog> createState() => _RefundDialogState();
 }
 
+/// Lets the owner pick how many of each item to return and shows the refund amount.
 class _RefundDialogState extends State<_RefundDialog> {
   late final Map<String, int> _qty = {for (final id in widget.lines.keys) id: 0};
 

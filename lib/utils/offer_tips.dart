@@ -25,6 +25,8 @@ typedef TipProduct = ({
 
 typedef TipSale = ({DateTime createdAt, double total, double offerDiscount});
 
+/// Rule-based selling tips from recent sales: clearance, restock, slow days,
+/// basket pairs, low margins and missing costs.
 abstract final class OfferTips {
   static const _weekdays = [
     'Monday',

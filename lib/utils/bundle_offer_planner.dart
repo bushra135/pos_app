@@ -50,6 +50,7 @@ abstract final class BundleOfferPlanner {
   static const int maxOffers = 3;
   static const double slowShareOfTop = 0.25;
 
+  /// Pairs best sellers (anchors) with slow movers to suggest buy-one-get-one-off offers.
   static List<BundleOffer> plan(List<BundleCandidate> products) {
     final bestSellers = products.where((p) => p.soldRecently > 0).toList()
       ..sort((a, b) => b.soldRecently.compareTo(a.soldRecently));

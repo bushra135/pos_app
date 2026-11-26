@@ -25,6 +25,7 @@ class VerifyEmailScreen extends StatefulWidget {
   State<VerifyEmailScreen> createState() => _VerifyEmailScreenState();
 }
 
+/// Sends the verification link (with a 60 s cooldown) and checks when it is confirmed.
 class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   Timer? _timer;
   bool _busy = false;
@@ -63,6 +64,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     return 'Unable to verify your email right now. Please try again.';
   }
 
+  /// Sends the verification email, then starts the resend cooldown.
   Future<void> _send() async {
     if (_busy || _cooldown > 0) return;
     setState(() {
@@ -98,6 +100,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     }
   }
 
+  /// Reloads the user; once the email is verified, AuthWrapper opens the right home.
   Future<void> _verify() async {
     if (_busy) return;
     setState(() {
@@ -129,6 +132,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
     }
   }
 
+  /// Signs out and returns to Create account with the earlier values filled in.
   Future<void> _differentAccount() async {
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;

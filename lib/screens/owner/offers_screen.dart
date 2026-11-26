@@ -28,6 +28,7 @@ class OffersScreen extends StatefulWidget {
   State<OffersScreen> createState() => _OffersScreenState();
 }
 
+/// A product row with typed getters over its Firestore fields.
 class _Product {
   _Product(this.id, this.data);
   final String id;
@@ -39,6 +40,8 @@ class _Product {
   double get price => (data['price'] as num?)?.toDouble() ?? 0;
 }
 
+/// Loads products, costs and the last 30 days of sales, then shows active offers,
+/// suggested bundles, recommendations and tips.
 class _OffersScreenState extends State<OffersScreen> {
   FirebaseFirestore get _db => widget.firestore ?? FirebaseFirestore.instance;
   String? get _uid => (widget.currentUserId ?? () => FirebaseAuth.instance.currentUser?.uid)();
@@ -58,6 +61,7 @@ class _OffersScreenState extends State<OffersScreen> {
     _load();
   }
 
+  /// Loads the owner's products, cost prices and recent sales; owner only.
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -164,6 +168,7 @@ class _OffersScreenState extends State<OffersScreen> {
     return OfferMath.safeMaxPercent(price: product.price, cost: _costs[productId]);
   }
 
+  /// Updates one product (start or stop an offer), reloads and confirms with [done].
   Future<void> _write(String productId, Map<String, dynamic> fields, String done) async {
     setState(() => _busy.add(productId));
     try {
@@ -187,6 +192,7 @@ class _OffersScreenState extends State<OffersScreen> {
     }
   }
 
+  /// Starts a suggested bundle offer, never with a discount that would sell below cost.
   Future<void> _start(BundleOffer suggestion) async {
     final max = _safeMax(suggestion.slowMover.key);
     if (max < ActiveOffer.minPercent) {
@@ -304,6 +310,7 @@ class _OffersScreenState extends State<OffersScreen> {
     );
   }
 
+  /// Builds the screen's sections in order: active, suggested, recommendations, tips.
   List<Widget> _sections() {
     final active = _active;
     final suggested = _suggested;
@@ -370,6 +377,7 @@ class _OffersScreenState extends State<OffersScreen> {
     ];
   }
 
+  /// Section heading with an icon.
   Widget _heading(String text, IconData icon) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
     child: Row(
@@ -388,6 +396,7 @@ class _OffersScreenState extends State<OffersScreen> {
     ),
   );
 
+  /// Muted explanatory line under a heading.
   Widget _note(String text) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
     child: Align(
@@ -402,6 +411,7 @@ class _OffersScreenState extends State<OffersScreen> {
     border: Border.all(color: AppColors.border),
   );
 
+  /// A running bundle offer with how often it was used and a Stop button.
   Widget _activeCard(ActiveOffer offer) {
     final used = _sales.where((s) => s.offerDiscount > 0).length;
     return Container(
@@ -453,6 +463,7 @@ class _OffersScreenState extends State<OffersScreen> {
     );
   }
 
+  /// A suggested bundle with its expected effect and a Start button.
   Widget _suggestionCard(BundleOffer offer) {
     final slow = offer.slowMover;
     final max = _safeMax(slow.key);
@@ -510,6 +521,7 @@ class _OffersScreenState extends State<OffersScreen> {
     );
   }
 
+  /// One recommendation, coloured by priority (urgent, worth doing, good to know).
   Widget _recommendationCard(Recommendation rec) {
     final (label, color, soft) = switch (rec.priority) {
       0 => ('Urgent', AppColors.danger, AppColors.dangerSoft),
@@ -566,6 +578,7 @@ class _OffersScreenState extends State<OffersScreen> {
     );
   }
 
+  /// A short selling tip (clearance, restock, slow day, basket, margin, costs).
   Widget _tipCard(OfferTip tip) {
     final icon = switch (tip.kind) {
       'clearance' => Icons.inventory_2_outlined,

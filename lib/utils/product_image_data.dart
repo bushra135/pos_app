@@ -9,6 +9,7 @@ abstract final class ProductImageData {
   static const int maxStoredBytes = 180 * 1024;
   static const int maxDimension = 640;
 
+  /// Shrinks a picked image until it fits in a Firestore field, as a PNG data URL.
   static Future<String> prepare(Uint8List source) async {
     if (source.isEmpty || source.length > maxSourceBytes) {
       throw const FormatException('Choose an image smaller than 20 MB.');

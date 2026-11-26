@@ -22,6 +22,7 @@ class CartScreen extends StatefulWidget {
   State<CartScreen> createState() => _CartScreenState();
 }
 
+/// The cart: lines with quantity steppers, hold and resume sales, total and checkout.
 class _CartScreenState extends State<CartScreen> {
   bool _draftBusy = false;
 
@@ -47,6 +48,7 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
+  /// Parks the current cart under an optional note so another customer can be served.
   Future<void> _holdSale() async {
     if (_draftBusy || CartManager.items.isEmpty) return;
     var note = '';
@@ -82,6 +84,7 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
+  /// Lists held sales; picking one resumes it (or deletes it).
   Future<void> _openHeldSales() async {
     if (_draftBusy) return;
     final selected = await showModalBottomSheet<String>(
@@ -177,6 +180,7 @@ class _CartScreenState extends State<CartScreen> {
     ),
   );
 
+  /// Hold sale and Held sales buttons above the cart lines.
   Widget _draftControls() => Padding(
     padding: const EdgeInsets.fromLTRB(AppSpacing.page, 0, AppSpacing.page, 12),
     child: Column(
@@ -274,6 +278,7 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
+  /// Opens payment; the cart is cleared only after the sale is saved.
   void _checkout() {
     if (CartManager.items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Cart is empty'.tr)));
@@ -533,6 +538,7 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
+  /// Square + or - button for a cart line's quantity.
   Widget _stepButton({
     required IconData icon,
     required String tooltip,

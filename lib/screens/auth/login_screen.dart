@@ -20,6 +20,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
+/// Email and password sign-in, password reset, and the link to create an account.
 class _LoginScreenState extends State<LoginScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
@@ -52,6 +53,8 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Signs in with Firebase Auth. Navigation happens in AuthWrapper when the auth
+  /// state changes; errors are shown as a friendly message with a shake.
   Future<void> _signIn() async {
     final email = _email.text.trim().toLowerCase();
     if (email.isEmpty || _password.text.isEmpty) {
@@ -79,6 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Sends a reset link. The message is the same whether or not the account exists.
   Future<void> _resetPassword() async {
     final email = _email.text.trim().toLowerCase();
     if (email.isEmpty) {
@@ -156,6 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  /// Logo in the scanner frame, title and subtitle.
   Widget _brand() => Column(
     children: [
       // The scanner frame is the screen's one motion moment; it keeps scanning while signing in.
@@ -186,6 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
     ],
   );
 
+  /// Email and password fields, error banner, Forgot password and the Sign in button.
   Widget _form() => Theme(
     // Focused fields use ink here, since indigo carries the brand on this screen.
     data: Theme.of(context).copyWith(
@@ -306,6 +312,7 @@ class _LoginScreenState extends State<LoginScreen> {
     ),
   );
 
+  /// New to ShopPad? prompt with the Create an account button.
   Widget _createAccount() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [

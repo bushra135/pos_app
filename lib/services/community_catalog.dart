@@ -23,6 +23,8 @@ abstract class CommunityCatalog {
   });
 }
 
+/// Shared barcode catalogue in Firestore: product names, categories, suggested prices
+/// and photos that every ShopPad store can read and help fill in.
 class FirestoreCommunityCatalog implements CommunityCatalog {
   FirestoreCommunityCatalog({FirebaseFirestore? firestore, String? Function()? currentUserId})
     : _firestoreOverride = firestore,
@@ -38,6 +40,7 @@ class FirestoreCommunityCatalog implements CommunityCatalog {
   String? get _uid =>
       _currentUserId != null ? _currentUserId() : FirebaseAuth.instance.currentUser?.uid;
 
+  /// The shared entry for [barcode], or null when there is none.
   @override
   Future<CatalogProduct?> lookup(String barcode) async {
     final doc = await _firestore.collection('catalog').doc(barcode).get();
@@ -64,6 +67,8 @@ class FirestoreCommunityCatalog implements CommunityCatalog {
   /// Matches the server rule; the app's compact images stay well below it.
   static const maxImageLength = 250000;
 
+  /// Adds a product to the shared catalogue, or fills a missing price or photo.
+  /// Existing values are never changed (the security rules enforce this too).
   @override
   Future<void> contribute({
     required String barcode,

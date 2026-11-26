@@ -31,6 +31,7 @@ class FadeSlideIn extends StatefulWidget {
   State<FadeSlideIn> createState() => _FadeSlideInState();
 }
 
+/// Plays the fade-and-rise once; shows the child at rest with reduced motion.
 class _FadeSlideInState extends State<FadeSlideIn> with SingleTickerProviderStateMixin {
   // The stagger is part of the animation (an Interval), so no timer is left pending.
   late final int _delayMs = 60 * widget.index.clamp(0, 8);
@@ -111,6 +112,7 @@ class PressableScale extends StatefulWidget {
   State<PressableScale> createState() => _PressableScaleState();
 }
 
+/// Tracks whether the pointer is down and scales the child slightly while it is.
 class _PressableScaleState extends State<PressableScale> {
   bool _down = false;
 
@@ -147,6 +149,7 @@ class SkeletonBox extends StatefulWidget {
   State<SkeletonBox> createState() => _SkeletonBoxState();
 }
 
+/// Pulses the placeholder's opacity while content loads.
 class _SkeletonBoxState extends State<SkeletonBox> with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,

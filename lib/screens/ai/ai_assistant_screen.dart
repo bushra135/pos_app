@@ -27,6 +27,7 @@ class AiAssistantScreen extends StatefulWidget {
   State<AiAssistantScreen> createState() => _AiAssistantScreenState();
 }
 
+/// Chat state: loads the store's products and sales, then answers each question locally.
 class _AiAssistantScreenState extends State<AiAssistantScreen> {
   String? get _uid => widget.currentUserId != null
       ? widget.currentUserId!()
@@ -60,6 +61,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     super.dispose();
   }
 
+  /// Reads the owner's first name for the greeting; failures are ignored.
   Future<void> _loadOwnerName() async {
     try {
       final uid = _uid;
@@ -86,6 +88,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     }
   }
 
+  /// Adds the question (typed or a tapped suggestion) to the chat, works out the answer
+  /// from the store's own data and appends it. Nothing is sent to an outside AI service.
   Future<void> _sendMessage([String? preset]) async {
     if (_isThinking) return;
 
@@ -353,6 +357,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     ].join('\n');
   }
 
+  /// Gross, net, discounts, refunds, orders and top product for [range], as chat text.
   String _periodSalesSummary({
     required _StoreData data,
     required String title,
@@ -379,6 +384,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     ].join('\n');
   }
 
+  /// Best sellers this week, ranked by quantity, then by revenue.
   String _topProductsThisWeek(_StoreData data) {
     final range = _currentWeekRange();
     final sales = _salesInRange(data.sales, range).where((sale) => !sale.isRefund).toList();
@@ -411,6 +417,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     return ['Top selling products this week:'.tr, '', ...lines].join('\n');
   }
 
+  /// The ten products that brought in the most money this month.
   String _topRevenueProducts(_StoreData data) {
     final range = _currentMonthRange();
     final sales = _salesInRange(data.sales, range).where((sale) => !sale.isRefund).toList();
@@ -438,6 +445,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     return ['Top revenue products this month:'.tr, '', ...lines].join('\n');
   }
 
+  /// Products that sold least (or not at all) this month, to review prices or stock.
   String _slowMovingProducts(_StoreData data) {
     final range = _currentMonthRange();
     final sales = _salesInRange(data.sales, range).where((sale) => !sale.isRefund).toList();
@@ -606,6 +614,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     ].join('\n');
   }
 
+  /// Products at or below their minimum stock, lowest first.
   String _lowStockAlerts(_StoreData data) {
     if (data.products.isEmpty) {
       return 'No products found in your inventory.'.tr;
@@ -632,6 +641,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     return ['Low stock alerts:'.tr, '', ...lines].join('\n');
   }
 
+  /// Suggested reorder quantities, based on the last 30 days of sales and current stock.
   String _restockRecommendations(_StoreData data) {
     final now = DateTime.now();
     final from = now.subtract(const Duration(days: 30));
@@ -678,6 +688,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     return ['Restock recommendations:'.tr, '', ...lines].join('\n');
   }
 
+  /// This month's sales split by payment method, with each method's share.
   String _paymentSummary(_StoreData data) {
     final range = _currentMonthRange();
     final sales = _salesInRange(data.sales, range).where((sale) => !sale.isRefund).toList();
@@ -708,6 +719,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     return ['Payment methods this month:'.tr, '', ...lines].join('\n');
   }
 
+  /// The hour with the highest sales today, with its total and order count.
   String _bestSalesHourToday(_StoreData data) {
     final range = _todayRange();
     final sales = _salesInRange(data.sales, range).where((sale) => !sale.isRefund).toList();
@@ -744,6 +756,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     ].join('\n');
   }
 
+  /// This month's gross sales, discounts, refunds and net sales.
   String _netSalesSummary(_StoreData data) {
     final range = _currentMonthRange();
     final sales = _salesInRange(data.sales, range);
@@ -763,6 +776,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     ].join('\n');
   }
 
+  /// Short overview: today's and this month's sales, orders and low-stock count.
   String _storeOverview(_StoreData data) {
     final today = _salesInRange(data.sales, _todayRange());
     final month = _salesInRange(data.sales, _currentMonthRange());
@@ -925,6 +939,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     );
   }
 
+  /// Assistant title, the local-analysis label and the info / new-chat buttons.
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 18, 8, 4),
@@ -1066,6 +1081,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     );
   }
 
+  /// Starter question cards shown before the first message.
   Widget _buildSuggestions() {
     const prompts = [
       (Icons.trending_up_rounded, 'Sales snapshot', "Today's sales summary", 'How is today going?'),
@@ -1184,6 +1200,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     );
   }
 
+  /// Text field and send button at the bottom of the chat.
   Widget _buildInputBar() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
@@ -1251,6 +1268,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   }
 }
 
+/// One chat message; answers get a copy button and, when relevant, an Open dashboard link.
 class _MessageBubble extends StatelessWidget {
   final _ChatMessage message;
   final VoidCallback onOpenReports;
@@ -1338,6 +1356,7 @@ class _MessageBubble extends StatelessWidget {
   }
 }
 
+/// Placeholder bubble shown while an answer is being prepared.
 class _TypingBubble extends StatelessWidget {
   const _TypingBubble();
   @override
@@ -1358,6 +1377,7 @@ class _TypingBubble extends StatelessWidget {
   );
 }
 
+/// A message in the conversation; [hasReport] adds a link to the dashboard.
 class _ChatMessage {
   final bool isUser;
   final String text;
@@ -1374,6 +1394,7 @@ class _StoreData {
   const _StoreData({required this.products, required this.sales});
 }
 
+/// The product fields the assistant needs (stock, minimum, category, cost).
 class _ProductInfo {
   final String key;
   final String name;
@@ -1417,6 +1438,7 @@ class _SaleInfo {
   String get paymentMethod => _summary.paymentMethod;
 }
 
+/// Quantity sold and revenue for one product within a period.
 class _ProductMetric {
   final String name;
   double quantity;
@@ -1425,6 +1447,7 @@ class _ProductMetric {
   _ProductMetric({required this.name, this.quantity = 0, this.revenue = 0});
 }
 
+/// A product to reorder: its current stock and the suggested quantity.
 class _RestockRecommendation {
   final String name;
   final int currentStock;
@@ -1437,6 +1460,7 @@ class _RestockRecommendation {
   });
 }
 
+/// Start (inclusive) and end (exclusive) of a period used for filtering sales.
 class _DateRange {
   final DateTime start;
   final DateTime end;

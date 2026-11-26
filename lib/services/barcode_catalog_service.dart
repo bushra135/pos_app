@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import 'community_catalog.dart';
 
+/// Product details found for a barcode, from the shared catalogue or Open Food Facts.
 class CatalogProduct {
   const CatalogProduct({
     required this.barcode,
@@ -72,6 +73,7 @@ class CatalogProduct {
   };
 }
 
+/// A lookup failure with a message that can be shown to the user.
 class CatalogLookupException implements Exception {
   const CatalogLookupException(this.message);
   final String message;
@@ -110,6 +112,8 @@ class BarcodeCatalogService {
   final _pending = <String, Future<CatalogProduct?>>{};
   final _requests = <DateTime>[];
 
+  /// Looks up a product barcode (8, 12, 13 or 14 digits). Results are cached and
+  /// repeated requests for the same code share one network call.
   Future<CatalogProduct?> lookup(String rawBarcode) async {
     final code = rawBarcode.trim();
     if (!RegExp(r'^(?:\d{8}|\d{12,14})$').hasMatch(code)) {
@@ -131,6 +135,8 @@ class BarcodeCatalogService {
     }
   }
 
+  /// Tries the shared ShopPad catalogue first, then Open Food Facts
+  /// (at most 15 requests a minute).
   Future<CatalogProduct?> _fetch(String code) async {
     final shared = await _lookupCommunity(code);
     if (shared != null) return _remember(code, shared);

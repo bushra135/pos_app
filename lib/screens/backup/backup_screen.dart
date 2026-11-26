@@ -17,6 +17,7 @@ class BackupScreen extends StatefulWidget {
   State<BackupScreen> createState() => _BackupScreenState();
 }
 
+/// Lists the store's cloud backups and runs create and restore (owner only).
 class _BackupScreenState extends State<BackupScreen> {
   late final BackupService _backupService;
   List<BackupSummary> _backups = [];
@@ -40,6 +41,7 @@ class _BackupScreenState extends State<BackupScreen> {
     _loadBackups();
   }
 
+  /// Runs one backup operation at a time and shows any error on screen.
   Future<void> _runBackupOperation(Future<void> Function() operation) async {
     if (_isBusy) return;
     setState(() {
@@ -62,6 +64,7 @@ class _BackupScreenState extends State<BackupScreen> {
     if (mounted) setState(() => _backups = rows);
   });
 
+  /// Confirms, then creates a new cloud backup.
   Future<void> _createBackup() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -91,6 +94,7 @@ class _BackupScreenState extends State<BackupScreen> {
     });
   }
 
+  /// Shows what a restore will do, then restores the missing records.
   Future<void> _restoreBackup(BackupSummary summary) async {
     var settings = false;
     final confirmed = await showDialog<bool>(

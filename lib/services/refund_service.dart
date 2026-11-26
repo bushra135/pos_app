@@ -5,6 +5,7 @@ import '../app/money.dart';
 /// to the original receipt, so the original stays unchanged for the audit trail.
 /// Returned units go back into stock in the same transaction.
 abstract final class RefundService {
+  /// Safe number readers for Firestore values: 0 when missing or not a number.
   static int _int(Object? value) => value is num ? value.toInt() : 0;
   static double _num(Object? value) => value is num ? value.toDouble() : 0;
 

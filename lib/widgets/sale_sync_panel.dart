@@ -104,6 +104,7 @@ class SaleSyncPanel extends StatelessWidget {
     );
   }
 
+  /// Bottom sheet listing the sales still waiting on this device, with retry and review.
   void _showPendingSales(BuildContext context, SaleSyncService sync) {
     showModalBottomSheet<void>(
       context: context,
@@ -182,6 +183,7 @@ class SaleSyncPanel extends StatelessWidget {
   }
 }
 
+/// One unsynced sale: receipt number, total, time and its sync problem if any.
 class _PendingSaleCard extends StatelessWidget {
   const _PendingSaleCard({required this.pending, required this.sync});
 

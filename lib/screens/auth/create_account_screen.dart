@@ -37,6 +37,7 @@ class CreateAccountScreen extends StatefulWidget {
   State<CreateAccountScreen> createState() => _CreateAccountScreenState();
 }
 
+/// Form state for the new account: role, fields, password rules and submission.
 class _CreateAccountScreenState extends State<CreateAccountScreen> {
   late bool _isOwner;
   bool _isLoading = false;
@@ -87,6 +88,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     return 'SHOP${List.generate(12, (_) => alphabet[random.nextInt(alphabet.length)]).join()}';
   }
 
+  /// Password rules. The same checks are listed live under the password field.
   bool _hasMinimumLength(String password) => password.length >= 12;
   bool _hasUppercase(String password) => RegExp(r'[A-Z]').hasMatch(password);
   bool _hasLowercase(String password) => RegExp(r'[a-z]').hasMatch(password);
@@ -107,6 +109,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message.tr)));
   }
 
+  /// Moves to the verify-email screen, keeping the form values in case the user returns.
   Future<void> _sendVerificationAndContinue(User user) async {
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
@@ -123,6 +126,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     );
   }
 
+  /// Validates the form, creates the Firebase Auth user, then writes the profile.
+  /// An owner also creates a new store (with a generated code) in the same batch;
+  /// a cashier joins an existing store as pending until the owner approves.
   Future<void> _handleCreateAccount() async {
     final fullName = _fullNameController.text.trim();
     final email = _emailController.text.trim().toLowerCase();
@@ -242,6 +248,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     }
   }
 
+  /// Field decoration with a leading icon and an optional error.
   InputDecoration _inputDecoration({
     required String hintText,
     required IconData icon,
@@ -257,6 +264,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     );
   }
 
+  /// One password rule with a tick once it is met.
   Widget _passwordRequirement(String label, bool isMet) {
     final color = isMet ? AppColors.primaryDark : AppColors.muted;
     return Padding(
@@ -274,6 +282,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     );
   }
 
+  /// Box listing every password rule, shown once the user starts typing.
   Widget _passwordRequirements(String password) {
     return Container(
       width: double.infinity,
@@ -483,6 +492,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     ),
   );
 
+  /// Show/hide button for a password field.
   Widget _passwordToggle(bool visible, VoidCallback toggle) =>
       PasswordEye(visible: visible, onPressed: toggle);
 

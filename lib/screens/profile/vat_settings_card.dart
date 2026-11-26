@@ -27,6 +27,7 @@ class VatSettingsCard extends StatefulWidget {
   State<VatSettingsCard> createState() => _VatSettingsCardState();
 }
 
+/// Form for the store's VAT status, 15-digit VAT number and address.
 class _VatSettingsCardState extends State<VatSettingsCard> {
   final _form = GlobalKey<FormState>();
   late final StoreVat _initial = StoreVat.fromStore(widget.store);
@@ -42,6 +43,7 @@ class _VatSettingsCardState extends State<VatSettingsCard> {
     super.dispose();
   }
 
+  /// Validates and saves the VAT details on the store (owner only, enforced by the rules).
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
     setState(() => _saving = true);

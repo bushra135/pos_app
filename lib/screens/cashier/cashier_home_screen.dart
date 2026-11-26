@@ -35,6 +35,7 @@ class CashierHomeScreen extends StatefulWidget {
   State<CashierHomeScreen> createState() => _CashierHomeScreenState();
 }
 
+/// Cashier shell: home, scan, cart and profile tabs, with today's own sales.
 class _CashierHomeScreenState extends State<CashierHomeScreen> {
   int selectedIndex = 0;
   FirebaseFirestore get _firestore => widget.firestore ?? FirebaseFirestore.instance;
@@ -60,6 +61,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     _loadUserData();
   }
 
+  /// Loads the cashier's profile and store, from the offline cache first when available.
   Future<void> _loadUserData() async {
     try {
       final uid = _userId;
@@ -115,6 +117,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     }
   }
 
+  /// Counts this cashier's sales and total for the local day.
   Future<void> _loadTodayStats(String cashierUid) async {
     try {
       // Include this cashier's sales for the local day, excluding tomorrow.
@@ -170,6 +173,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     }
   }
 
+  /// Switches the cashier on or off duty (separate from the owner's approval).
   Future<void> _toggleUserStatus() async {
     try {
       final uid = _userId;
@@ -279,6 +283,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     );
   }
 
+  /// Home tab: pull to refresh today's figures.
   Widget _buildHomeContent() {
     final cartCount = CartManager.items.length;
     return RefreshIndicator(
@@ -301,6 +306,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     );
   }
 
+  /// Home tab content in order: greeting, today's sales, Start sale, shortcuts, receipts.
   List<Widget> _homeChildren(int cartCount) {
     return [
       FadeSlideIn(child: _buildHeader()),
@@ -416,6 +422,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     );
   }
 
+  /// Greeting and store name, with the duty chip (and Owner switch for owners).
   Widget _buildHeader() {
     final statusColor = isActive ? AppColors.success : AppColors.muted;
     return Row(
@@ -474,6 +481,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     );
   }
 
+  /// On duty / Off duty chip; tapping it toggles the state.
   Widget _buildDutyChip(Color statusColor) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -517,6 +525,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     );
   }
 
+  /// Today's sales and number of sales for this cashier.
   Widget _buildStatsCard() {
     const valueStyle = TextStyle(
       color: AppColors.onHero,
@@ -633,6 +642,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
     );
   }
 
+  /// Shortcut tile (Cart, Products) with an icon, label and caption.
   Widget _buildActionTile({
     required IconData icon,
     required String label,

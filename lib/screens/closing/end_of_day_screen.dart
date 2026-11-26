@@ -76,6 +76,7 @@ class EndOfDayScreen extends StatefulWidget {
   State<EndOfDayScreen> createState() => _EndOfDayScreenState();
 }
 
+/// End-of-day (Z) report: sales, refunds and expected cash, with a cash count.
 class _EndOfDayScreenState extends State<EndOfDayScreen> {
   final _floatController = TextEditingController();
   final _countedController = TextEditingController();
@@ -105,6 +106,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
     super.dispose();
   }
 
+  /// Loads today's receipts: the whole store for an owner, own sales for a cashier.
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -155,6 +157,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
   String get _dateLabel =>
       '${_day.day.toString().padLeft(2, '0')}/${_day.month.toString().padLeft(2, '0')}/${_day.year}';
 
+  /// Builds the report as a PDF (Arabic-capable font) and opens the share sheet.
   Future<void> _sharePdf() async {
     final summary = _summary;
     if (summary == null) return;
@@ -259,6 +262,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
     );
   }
 
+  /// The report body: totals, payment split, opening float, counted cash and difference.
   Widget _buildReport(DaySummary summary) {
     final opening = _amount(_floatController);
     final expected = summary.expectedCash(opening);

@@ -9,6 +9,7 @@ class BackupSummary {
   final int sales;
 }
 
+/// How many products and sales a restore added back.
 class RestoreResult {
   const RestoreResult(this.products, this.sales);
   final int products;
@@ -25,6 +26,7 @@ class BackupService {
   static const _server = GetOptions(source: Source.server);
   static const _settings = ['storeName', 'benefitNumber', 'benefitQrBase64'];
 
+  /// Confirms (from the server) that the signed-in user owns [storeCode]; returns their uid.
   Future<String> _requireStoreOwner(String storeCode) async {
     final uid = currentUid();
     if (uid == null || storeCode.isEmpty) {
@@ -41,6 +43,7 @@ class BackupService {
   CollectionReference<Map<String, dynamic>> _backupCollection(String storeCode) =>
       db.collection('stores').doc(storeCode).collection('backups');
 
+  /// The store's complete backups, newest first.
   Future<List<BackupSummary>> listBackups(String storeCode) async {
     await _requireStoreOwner(storeCode);
     final rows = await _backupCollection(storeCode).where('complete', isEqualTo: true).get(_server);
@@ -65,6 +68,8 @@ class BackupService {
     return summaries;
   }
 
+  /// Copies the store settings, products and sales into a new cloud backup.
+  /// Refuses while this device still has unsynced sales.
   Future<BackupSummary> createBackup(String storeCode) async {
     final uid = await _requireStoreOwner(storeCode);
     if (await hasPendingSales()) {
@@ -114,6 +119,8 @@ class BackupService {
     return BackupSummary(ref.id, now, products.docs.length, sales.docs.length);
   }
 
+  /// Restores only records that are missing now; existing records are never overwritten.
+  /// Restored products start at zero stock and need a physical count.
   Future<RestoreResult> restoreMissingRecords(
     String storeCode,
     String backupId, {

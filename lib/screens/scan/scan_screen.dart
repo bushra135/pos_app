@@ -52,6 +52,8 @@ class ScanScreen extends StatefulWidget {
   State<ScanScreen> createState() => _ScanScreenState();
 }
 
+/// Owns the camera (or browser scanner), the manual/keyboard barcode entry and the
+/// live cart, and turns each scanned code into a cart line.
 class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
   final _cameraPreviewKey = GlobalKey();
   bool _browserPreviewFailed = false;
@@ -220,6 +222,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     _entryFocus.requestFocus();
   }
 
+  /// Adds a product picked from the name search; explains when it has no barcode yet.
   void _addMatch(Map<String, dynamic> product) {
     final barcode = (product['barcode'] ?? '').toString().trim();
     setState(() {
@@ -273,6 +276,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     return 'Could not add this product. Check the connection and try again.'.tr;
   }
 
+  /// Opens the payment screen; after a successful sale the status line is cleared.
   Future<void> _openCheckout() async {
     if (_isAddingProduct || CartManager.items.isEmpty) return;
     if (_browserScannerOpen) closeBrowserScanner();
@@ -426,6 +430,8 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Dialog for a barcode that is not in the store: shows what the shared catalogue
+  /// knows about it and, for staff who may edit, offers to add the product.
   Future<void> _showUnknownProduct(String code) async {
     _isProductInfoOpen = true;
     final lookup = (widget.catalog ?? BarcodeCatalogService.shared)
@@ -539,6 +545,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Removes one unit of the last scanned product (the Undo on the status line).
   void _undoLastAddition() {
     final index = CartManager.items.indexWhere(
       (item) => item.productId == _lastAddedProductId && item.storeCode == _lastAddedStoreCode,
@@ -552,6 +559,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     });
   }
 
+  /// Turns the camera flash on or off; explains when the camera has none.
   Future<void> _toggleTorch() async {
     try {
       await _scannerController.toggleTorch();
@@ -566,6 +574,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     }
   }
 
+  /// Home button, title, and the flash and manual-entry toggles.
   Widget _buildScanHeader() {
     final style = IconButton.styleFrom(
       backgroundColor: AppColors.surface,
@@ -635,6 +644,8 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     });
   }
 
+  /// Runs the browser-owned scanner (mobile web). Each code it reads is added to the
+  /// cart here and the updated summary is sent back to the scanner overlay.
   Future<void> _openBrowserCheckout() async {
     if (_browserScannerOpen || _isAddingProduct || _isProductInfoOpen) return;
     _browserScannerOpen = true;
@@ -762,6 +773,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     );
   }
 
+  /// Field for typing a barcode or searching by name; USB/Bluetooth readers type here too.
   Widget _buildManualBarcodeInput({bool autofocus = false}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -888,6 +900,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     ),
   );
 
+  /// Progress spinner or the result of the last scan, with Undo when it added an item.
   Widget _buildScanStatus() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -920,6 +933,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     );
   }
 
+  /// The items scanned so far, or a hint before the first scan.
   Widget _buildLiveCart() {
     return Expanded(
       flex: 4,

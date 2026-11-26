@@ -26,6 +26,7 @@ class BarcodeLookupPanel extends StatefulWidget {
   State<BarcodeLookupPanel> createState() => BarcodeLookupPanelState();
 }
 
+/// Looks up the typed or scanned barcode and offers to fill the product form.
 class BarcodeLookupPanelState extends State<BarcodeLookupPanel> {
   bool _loading = false;
   String? _message;
@@ -55,6 +56,7 @@ class BarcodeLookupPanelState extends State<BarcodeLookupPanel> {
     widget.onBusyChanged(false);
   }
 
+  /// Looks up the barcode in the field; a newer lookup replaces an older one.
   Future<void> lookup() async {
     if (_loading || !widget.enabled) return;
     FocusScope.of(context).unfocus();
@@ -178,6 +180,7 @@ class BarcodeLookupPanelState extends State<BarcodeLookupPanel> {
     ],
   );
 
+  /// Opens a web search for the barcode in the browser.
   Future<void> _searchWeb(String code) async {
     final uri = Uri.https('www.google.com', '/search', {'q': code});
     final opened = await launchUrl(

@@ -31,6 +31,8 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
+/// Account details, profile photo, payment and VAT settings (owner), sync status,
+/// backup, password reset and sign-out.
 class _ProfileScreenState extends State<ProfileScreen> {
   String name = '';
   String phone = '';
@@ -66,6 +68,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // Only the store owner can edit payment settings in this screen.
   bool get isOwner => role.toLowerCase() == 'owner';
 
+  /// Loads the user's profile and store; copies a newly confirmed email to the profile.
   Future<void> _loadUserData() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -237,6 +240,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message.tr)));
   }
 
+  /// Owner picks the BenefitPay QR image; it is saved on the store for receipts.
   Future<void> _pickQrImage() async {
     if (!isOwner) return;
 
@@ -286,6 +290,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  /// Saves the store's BenefitPay number.
   Future<void> _savePaymentData() async {
     if (!isOwner) return;
 
@@ -323,6 +328,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  /// Saves the cart on the device, then signs out.
   Future<void> _logout() async {
     if (_loggingOut) return;
     setState(() => _loggingOut = true);
@@ -566,6 +572,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  /// Emails a password reset link to the signed-in address.
   Future<void> _sendPasswordReset(BuildContext sheetContext) async {
     final address = FirebaseAuth.instance.currentUser?.email ?? email;
     if (address.isEmpty) return;
@@ -601,6 +608,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  /// The saved BenefitPay QR image, or a placeholder.
   Widget _buildQrPreview() {
     if (benefitQrBase64.isEmpty) return _buildQrPlaceholder();
 
@@ -1053,6 +1061,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
+/// Icon, label and value row in the account details card.
 class _InfoRow extends StatelessWidget {
   final IconData icon;
   final Color iconBg;

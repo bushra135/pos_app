@@ -8,6 +8,8 @@ import '../utils/receipt_layout.dart';
 /// Generates the saved receipt from its fixed sale snapshot, never the live cart.
 /// Same bilingual content as the screen ([ReceiptLayout]), on 80 mm receipt paper.
 abstract final class ReceiptService {
+  /// Lays out the receipt (or simplified tax invoice) as an 80 mm PDF.
+  /// Arabic and English lines each get the right text direction.
   static Future<Uint8List> generatePdf(SaleRecord sale, {required String status}) async {
     final font = pw.Font.ttf(await rootBundle.load('assets/fonts/Cairo.ttf'));
     final layout = ReceiptLayout.of(sale);

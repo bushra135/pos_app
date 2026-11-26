@@ -34,9 +34,11 @@ class SaleReceiptView extends StatefulWidget {
   State<SaleReceiptView> createState() => _SaleReceiptViewState();
 }
 
+/// Receipt with print, share-PDF and send actions.
 class _SaleReceiptViewState extends State<SaleReceiptView> {
   bool exporting = false;
 
+  /// Builds the receipt PDF, then prints it or opens the share sheet.
   Future<void> _export({required bool print}) async {
     if (exporting) return;
     setState(() => exporting = true);

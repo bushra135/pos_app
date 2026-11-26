@@ -33,6 +33,7 @@ class CheckoutReceiptScreen extends StatefulWidget {
   State<CheckoutReceiptScreen> createState() => _CheckoutReceiptScreenState();
 }
 
+/// Payment step (method, discount, offers, VAT, cash change) followed by the receipt.
 class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   String? get _uid => widget.currentUserId != null
       ? widget.currentUserId!()
@@ -114,6 +115,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     setState(() => _buyer = result.name.isEmpty ? null : result);
   }
 
+  /// Opens the discount dialog (percent or fixed amount) and applies the result.
   Future<void> _editDiscount() async {
     final result = await showDialog<({double value, bool percent})>(
       context: context,
@@ -165,6 +167,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     super.dispose();
   }
 
+  /// Updates the receipt's sync label when the completed sale reaches the server
+  /// or is flagged for review.
   void _refreshReceiptSync() {
     final sale = completedSale;
     final sync = _receiptSync;
@@ -442,6 +446,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     );
   }
 
+  /// One receipt line: name, quantity and line total.
   Widget _buildReceiptItem({
     required String name,
     required int quantity,
@@ -602,6 +607,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     );
   }
 
+  /// Two columns on wide screens (payment beside the receipt), one column on phones.
   Widget _checkoutBody({required Widget payment, required Widget receipt}) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -655,6 +661,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     );
   }
 
+  /// The store's BenefitPay QR image, or a placeholder when none is saved.
   Widget _buildQrPreview() {
     if (benefitQrBase64.isEmpty) return _buildQrPlaceholder();
 
@@ -1184,6 +1191,7 @@ class _DiscountDialog extends StatefulWidget {
   State<_DiscountDialog> createState() => _DiscountDialogState();
 }
 
+/// Discount entry as a percent or a fixed amount, never more than the subtotal.
 class _DiscountDialogState extends State<_DiscountDialog> {
   late bool _percent = widget.initialPercent;
   late final TextEditingController _controller = TextEditingController(
@@ -1286,6 +1294,7 @@ class _BuyerDialog extends StatefulWidget {
   State<_BuyerDialog> createState() => _BuyerDialogState();
 }
 
+/// Buyer name, address and VAT number for a full tax invoice.
 class _BuyerDialogState extends State<_BuyerDialog> {
   final _form = GlobalKey<FormState>();
   late final _name = TextEditingController(text: widget.initial?.name ?? '');

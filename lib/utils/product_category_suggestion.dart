@@ -1,5 +1,6 @@
 /// Conservative, offline suggestions. Unknown or ambiguous names stay blank.
 class ProductCategorySuggestion {
+  /// Suggests a category from a product name, in Arabic or English; null when unsure.
   static String? fromName(String name) {
     final text = name
         .toLowerCase()

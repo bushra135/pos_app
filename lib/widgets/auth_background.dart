@@ -16,6 +16,7 @@ class AuthBackground extends StatefulWidget {
   State<AuthBackground> createState() => _AuthBackgroundState();
 }
 
+/// Drives the slow light drift; holds still with reduced motion.
 class _AuthBackgroundState extends State<AuthBackground> with SingleTickerProviderStateMixin {
   late final AnimationController _drift = AnimationController(
     vsync: this,
@@ -49,6 +50,7 @@ class _AuthBackgroundState extends State<AuthBackground> with SingleTickerProvid
   }
 }
 
+/// Paints the page colour, a grey wash at the top and the drifting white light.
 class _FrostPainter extends CustomPainter {
   _FrostPainter(this.drift) : super(repaint: drift);
 
@@ -112,6 +114,8 @@ class ScanFrame extends StatefulWidget {
   State<ScanFrame> createState() => _ScanFrameState();
 }
 
+/// Runs the corner draw-in once, then the beam: an occasional sweep when idle,
+/// a continuous up-and-down scan while [ScanFrame.scanning] is true.
 class _ScanFrameState extends State<ScanFrame> with TickerProviderStateMixin {
   static const _idlePeriod = Duration(milliseconds: 5200);
   static const _sweep = Duration(milliseconds: 1400);
@@ -134,6 +138,7 @@ class _ScanFrameState extends State<ScanFrame> with TickerProviderStateMixin {
     if (status == AnimationStatus.completed) _runBeam();
   }
 
+  /// Starts the beam loop that matches the current state (idle or scanning).
   void _runBeam() {
     if (_reduced || !mounted) return;
     if (widget.scanning) {
@@ -210,6 +215,7 @@ class _ScanFrameState extends State<ScanFrame> with TickerProviderStateMixin {
   }
 }
 
+/// Paints the four viewfinder corners and the light beam with its trail.
 class _ScanPainter extends CustomPainter {
   _ScanPainter({
     required this.corners,
@@ -230,6 +236,7 @@ class _ScanPainter extends CustomPainter {
     if (showBeam && corners.value > 0.99) _paintBeam(canvas, frame.deflate(18));
   }
 
+  /// Draws the four rounded corners; [t] from 0 to 1 grows them from the elbows out.
   void _paintCorners(Canvas canvas, Rect r, double t) {
     if (t <= 0) return;
     final len = 28 * t;
@@ -255,6 +262,7 @@ class _ScanPainter extends CustomPainter {
     }
   }
 
+  /// Draws the beam line, its soft glow and the fading trail behind it.
   void _paintBeam(Canvas canvas, Rect r) {
     double p;
     bool goingDown;

@@ -17,6 +17,7 @@ class ProductImage extends StatefulWidget {
   State<ProductImage> createState() => _ProductImageState();
 }
 
+/// Resolves the image source once, and again only when it changes.
 class _ProductImageState extends State<ProductImage> {
   ImageProvider<Object>? _provider;
 
@@ -32,6 +33,7 @@ class _ProductImageState extends State<ProductImage> {
     if (oldWidget.source != widget.source) _resolveImage();
   }
 
+  /// Accepts an inline data image or a web URL; anything else shows the placeholder.
   void _resolveImage() {
     final source = widget.source.trim();
     _provider = null;

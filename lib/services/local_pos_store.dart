@@ -40,8 +40,10 @@ class LocalPosStore {
   final _contexts = stringMapStoreFactory.store('cashier_contexts');
   final _products = stringMapStoreFactory.store('products');
 
+  /// Opens the device database (a file on phones, IndexedDB in the browser).
   static Future<LocalPosStore> open() async => LocalPosStore(await openLocalPosDatabase());
 
+  /// Query for one cashier's sales in one store, oldest first.
   Finder _scope(String cashierUid, String storeCode) => Finder(
     filter: Filter.and([
       Filter.equals('sale.cashierUid', cashierUid),
@@ -60,6 +62,8 @@ class LocalPosStore {
     return rows.map((row) => PendingSale.fromJson(row.value)).toList();
   }
 
+  /// Queues a sale on the device. Queuing the same sale twice is a no-op; a different
+  /// sale with the same id is refused.
   Future<void> enqueue(SaleRecord sale) async {
     await database.transaction((transaction) async {
       final record = _sales.record(sale.id);
@@ -296,6 +300,7 @@ class LocalPosStore {
     return product == null ? null : Map<String, dynamic>.from(product);
   }
 
+  /// Cache key for a product, unique per store.
   static String _productKey(String storeCode, String id) => jsonEncode([storeCode, id]);
 
   // Firestore timestamps cannot be saved in the JSON-based local database.

@@ -44,9 +44,11 @@ class ReceiptCard extends StatelessWidget {
   }
 }
 
+/// Clips the card into a receipt shape: rounded top, zig-zag torn bottom edge.
 class _ReceiptEdge extends CustomClipper<Path> {
   const _ReceiptEdge();
 
+  /// Rounded top corners, straight sides, then evenly spaced teeth along the bottom.
   @override
   Path getClip(Size size) {
     const radius = AppSpacing.cardRadius;
@@ -92,6 +94,7 @@ class ReceiptRule extends StatelessWidget {
   }
 }
 
+/// Draws the dashed tear line across the receipt.
 class _DashPainter extends CustomPainter {
   _DashPainter(this.color);
   final Color color;

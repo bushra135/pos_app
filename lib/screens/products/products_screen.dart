@@ -39,6 +39,8 @@ class ProductsScreen extends StatefulWidget {
   State<ProductsScreen> createState() => _ProductsScreenState();
 }
 
+/// Product catalogue: live list or grid with search, sort and low-stock alerts, plus
+/// add, edit, restock and delete according to the user's permissions.
 class _ProductsScreenState extends State<ProductsScreen> {
   static const Duration _requestTimeout = Duration(seconds: 20);
   FirebaseFirestore get _firestore => widget.firestore ?? FirebaseFirestore.instance;
@@ -338,6 +340,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     return scannedCode;
   }
 
+  /// Turns a save failure into a clear message for the step that failed.
   String _productSaveError(Object error, String stage) {
     if (error is TimeoutException) {
       if (stage == 'Saving product') {
@@ -1103,6 +1106,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
+  /// Preview of the picked photo or the saved image URL in the product editor.
   Widget _buildProductImagePreview({
     required Uint8List? pickedImageBytes,
     required String imageUrl,
@@ -1234,6 +1238,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
+  /// Plain text field used in the product editor.
   Widget _buildField(
     TextEditingController controller,
     String hint, {
@@ -1335,6 +1340,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
+  /// Bottom sheet listing products at or below their minimum stock.
   void _showLowStockSheet(List<QueryDocumentSnapshot<Map<String, dynamic>>> lowStockDocs) {
     showModalBottomSheet(
       context: context,
@@ -1642,6 +1648,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     return rows.length;
   }
 
+  /// Bell with the number of low-stock products; opens the low-stock sheet.
   Widget _buildNotificationButton() {
     if (storeCode.isEmpty) {
       return const SizedBox(width: 8);
@@ -1974,6 +1981,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
+  /// One product in the list: image, name, category/barcode, price and stock.
   Widget _productRow(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
     final item = doc.data();
     final name = (item['name'] ?? '').toString();
@@ -2076,6 +2084,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
+  /// Menu to sort products by name, price, stock or most sold.
   Widget _buildSortButton() {
     return PopupMenuButton<_ProductSort>(
       tooltip: 'Sort products'.tr,
@@ -2121,6 +2130,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
+  /// The product's price as a number (0 when missing or invalid).
   double _priceFrom(Map<String, dynamic> item) =>
       double.tryParse((item['price'] ?? 0).toString()) ?? 0;
 
@@ -2344,6 +2354,7 @@ class _RestockDialog extends StatefulWidget {
   State<_RestockDialog> createState() => _RestockDialogState();
 }
 
+/// Asks how many units arrived and returns the number.
 class _RestockDialogState extends State<_RestockDialog> {
   final _controller = TextEditingController();
 

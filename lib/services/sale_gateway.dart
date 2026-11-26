@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/sale_record.dart';
 
+/// The sale cannot be saved as it is (stock, price or account changed); it needs review.
 class SaleConflictException implements Exception {
   const SaleConflictException(this.message);
   final String message;
@@ -32,9 +33,12 @@ class FirestoreSaleGateway implements SaleGateway {
   final FirebaseAuth? _auth;
   final String? Function()? _currentUserId;
 
+  /// The signed-in user's id (or the injected one in tests).
   String? _userId() =>
       _currentUserId != null ? _currentUserId() : (_auth ?? FirebaseAuth.instance).currentUser?.uid;
 
+  /// Saves the sale and lowers each product's stock in one Firestore transaction.
+  /// Retrying the same sale is safe: an identical saved sale counts as success.
   @override
   Future<void> commit(SaleRecord sale) async {
     final quantities = _validate(sale);
@@ -196,6 +200,7 @@ class FirestoreSaleGateway implements SaleGateway {
     return quantities;
   }
 
+  /// Whether the sale already saved under this id is exactly this sale.
   bool _matches(Map<String, dynamic> data, SaleRecord sale) {
     try {
       final date = data['createdAt'];

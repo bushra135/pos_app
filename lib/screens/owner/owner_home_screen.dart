@@ -36,6 +36,8 @@ class OwnerHomeScreen extends StatefulWidget {
   State<OwnerHomeScreen> createState() => _OwnerHomeScreenState();
 }
 
+/// Owner shell: home, products, dashboard, assistant and profile tabs, and the
+/// switch into cashier mode.
 class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   int _selectedIndex = 0;
   bool _cashierMode = false;
@@ -84,6 +86,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     _loadOwnerData();
   }
 
+  /// Loads the owner's profile and store, from the offline cache first when available.
   Future<void> _loadOwnerData() async {
     try {
       final uid = _userId;
@@ -133,6 +136,8 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     }
   }
 
+  /// Loads today's and yesterday's sales, product and cashier counts, low stock,
+  /// stock corrections and the setup checklist state.
   Future<void> _loadDashboardData(String code) async {
     try {
       final options = SaleSyncService.maybeInstance?.online == false
@@ -336,6 +341,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     );
   }
 
+  /// Home tab: greeting, today's sales, alerts, setup checklist and overview tiles.
   Widget _buildHomeContent() {
     final wide = MediaQuery.sizeOf(context).width >= 700;
     return RefreshIndicator(
@@ -443,6 +449,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     return 'Good evening'.tr;
   }
 
+  /// Greeting, store name and the switch to cashier mode.
   Widget _buildHeader() {
     return Row(
       children: [
@@ -734,6 +741,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     );
   }
 
+  /// Warning listing the latest stock corrections that need the owner's attention.
   Widget _buildCorrectionsAlert() {
     final shown = stockCorrections.take(3).toList();
     final more = stockCorrections.length - shown.length;
@@ -796,6 +804,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
     );
   }
 
+  /// Today's sales with the change from yesterday, order count, average and store code.
   Widget _buildSalesCard() {
     final average = todayOrders == 0 ? 0.0 : todaySales / todayOrders;
     final String? change;

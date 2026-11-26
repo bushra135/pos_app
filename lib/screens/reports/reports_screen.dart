@@ -26,6 +26,8 @@ import '../../widgets/receipt_card.dart';
 /// Dashboard periods use local dates; history filters live on their separate route.
 enum ReportPeriod { today, week, month, year }
 
+/// Owner dashboard: sales, profit and VAT, products, payment methods and insights
+/// for a chosen period. Firestore and the user id can be injected for tests.
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({
     super.key,
@@ -41,6 +43,7 @@ class ReportsScreen extends StatefulWidget {
   State<ReportsScreen> createState() => _ReportsScreenState();
 }
 
+/// Loads the period's receipts once, builds [_ReportsData] from them and renders the tabs.
 class _ReportsScreenState extends State<ReportsScreen> {
   String? get _uid => widget.currentUserId != null
       ? widget.currentUserId!()
@@ -717,6 +720,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  /// Segmented control for Today / Week / Month / Year.
   Widget _buildPeriodSelector() {
     return Container(
       padding: const EdgeInsets.all(4),
@@ -735,6 +739,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  /// One segment of the period selector; the selected one is raised on a white chip.
   Widget _periodButton(String label, ReportPeriod period) {
     final isSelected = _selectedPeriod == period;
 
@@ -771,6 +776,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  /// Bar chart of sales per day (or per month for the year view).
   Widget _buildTrendChart(_ReportsData data) {
     final maxY = _niceMax(data.chartValues);
 
@@ -948,6 +954,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  /// Small stat cards (discounts, refunds, VAT and so on) shown under the hero card.
   Widget _buildSummaryCards(_ReportsData data) {
     // Summary cards differ only in their content; share the construction.
     Widget stat(String title, String value, IconData icon, Color color, {String? subtitle}) =>
@@ -980,6 +987,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  /// Top sellers, least selling and top revenue cards; each opens a top-10 sheet.
   Widget _buildProductCards(_ReportsData data) {
     final top = _productInsight(
       data.topSelling,
@@ -1127,6 +1135,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  /// Share of sales per product category (top six), as progress rows.
   Widget _buildCategorySection(_ReportsData data) {
     final total = data.categories.fold<double>(0, (running, c) => running + c.amount);
     return _SectionCard(
@@ -1258,6 +1267,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  /// Gross sales minus discounts and refunds, line by line.
   Widget _buildNetSalesSection(_ReportsData data) {
     return _SectionCard(
       title: 'Net sales'.tr,
@@ -1274,6 +1284,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  /// Total and share for each payment method (cash, BenefitPay, card...).
   Widget _buildPaymentMethodsSection(_ReportsData data) {
     final total = data.paymentMethods.fold<double>(
       0,
@@ -1303,6 +1314,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
+  /// Bottom sheet listing the top 10 products by quantity or by revenue.
   void _showProductSheet({
     required String title,
     required List<_ProductSales> products,
@@ -1389,6 +1401,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 }
 
+/// Compact stat card: icon, title, value and the period it covers.
 class _TopStatCard extends StatelessWidget {
   final IconData icon;
   final Color color;
@@ -1455,6 +1468,7 @@ class _TopStatCard extends StatelessWidget {
   }
 }
 
+/// Tappable card that summarises one product insight (for example the top seller).
 class _InsightCard extends StatelessWidget {
   final IconData icon;
   final Color color;
@@ -1533,6 +1547,7 @@ class _InsightCard extends StatelessWidget {
   }
 }
 
+/// White card with a title and subtitle that wraps each dashboard section.
 class _SectionCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -1574,6 +1589,7 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
+/// Rounded tinted square holding a section icon.
 class _IconBadge extends StatelessWidget {
   final IconData icon;
   final Color color;
@@ -1594,6 +1610,7 @@ class _IconBadge extends StatelessWidget {
   }
 }
 
+/// Label and amount on one line; [highlighted] makes the total bold.
 class _AmountRow extends StatelessWidget {
   final String label;
   final String value;
@@ -1631,6 +1648,7 @@ class _AmountRow extends StatelessWidget {
   }
 }
 
+/// Title, trailing figure and a progress bar showing its share of the total.
 class _ProgressRow extends StatelessWidget {
   final String title;
   final String trailing;
@@ -1690,6 +1708,7 @@ class _ProgressRow extends StatelessWidget {
   }
 }
 
+/// One row of the top-10 sheet: rank, product, detail and figure.
 class _RankedProductTile extends StatelessWidget {
   final int rank;
   final String title;
@@ -1771,6 +1790,7 @@ class _RankedProductTile extends StatelessWidget {
   }
 }
 
+/// Muted message shown when a section has no data for the period.
 class _EmptyState extends StatelessWidget {
   final String text;
 
@@ -1794,6 +1814,7 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
+/// Error message with a retry button, shown when loading the reports fails.
 class _ErrorState extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
@@ -1894,6 +1915,7 @@ class _ReportsData {
   double? get netChange => previousNet <= 0 ? null : (netSales - previousNet) / previousNet * 100;
 }
 
+/// Running totals for one product while the receipts are aggregated.
 class _ProductSales {
   final String name;
   double quantity;
@@ -1902,6 +1924,7 @@ class _ProductSales {
   _ProductSales({required this.name}) : quantity = 0, revenue = 0;
 }
 
+/// Total collected with one payment method.
 class _PaymentReport {
   final String name;
   final double amount;
@@ -1909,6 +1932,7 @@ class _PaymentReport {
   const _PaymentReport(this.name, this.amount);
 }
 
+/// Start (inclusive) and end (exclusive) of the selected report period.
 class _PeriodRange {
   final DateTime start;
   final DateTime end;
@@ -1916,6 +1940,7 @@ class _PeriodRange {
   const _PeriodRange({required this.start, required this.end});
 }
 
+/// Labels and values for the trend chart's bars.
 class _ChartBuckets {
   final List<String> labels;
   final List<double> values;
@@ -1923,6 +1948,7 @@ class _ChartBuckets {
   const _ChartBuckets({required this.labels, required this.values});
 }
 
+/// Whether the top-10 sheet ranks products by quantity sold or by revenue.
 enum _ProductSheetMode { quantity, revenue }
 
 // Chart formatting and local date buckets.
@@ -2115,6 +2141,7 @@ String _compactNumber(double value) {
   return value.toInt().toString();
 }
 
+/// One labelled figure in the Profit & VAT card (profit, margin, VAT).
 class _ProfitFigure extends StatelessWidget {
   const _ProfitFigure({required this.label, required this.value, required this.color});
 
@@ -2165,6 +2192,7 @@ enum _DashboardSection { sales, profit, products }
   _ => ('Good to know', AppColors.success, AppColors.successSoft),
 };
 
+/// The single most important recommendation, shown at the top of the dashboard.
 class _TopRecommendationCard extends StatelessWidget {
   const _TopRecommendationCard({required this.rec, required this.onTap});
 
