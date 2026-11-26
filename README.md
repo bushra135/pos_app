@@ -36,7 +36,7 @@ Windows desktop plugin builds may require Windows Developer Mode for symlink sup
 | `test` | Automated checks grouped by feature, with shared fakes in `test/support` |
 | `docs` | Code walkthrough, backup notes and the security status |
 
-Generated platform folders (`android`, `ios`, `web`, `linux`, `macos`) and `firebase_options.dart` are integration code. Do not memorize or manually rewrite generated registration files. `.dart_tool` and `build` contain tooling output, not the application's business logic.
+Generated platform folders (`android`, `web`) and `firebase_options.dart` are integration code. Do not memorize or manually rewrite generated registration files. `.dart_tool` and `build` contain tooling output, not the application's business logic.
 
 ## Follow one sale through the code
 
@@ -157,11 +157,10 @@ Sales history and Top cashiers are independent routes with separate period/filte
 lib/             Application source grouped by responsibility and feature
 assets/          Fonts, logo and audio used by the app
 web/             Web entrypoint, browser camera and bundled decoder
-android/, ios/   Mobile platform projects
-linux/, macos/   Desktop platform projects
-test/           Tests grouped into assistant, backup, catalog, checkout,
+android/         Android project
+test/            Tests grouped into assistant, backup, catalog, checkout,
                  reports, scanning, web and shared support
-docs/           Code guide, backup notes and security status
+docs/            Code guide, backup notes and security status
 ```
 
 Run commands from the project root. Flutter discovers all nested Dart tests with `flutter test --no-pub`. Browser tests run with:
@@ -203,3 +202,5 @@ The existing local POS database now keeps `cart_sessions`, keyed by authenticate
 Before accepting payment, pending draft writes finish; accepting the durable receipt and retiring its active draft happen in the same local database transaction. Closing between payment acceptance and UI cleanup therefore does not restore the paid items as a new unpaid sale. Held carts are preserved. Checkout blocks Back while saving, and sign-out waits for cart writes. Failed local writes keep the current in-memory cart and show retry feedback.
 
 Owner Home uses BD with three decimal places. The previous placeholder percentage growth is removed because it was not a real period comparison. Cart buttons, messages and spacing follow the shared app theme.
+
+ShopPad targets Android and the web. The iOS, macOS and Linux folders were removed because Firebase is not configured for them; recreate one with `flutter create --platforms=ios .` followed by `flutterfire configure` if it is ever needed.
