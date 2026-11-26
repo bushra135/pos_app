@@ -1,0 +1,29 @@
+{
+  // Hide files that Flutter, Gradle, Dart and the IDEs create and manage on their own.
+  // They stay on disk where the tools expect them; they are only hidden in the Explorer.
+  "files.exclude": {
+    "**/.dart_tool": true,
+    "**/build": true,
+    "**/.idea": true,
+    "**/*.iml": true,
+    ".metadata": true,
+    ".flutter-plugins-dependencies": true,
+    "pubspec.lock": true,
+    ".firebase": true,
+    ".security-audit": true,
+    "firestore_rules_backups": true,
+    "**/*.log": true,
+    "android/.gradle": true,
+    "android/.kotlin": true,
+    "android/local.properties": true,
+    "android/gradlew": true,
+    "android/gradlew.bat": true,
+    "android/gradle/wrapper/gradle-wrapper.jar": true,
+    "android/app/src/main/java": true
+  },
+  // Keep those generated folders out of search results too.
+  "search.exclude": {
+    "**/build": true,
+    "**/.dart_tool": true
+  }
+}
