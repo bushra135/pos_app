@@ -194,15 +194,7 @@ class _LoginScreenState extends State<LoginScreen> {
   /// Email and password fields, error banner, Forgot password and the Sign in button.
   Widget _form() => Theme(
     // Focused fields use ink here, since indigo carries the brand on this screen.
-    data: Theme.of(context).copyWith(
-      inputDecorationTheme: Theme.of(context).inputDecorationTheme.copyWith(
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
-        ),
-      ),
-      textSelectionTheme: const TextSelectionThemeData(cursorColor: AppColors.primary),
-    ),
+    data: AuthStyles.fields(context),
     child: AutofillGroup(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -267,21 +259,7 @@ class _LoginScreenState extends State<LoginScreen> {
               enabled: !_loading,
               child: ElevatedButton(
                 onPressed: _loading ? null : _signIn,
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(54),
-                  backgroundColor: AppColors.primaryDark,
-                  foregroundColor: AppColors.onBrand,
-                  disabledBackgroundColor: AppColors.primaryDark,
-                  disabledForegroundColor: AppColors.onBrand,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                  ),
-                  textStyle: const TextStyle(
-                    fontFamily: AppTypography.family,
-                    fontSize: AppTypography.subtitle,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
+                style: AuthStyles.primaryButton,
                 // The button keeps its size while it changes to a progress state.
                 child: AnimatedSwitcher(
                   duration: Motion.reduced(context) ? Duration.zero : Motion.fast,

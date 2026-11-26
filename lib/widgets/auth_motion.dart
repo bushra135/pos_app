@@ -232,3 +232,32 @@ class InlineErrorBanner extends StatelessWidget {
     );
   }
 }
+
+/// Styles shared by Sign in and Create account, so both screens stay identical.
+abstract final class AuthStyles {
+  /// Electric-blue focus outline and cursor for the auth forms.
+  static ThemeData fields(BuildContext context) => Theme.of(context).copyWith(
+    inputDecorationTheme: Theme.of(context).inputDecorationTheme.copyWith(
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
+      ),
+    ),
+    textSelectionTheme: const TextSelectionThemeData(cursorColor: AppColors.primary),
+  );
+
+  /// The tall main button (Sign in, Create account). It keeps its colour while busy.
+  static final ButtonStyle primaryButton = ElevatedButton.styleFrom(
+    minimumSize: const Size.fromHeight(54),
+    backgroundColor: AppColors.primaryDark,
+    foregroundColor: AppColors.onBrand,
+    disabledBackgroundColor: AppColors.primaryDark,
+    disabledForegroundColor: AppColors.onBrand,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.controlRadius)),
+    textStyle: const TextStyle(
+      fontFamily: AppTypography.family,
+      fontSize: AppTypography.subtitle,
+      fontWeight: FontWeight.w800,
+    ),
+  );
+}

@@ -502,15 +502,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
       backgroundColor: AppColors.background,
       body: Theme(
         // Same roles as sign-in: electric blue brand and focus.
-        data: Theme.of(context).copyWith(
-          inputDecorationTheme: Theme.of(context).inputDecorationTheme.copyWith(
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-              borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
-            ),
-          ),
-          textSelectionTheme: const TextSelectionThemeData(cursorColor: AppColors.primary),
-        ),
+        data: AuthStyles.fields(context),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -628,21 +620,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
                               enabled: !_isLoading,
                               child: ElevatedButton(
                                 onPressed: _isLoading ? null : _handleCreateAccount,
-                                style: ElevatedButton.styleFrom(
-                                  minimumSize: const Size.fromHeight(54),
-                                  backgroundColor: AppColors.primaryDark,
-                                  foregroundColor: AppColors.onBrand,
-                                  disabledBackgroundColor: AppColors.primaryDark,
-                                  disabledForegroundColor: AppColors.onBrand,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                                  ),
-                                  textStyle: const TextStyle(
-                                    fontFamily: AppTypography.family,
-                                    fontSize: AppTypography.subtitle,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
+                                style: AuthStyles.primaryButton,
                                 child: _isLoading
                                     ? const SizedBox(
                                         width: 22,
