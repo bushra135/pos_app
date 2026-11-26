@@ -939,10 +939,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: AppColors.accentSoft,
+              color: AppColors.primaryDark,
               borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
             ),
-            child: const Icon(Icons.auto_awesome_rounded, color: AppColors.primaryDark, size: 24),
+            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
           ),
           const SizedBox(width: 12),
           Expanded(

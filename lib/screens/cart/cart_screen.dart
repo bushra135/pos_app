@@ -343,7 +343,7 @@ class _CartScreenState extends State<CartScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.accentSoft,
+                          color: AppColors.primary,
                           borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
                         ),
                         child: Text(
@@ -351,7 +351,7 @@ class _CartScreenState extends State<CartScreen> {
                             'n': cartItems.length,
                           }),
                           style: const TextStyle(
-                            color: AppColors.primaryDark,
+                            color: AppColors.onBrand,
                             fontSize: AppTypography.caption,
                             fontWeight: FontWeight.w700,
                           ),
@@ -548,8 +548,8 @@ class _CartScreenState extends State<CartScreen> {
         padding: EdgeInsets.zero,
         onPressed: onPressed,
         style: IconButton.styleFrom(
-          backgroundColor: filled ? AppColors.accentSoft : AppColors.background,
-          foregroundColor: filled ? AppColors.primaryDark : AppColors.text,
+          backgroundColor: filled ? AppColors.primary : AppColors.background,
+          foregroundColor: filled ? AppColors.onBrand : AppColors.text,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
           ),
