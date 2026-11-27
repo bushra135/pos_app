@@ -1,3 +1,4 @@
+import '../../services/scan_feedback.dart';
 import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'dart:async';
 
@@ -309,6 +310,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
                         if (code != null && code.isNotEmpty) {
                           scannedCode = code;
+                          unawaited(playBarcodeFeedback());
                           Navigator.pop(context);
                         }
                       },

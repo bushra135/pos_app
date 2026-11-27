@@ -1044,4 +1044,7 @@ const Map<String, String> arabicStrings = {
   'The server has not confirmed this receipt.': 'لم يؤكد الخادم هذا الإيصال.',
   'The sale details changed. Review this sale before retrying.':
       'تغيرت تفاصيل البيع. راجع العملية قبل إعادة المحاولة.',
+  'Verify receipt': 'التحقق من الفاتورة',
+  'Digital receipt seal': 'ختم الفاتورة الرقمي',
+  'Scan to verify the amount and receipt number': 'امسح الرمز للتحقق من المبلغ ورقم الفاتورة',
 };

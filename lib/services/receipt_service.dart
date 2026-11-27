@@ -1,3 +1,5 @@
+import 'receipt_seal_service.dart';
+import '../app/app_language.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -10,7 +12,13 @@ import '../utils/receipt_layout.dart';
 abstract final class ReceiptService {
   /// Lays out the receipt (or simplified tax invoice) as an 80 mm PDF.
   /// Arabic and English lines each get the right text direction.
-  static Future<Uint8List> generatePdf(SaleRecord sale, {required String status}) async {
+  static Future<Uint8List> generatePdf(
+    SaleRecord sale, {
+    required String status,
+    ReceiptSealData? verifiedSeal,
+  }) async {
+    final seal = verifiedSeal ?? await ReceiptSealService.load(sale);
+    if (seal != null) sale = seal.sale;
     final font = pw.Font.ttf(await rootBundle.load('assets/fonts/Cairo.ttf'));
     final layout = ReceiptLayout.of(sale);
     final document = pw.Document();
@@ -19,7 +27,11 @@ abstract final class ReceiptService {
           value,
           textAlign: align,
           textDirection: _direction(value),
-          style: pw.TextStyle(fontSize: size, fontWeight: bold ? pw.FontWeight.bold : null),
+          style: pw.TextStyle(
+            font: font,
+            fontSize: size,
+            fontWeight: bold ? pw.FontWeight.bold : null,
+          ),
         );
     pw.Widget row(ReceiptRow r, {double size = 9}) => pw.Padding(
       padding: const pw.EdgeInsets.symmetric(vertical: 1.5),
@@ -79,6 +91,25 @@ abstract final class ReceiptService {
               ),
             rule(),
             for (final r in layout.totals) row(r, size: 9.5),
+            if (seal != null) ...[
+              rule(),
+              text('Digital receipt seal'.tr, size: 9, bold: true, align: pw.TextAlign.center),
+              pw.SizedBox(height: 6),
+              pw.Center(
+                child: pw.BarcodeWidget(
+                  barcode: pw.Barcode.qrCode(),
+                  data: seal.url.toString(),
+                  width: 105,
+                  height: 105,
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              text(
+                'Scan to verify the amount and receipt number'.tr,
+                size: 7,
+                align: pw.TextAlign.center,
+              ),
+            ],
             pw.SizedBox(height: 8),
             text(ReceiptLayout.thanks, size: 8, align: pw.TextAlign.center),
             if (status.isNotEmpty) text(status, size: 7, align: pw.TextAlign.center),

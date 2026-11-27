@@ -95,3 +95,9 @@ test('legacy unset VAT configuration keeps the existing rate and plain receipt f
 test('registered buyer invoices derive their format and retain validated buyer details',async()=>{
  await db.doc('stores/A').update({vatRegistered:true,vatNumber:'123456789012345',storeAddress:'Shop address'});await checkout(sale('buyer-invoice',{vatRate:10,buyerName:'Buyer',buyerAddress:'Buyer address',buyerVatNumber:'543210987654321'}),identity);const saved=(await db.doc('sales/buyer-invoice').get()).data();assert.equal(saved.invoiceKind,'full');assert.equal(saved.buyerVatNumber,'543210987654321');
 });
+
+test('only the trusted completed transaction issues a verifiable receipt seal',async()=>{
+ const {generateKeyPairSync}=require('node:crypto'),{createReceiptSeals}=require('../receipt_seals.cjs');const keys=generateKeyPairSync('ed25519'),seals=createReceiptSeals({keyId:'integration',privateKey:keys.privateKey.export({type:'pkcs8',format:'pem'})});
+ const signedCheckout=createCheckout(db,{seals});await signedCheckout(sale('signed'),identity);const saved=(await db.doc('sales/signed').get()).data();assert.ok(saved.receiptSeal);const verified=await seals.check(saved.receiptSeal,db);assert.equal(verified.valid,true);assert.equal(verified.totalFils,2000);
+ await signedCheckout(sale('signed',{createdAt:saved.createdAt.toDate().toISOString()}),identity);assert.equal((await db.doc('products/pen').get()).data().stock,49);
+});

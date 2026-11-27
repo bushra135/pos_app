@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -25,10 +26,20 @@ import '../../widgets/qr_image_box.dart';
 /// Shows user details and payment settings shared by store employees.
 /// Shows account details, payment settings, sync status and owner recovery access.
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key, this.onSwitchMode, this.cashierMode = false});
+  const ProfileScreen({
+    super.key,
+    this.onSwitchMode,
+    this.cashierMode = false,
+    this.active = true,
+    this.firestore,
+    this.currentUserId,
+  });
 
   final VoidCallback? onSwitchMode;
   final bool cashierMode;
+  final bool active;
+  final FirebaseFirestore? firestore;
+  final String? Function()? currentUserId;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -37,6 +48,21 @@ class ProfileScreen extends StatefulWidget {
 /// Account details, profile photo, payment and VAT settings (owner), sync status,
 /// backup, password reset and sign-out.
 class _ProfileScreenState extends State<ProfileScreen> {
+  FirebaseFirestore get _firestore => widget.firestore ?? FirebaseFirestore.instance;
+  String? get _userId {
+    try {
+      return widget.currentUserId != null
+          ? widget.currentUserId!()
+          : FirebaseAuth.instance.currentUser?.uid;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _loadedUid;
+  int _loadGeneration = 0;
+  bool _checkingEmail = false;
+  String _lastBenefitNumber = '';
   String name = '';
   String phone = '';
   String email = '';
@@ -63,6 +89,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.firestore != widget.firestore) _loadedUid = null;
+    if (_userId != _loadedUid ||
+        oldWidget.firestore != widget.firestore ||
+        (!oldWidget.active && widget.active)) {
+      _loadUserData();
+    }
+  }
+
+  @override
   void dispose() {
     benefitNumberController.dispose();
     super.dispose();
@@ -71,84 +108,85 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // Only the store owner can edit payment settings in this screen.
   bool get isOwner => role.toLowerCase() == 'owner';
 
-  /// Loads the user's profile and store; copies a newly confirmed email to the profile.
+  /// Paint account/store data without waiting for Auth reload. Re-entering this
+  /// retained tab refreshes it in place; a different account never reuses the data.
   Future<void> _loadUserData() async {
+    final uid = _userId;
+    final generation = ++_loadGeneration;
+    bool current() => mounted && generation == _loadGeneration && uid == _userId;
+    if (_loadedUid != uid) {
+      isLoading = true;
+      name = phone = email = role = storeName = storeCode = benefitQrBase64 = photo = '';
+      storeData = const {};
+      benefitNumberController.clear();
+      _lastBenefitNumber = '';
+    }
+    _loadedUid = uid;
     try {
-      final user = FirebaseAuth.instance.currentUser;
-
-      if (user == null) {
-        setState(() {
-          isLoading = false;
-        });
+      if (uid == null) {
+        if (current()) setState(() => isLoading = false);
         return;
       }
-
-      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-
+      final userDoc = await _firestore.collection('users').doc(uid).get();
+      if (!current()) return;
       if (!userDoc.exists) {
-        setState(() {
-          isLoading = false;
-        });
+        setState(() => isLoading = false);
         return;
       }
-
       final userData = userDoc.data()!;
-      // A new email confirmed through the link from Firebase is copied to the profile.
-      try {
-        await user.reload();
-        final fresh = FirebaseAuth.instance.currentUser;
-        if ((fresh?.email ?? '').toLowerCase() !=
-            (userData['email'] ?? '').toString().toLowerCase()) {
-          await fresh?.getIdToken(true);
-          if (await ProfileEdits.syncEmail(
-            FirebaseFirestore.instance,
-            uid: user.uid,
-            profileEmail: (userData['email'] ?? '').toString(),
-            authEmail: fresh?.email,
-          )) {
-            userData['email'] = fresh!.email!.toLowerCase();
-          }
-        }
-      } catch (e) {
-        debugPrint('Email sync skipped: $e');
-      }
-
-      final String fetchedStoreCode = userData['storeCode'] ?? '';
-      String fetchedStoreName = userData['storeName'] ?? '';
-      String fetchedBenefitNumber = '';
-      String fetchedBenefitQrBase64 = '';
-
-      if (fetchedStoreCode.isNotEmpty) {
-        final storeDoc = await FirebaseFirestore.instance
-            .collection('stores')
-            .doc(fetchedStoreCode)
-            .get();
-
-        if (storeDoc.exists) {
-          final storeData = storeDoc.data()!;
-          this.storeData = storeData;
-          fetchedStoreName = storeData['storeName'] ?? fetchedStoreName;
-          fetchedBenefitNumber = storeData['benefitNumber'] ?? '';
-          fetchedBenefitQrBase64 = storeData['benefitQrBase64'] ?? '';
-        }
-      }
-
+      final code = (userData['storeCode'] ?? '').toString();
+      final store = code.isEmpty
+          ? <String, dynamic>{}
+          : (await _firestore.collection('stores').doc(code).get()).data() ?? <String, dynamic>{};
+      if (!current()) return;
+      final benefit = (store['benefitNumber'] ?? '').toString();
       setState(() {
-        name = userData['fullName'] ?? '';
-        email = userData['email'] ?? '';
+        name = (userData['fullName'] ?? '').toString();
+        email = (userData['email'] ?? '').toString();
         phone = (userData['phone'] ?? '').toString();
         photo = (userData['photo'] ?? '').toString();
-        role = userData['role'] ?? '';
-        storeName = fetchedStoreName;
-        storeCode = fetchedStoreCode;
-        benefitQrBase64 = fetchedBenefitQrBase64;
-        benefitNumberController.text = fetchedBenefitNumber;
+        role = (userData['role'] ?? '').toString();
+        storeName = (store['storeName'] ?? userData['storeName'] ?? '').toString();
+        storeCode = code;
+        storeData = store;
+        benefitQrBase64 = (store['benefitQrBase64'] ?? '').toString();
+        // Refresh server values without replacing an unsaved payment-number edit.
+        if (benefitNumberController.text == _lastBenefitNumber) {
+          benefitNumberController.text = benefit;
+        }
+        _lastBenefitNumber = benefit;
         isLoading = false;
       });
+      if (widget.currentUserId == null) unawaited(_syncConfirmedEmail(uid, email));
     } catch (e) {
-      setState(() {
-        isLoading = false;
-      });
+      if (current()) setState(() => isLoading = false);
+    }
+  }
+
+  /// Email-link confirmation remains supported, but it is not on the render path.
+  Future<void> _syncConfirmedEmail(String uid, String profileEmail) async {
+    if (_checkingEmail) return;
+    _checkingEmail = true;
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user?.uid != uid) return;
+      await user!.reload();
+      final fresh = FirebaseAuth.instance.currentUser;
+      if (fresh?.uid != uid || _userId != uid) return;
+      if ((fresh?.email ?? '').toLowerCase() == profileEmail.toLowerCase()) return;
+      await fresh!.getIdToken(true);
+      if (_userId != uid) return;
+      final changed = await ProfileEdits.syncEmail(
+        _firestore,
+        uid: uid,
+        profileEmail: profileEmail,
+        authEmail: fresh.email,
+      );
+      if (changed && mounted && _userId == uid) setState(() => email = fresh.email!.toLowerCase());
+    } catch (e) {
+      debugPrint('Email sync skipped: $e');
+    } finally {
+      _checkingEmail = false;
     }
   }
 
@@ -224,7 +262,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (mounted) setState(() => _photoSaving = true);
     try {
-      await ProfileEdits.savePhoto(FirebaseFirestore.instance, uid: user.uid, photo: next);
+      await ProfileEdits.savePhoto(_firestore, uid: user.uid, photo: next);
       if (!mounted) return;
       setState(() {
         photo = next ?? '';
@@ -272,7 +310,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // The receipt screen reads this Base64 payment image from the store record.
       final String base64String = base64Encode(bytes);
 
-      await FirebaseFirestore.instance.collection('stores').doc(storeCode).update({
+      await _firestore.collection('stores').doc(storeCode).update({
         'benefitQrBase64': base64String,
       });
 
@@ -318,7 +356,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final String newBenefitNumber = benefitNumberController.text.trim();
 
-      await FirebaseFirestore.instance.collection('stores').doc(storeCode).update({
+      await _firestore.collection('stores').doc(storeCode).update({
         'benefitNumber': newBenefitNumber,
       });
 
@@ -420,7 +458,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 emailSentTo = newEmail;
               }
               await ProfileEdits.save(
-                FirebaseFirestore.instance,
+                _firestore,
                 uid: user.uid,
                 storeCode: storeCode,
                 isOwner: isOwner,
@@ -1120,7 +1158,7 @@ class _InfoRow extends StatelessWidget {
 
 /// The profile picture: the user's photo, or the first letter of their name.
 /// A small camera badge shows that it can be changed; tapping opens the choices.
-class ProfileAvatar extends StatelessWidget {
+class ProfileAvatar extends StatefulWidget {
   const ProfileAvatar({
     super.key,
     required this.name,
@@ -1137,8 +1175,32 @@ class ProfileAvatar extends StatelessWidget {
   final double radius;
 
   @override
+  State<ProfileAvatar> createState() => _ProfileAvatarState();
+}
+
+class _ProfileAvatarState extends State<ProfileAvatar> {
+  Uint8List? _bytes;
+  String get name => widget.name;
+  String get photo => widget.photo;
+  double get radius => widget.radius;
+  bool get saving => widget.saving;
+  VoidCallback get onTap => widget.onTap;
+
+  @override
+  void initState() {
+    super.initState();
+    _bytes = ProfilePhotoData.decode(photo);
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.photo != photo) _bytes = ProfilePhotoData.decode(photo);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final bytes = ProfilePhotoData.decode(photo);
+    final bytes = _bytes;
     final initial = name.trim().isEmpty ? 'U' : name.trim()[0].toUpperCase();
     final reduced = Motion.reduced(context);
     final face = bytes == null

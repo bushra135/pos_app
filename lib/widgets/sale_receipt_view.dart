@@ -1,3 +1,4 @@
+import 'receipt_seal_panel.dart';
 import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
@@ -156,6 +157,7 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
                   ),
+                  ReceiptSealPanel(sale: sale, status: widget.status),
                   const SizedBox(height: 24),
                   // A receipt keeps receipt proportions on wide screens.
                   FadeSlideIn(

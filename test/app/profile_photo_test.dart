@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:pos_app/screens/profile/profile_screen.dart';
 import 'dart:typed_data';
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -60,5 +63,42 @@ void main() {
     data = (await db.collection('users').doc('u1').get()).data()!;
     expect(data.containsKey('photo'), isFalse);
     expect(data['fullName'], 'Maryam');
+  });
+  testWidgets('avatar reuses image bytes across navigation rebuilds and replaces changed photos', (
+    tester,
+  ) async {
+    final first =
+        '${ProfilePhotoData.prefix}${base64Encode(img.encodeJpg(img.Image(width: 4, height: 4)))}';
+    final second =
+        '${ProfilePhotoData.prefix}${base64Encode(img.encodeJpg(img.Image(width: 5, height: 5)))}';
+    Future<void> render(String photo, String name) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(disableAnimations: true),
+            child: Scaffold(
+              body: ProfileAvatar(name: name, photo: photo, onTap: () {}),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await render(first, 'Owner');
+    final bytes = (tester.widget<Image>(find.byType(Image)).image as MemoryImage).bytes;
+    await render(first, 'Updated name');
+    expect(
+      identical(bytes, (tester.widget<Image>(find.byType(Image)).image as MemoryImage).bytes),
+      isTrue,
+    );
+    await render(second, 'Updated name');
+    expect(
+      identical(bytes, (tester.widget<Image>(find.byType(Image)).image as MemoryImage).bytes),
+      isFalse,
+    );
+    await render('', 'Updated name');
+    expect(find.byType(Image), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 }

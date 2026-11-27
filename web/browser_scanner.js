@@ -1,5 +1,34 @@
 // Browser-owned video avoids Flutter's embedded video rendering on iPhone.
 window.ShopPadBrowserScanner = {
+  // Unlock once during a real gesture; camera decodes are not user gestures on iOS.
+  _scanAudio: null,
+  _nextTone: 0,
+  prepareScanSound() {
+    try {
+      const Audio = window.AudioContext || window.webkitAudioContext;
+      if (!Audio) return;
+      if (!this._scanAudio || this._scanAudio.state === 'closed') this._scanAudio = new Audio();
+      if (this._scanAudio.state === 'suspended') this._scanAudio.resume()?.catch?.(() => {});
+    } catch (_) { /* Audio must never block the scanner. */ }
+  },
+  playScanSound() {
+    try {
+      this.prepareScanSound();
+      const audio = this._scanAudio;
+      if (!audio || audio.state !== 'running') return;
+      const start = Math.max(audio.currentTime, this._nextTone);
+      // Distinct short pulses for rapidly scanned items, without delaying lookup.
+      this._nextTone = start + 0.11;
+      const tone = audio.createOscillator(), volume = audio.createGain();
+      tone.type = 'sine'; tone.frequency.value = 1450;
+      volume.gain.setValueAtTime(0, start);
+      volume.gain.linearRampToValueAtTime(0.16, start + 0.008);
+      volume.gain.linearRampToValueAtTime(0, start + 0.085);
+      tone.connect(volume); volume.connect(audio.destination);
+      tone.onended = () => { tone.disconnect(); volume.disconnect(); };
+      tone.start(start); tone.stop(start + 0.09);
+    } catch (_) { /* Muted or unavailable audio never rejects a valid scan. */ }
+  },
   // Texts in the app's language, sent by Flutter before each open. Keys missing here
   // fall back to the English text written at each use.
   _strings: {},
@@ -33,6 +62,7 @@ window.ShopPadBrowserScanner = {
   },
   open(onBarcode = null, initialSummary = '') {
     if (document.getElementById('shoppad-browser-scanner')) return Promise.resolve(null);
+    this.prepareScanSound();
     document.activeElement?.blur?.();
     const continuous = typeof onBarcode === 'function';
     const inline = continuous && !!this._bounds;
@@ -132,12 +162,13 @@ window.ShopPadBrowserScanner = {
       function detect(result) {
         if (!result || closed) return;
         const code = result.getText();
-        if (!continuous) { finish(code); return; }
+        if (!continuous) { window.ShopPadBrowserScanner.playScanSound(); finish(code); return; }
         const now = Date.now();
         const duplicate = lastSeen.has(code) && now - lastSeen.get(code) < 1600;
         lastSeen.set(code, now);
         if (lastSeen.size > 128) lastSeen.delete(lastSeen.keys().next().value);
         if (duplicate || pending.length >= 12) return;
+        window.ShopPadBrowserScanner.playScanSound();
         pending.push(code); processQueue();
       }
       async function start() {
@@ -170,7 +201,7 @@ window.ShopPadBrowserScanner = {
       }
       close.onclick = dismiss; retry.onclick = start;
       repeat.onclick = () => {
-        if (!processing && lastAddedCode) { pending.push(lastAddedCode); processQueue(); }
+        if (!processing && lastAddedCode) { window.ShopPadBrowserScanner.playScanSound(); pending.push(lastAddedCode); processQueue(); }
       };
       review.onclick = () => { if (!processing) finish('review'); };
       header.append(title, close);
@@ -183,3 +214,8 @@ window.ShopPadBrowserScanner = {
     });
   }
 };
+
+// Login/navigation taps unlock sound before the first automatic camera detection.
+for (const event of ['pointerdown', 'keydown']) {
+  document.addEventListener?.(event, () => window.ShopPadBrowserScanner.prepareScanSound(), {capture: true, passive: true});
+}

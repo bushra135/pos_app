@@ -1,3 +1,5 @@
+import '../../widgets/retained_tab_body.dart';
+import 'dart:async';
 import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -203,30 +205,25 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> with WidgetsBindingOb
       final options = SaleSyncService.maybeInstance?.online == false
           ? const GetOptions(source: Source.cache)
           : const GetOptions();
-      final storeSnapshot = await _firestore.collection('stores').doc(code).get(options);
+      // These reads depend only on the authenticated store, not on one another.
+      final (storeSnapshot, cashiersSnapshot, productsSnapshot) = await (
+        _firestore.collection('stores').doc(code).get(options),
+        _firestore
+            .collection('users')
+            .where('storeCode', isEqualTo: code)
+            .where('role', isEqualTo: 'cashier')
+            .get(options),
+        _firestore.collection('products').where('storeCode', isEqualTo: code).get(options),
+      ).wait;
       if (!current()) return;
       final storeData = storeSnapshot.data();
       final benefitReady = (storeData?['benefitNumber'] ?? '').toString().trim().isNotEmpty;
       final vatReady = StoreVat.fromStore(storeData).configured;
-      // Count only users with the cashier role in this store.
-      final cashiersSnapshot = await _firestore
-          .collection('users')
-          .where('storeCode', isEqualTo: code)
-          .where('role', isEqualTo: 'cashier')
-          .get(options);
-
-      if (!current()) return;
       final totalCashiers = cashiersSnapshot.docs.length;
-      // An invite the cashier has not accepted yet is not an active cashier.
       final activeCashiers = cashiersSnapshot.docs.where((doc) {
         final data = doc.data();
         return (data['isActive'] ?? false) == true && data['status'] != 'invited';
       }).length;
-
-      final productsSnapshot = await _firestore
-          .collection('products')
-          .where('storeCode', isEqualTo: code)
-          .get(options);
 
       if (!current()) return;
       // Only a complete, server-confirmed set of reads can establish incompleteness.
@@ -380,11 +377,20 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> with WidgetsBindingOb
         currentUserId: widget.currentUserId,
       );
     }
-    final currentScreen = switch (_selectedIndex) {
-      1 => const ProductsScreen(),
-      2 => const ReportsScreen(),
+    Widget screen(int index) => switch (index) {
+      1 => ProductsScreen(firestore: widget.firestore, currentUserId: widget.currentUserId),
+      2 => ReportsScreen(
+        firestore: widget.firestore,
+        currentUserId: widget.currentUserId,
+        active: _selectedIndex == 2,
+      ),
       3 => const AiAssistantScreen(),
-      4 => ProfileScreen(onSwitchMode: _switchToCashier),
+      4 => ProfileScreen(
+        onSwitchMode: _switchToCashier,
+        firestore: widget.firestore,
+        currentUserId: widget.currentUserId,
+        active: _selectedIndex == 4,
+      ),
       _ => _buildHomeContent(),
     };
 
@@ -416,8 +422,11 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> with WidgetsBindingOb
           Expanded(
             child: isLoading
                 ? const HomeSkeleton()
-                : FadeThroughSwitcher(
-                    child: KeyedSubtree(key: ValueKey(_selectedIndex), child: currentScreen),
+                : RetainedTabBody(
+                    key: ValueKey('${_ownerUid}_$storeCode'),
+                    index: _selectedIndex,
+                    retained: const {2, 4},
+                    builder: screen,
                   ),
           ),
         ],

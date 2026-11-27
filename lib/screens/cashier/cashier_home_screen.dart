@@ -1,3 +1,4 @@
+import '../../widgets/retained_tab_body.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -192,40 +193,47 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    Widget currentScreen;
-    switch (selectedIndex) {
-      case 1:
-        currentScreen = ScanScreen(
-          onGoToCart: () => setState(() => selectedIndex = 2),
-          onBackToHome: () => setState(() => selectedIndex = 0),
-          // Paid straight from the scanner: stay ready for the next customer.
-          onSaleCompleted: () async {
-            final uid = _userId;
-            if (uid != null) await _loadTodayStats(uid);
-          },
-        );
-        break;
-      case 2:
-        currentScreen = CartScreen(
-          onBackToHome: () => setState(() => selectedIndex = 0),
-          onSaleCompleted: () async {
-            setState(() => selectedIndex = 1);
-            final uid = _userId;
-            if (uid != null) {
-              await _loadTodayStats(uid);
-              // Keep the next sale camera open while refreshing statistics.
-            }
-          },
-        );
-        break;
-      case 3:
-        currentScreen = ProfileScreen(
-          onSwitchMode: widget.onSwitchToOwner,
-          cashierMode: widget.onSwitchToOwner != null,
-        );
-        break;
-      default:
-        currentScreen = _buildHomeContent();
+    Widget screen(int index) {
+      Widget currentScreen;
+      switch (index) {
+        case 1:
+          currentScreen = ScanScreen(
+            onGoToCart: () => setState(() => selectedIndex = 2),
+            onBackToHome: () => setState(() => selectedIndex = 0),
+            // Paid straight from the scanner: stay ready for the next customer.
+            onSaleCompleted: () async {
+              final uid = _userId;
+              if (uid != null) await _loadTodayStats(uid);
+            },
+          );
+          break;
+        case 2:
+          currentScreen = CartScreen(
+            onBackToHome: () => setState(() => selectedIndex = 0),
+            onSaleCompleted: () async {
+              setState(() => selectedIndex = 1);
+              final uid = _userId;
+              if (uid != null) {
+                await _loadTodayStats(uid);
+                // Keep the next sale camera open while refreshing statistics.
+              }
+            },
+          );
+          break;
+        case 3:
+          currentScreen = ProfileScreen(
+            onSwitchMode: widget.onSwitchToOwner,
+            cashierMode: widget.onSwitchToOwner != null,
+            firestore: widget.firestore,
+            currentUserId: widget.currentUserId,
+            active: selectedIndex == 3,
+          );
+          break;
+        default:
+          currentScreen = _buildHomeContent();
+      }
+
+      return currentScreen;
     }
 
     // F2 starts a sale from anywhere in the cashier workspace (counter keyboards).
@@ -272,8 +280,11 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
               Expanded(
                 child: isLoading
                     ? const HomeSkeleton(tiles: 2)
-                    : FadeThroughSwitcher(
-                        child: KeyedSubtree(key: ValueKey(selectedIndex), child: currentScreen),
+                    : RetainedTabBody(
+                        key: ValueKey('${_userId}_$_storeCode'),
+                        index: selectedIndex,
+                        retained: const {3},
+                        builder: screen,
                       ),
               ),
             ],

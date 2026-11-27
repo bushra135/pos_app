@@ -23,7 +23,7 @@ function intent(raw,uid){
  total:money(fils(raw.total)),discountAmount:money(discount),offerDiscount:money(offer),vatRate,correctStockShortages:raw.correctStockShortages===true,
  invoiceNumber:text(raw.invoiceNumber??'',100),invoiceKind:text(raw.invoiceKind??'',40),buyerName:text(raw.buyerName??''),buyerAddress:text(raw.buyerAddress??'',500),buyerVatNumber:text(raw.buyerVatNumber??'',30)};
 }
-function createCheckout(db){
+function createCheckout(db,{seals}={}){
  return async function checkout(raw,identity){
   if(!identity?.uid||identity.email_verified!==true)throw new CheckoutError('unauthorized','Sign in with a verified account.');
   const sale=intent(raw,identity.uid),digest=createHash('sha256').update(stable(sale)).digest('hex');
@@ -102,6 +102,7 @@ function createCheckout(db){
    if(offer>0&&offerNames.length)saved.offers=offerNames;
    if(unknown.length){saved.unknownBarcode=unknown[0].barcode;saved.pricingPolicy='owner_authorized_shared_reference';}
    if(corrections.length){saved.stockCorrections=corrections;saved.stockCorrectionUnits=corrections.reduce((n,row)=>n+row.addedQuantity,0);}
+   if(seals)saved.receiptSeal=seals.issue(saved);
    tx.create(saleRef,saved);
    for(const [key,stock] of remaining){const product=products.get(key);tx.update(db.collection('products').doc(key),{stock,lastSaleId:sale.id,...(product.quantity!==undefined?{quantity:stock}:{}),
     ...(corrections.some(row=>row.productId===key)?{lastStockCorrection:{...corrections.find(row=>row.productId===key),saleId:sale.id,recordedAt:FieldValue.serverTimestamp()}}:{})});}

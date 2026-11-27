@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -32,10 +33,12 @@ class ReportsScreen extends StatefulWidget {
   const ReportsScreen({
     super.key,
     this.returnToAssistant = false,
+    this.active = true,
     this.firestore,
     this.currentUserId,
   });
   final bool returnToAssistant;
+  final bool active;
   final FirebaseFirestore? firestore;
   final String? Function()? currentUserId;
 
@@ -56,6 +59,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
   _DashboardSection _section = _DashboardSection.sales;
 
   bool _isLoading = true;
+  bool _hasLoaded = false;
+  String? _loadedUid;
+  int _loadGeneration = 0;
   bool _canOpenSalesHistory = false;
   String? _errorMessage;
 
@@ -71,36 +77,60 @@ class _ReportsScreenState extends State<ReportsScreen> {
     _loadReports();
   }
 
+  @override
+  void didUpdateWidget(covariant ReportsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.firestore != widget.firestore) _loadedUid = null;
+    if (_uid != _loadedUid ||
+        oldWidget.firestore != widget.firestore ||
+        (!oldWidget.active && widget.active)) {
+      _loadReports(background: _hasLoaded && _uid == _loadedUid);
+    }
+  }
+
   // Load records for the signed-in store.
-  Future<void> _loadReports() async {
+  Future<void> _loadReports({bool background = false}) async {
+    final uid = _uid;
+    final generation = ++_loadGeneration;
+    bool current() => mounted && generation == _loadGeneration && uid == _uid;
+    if (_loadedUid != uid) {
+      _hasLoaded = false;
+      _salesDocuments = [];
+      _productDocuments = [];
+      _costs = const {};
+      _canOpenSalesHistory = false;
+    }
+    _loadedUid = uid;
     try {
       setState(() {
-        _isLoading = true;
+        _isLoading = !background || !_hasLoaded;
         _errorMessage = null;
       });
 
-      final uid = _uid;
       if (uid == null) throw Exception('No user');
 
       final userDoc = await _firestore.collection('users').doc(uid).get().timeout(_requestTimeout);
+      if (!current()) return;
       final storeCode = (userDoc.data()?['storeCode'] ?? '').toString().trim();
 
       if (storeCode.isEmpty) throw Exception('Store code not found');
 
       // The longest period is a year; last year is kept for period comparisons.
       final now = DateTime.now();
-      final salesDocs = await SalesQuery.since(
-        _firestore,
-        storeCode: storeCode,
-        from: DateTime(now.year - 1),
-        timeout: _requestTimeout,
-      );
-
-      final productsSnapshot = await _firestore
-          .collection('products')
-          .where('storeCode', isEqualTo: storeCode)
-          .get()
-          .timeout(_requestTimeout);
+      final (salesDocs, productsSnapshot) = await (
+        SalesQuery.since(
+          _firestore,
+          storeCode: storeCode,
+          from: DateTime(now.year - 1),
+          timeout: _requestTimeout,
+        ),
+        _firestore
+            .collection('products')
+            .where('storeCode', isEqualTo: storeCode)
+            .get()
+            .timeout(_requestTimeout),
+      ).wait;
+      if (!current()) return;
 
       final storeProducts = productsSnapshot.docs.where((doc) {
         final productStoreCode = (doc.data()['storeCode'] ?? '').toString().trim();
@@ -114,7 +144,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
         costs = await ProductCosts.load(_firestore, storeCode);
       }
 
-      if (!mounted) return;
+      if (!current()) return;
 
       setState(() {
         _canOpenSalesHistory = isOwner;
@@ -122,11 +152,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _productDocuments = storeProducts;
         _costs = costs;
         _isLoading = false;
+        _hasLoaded = true;
       });
     } catch (e) {
       debugPrint('Reports error: $e');
 
-      if (!mounted) return;
+      if (!current()) return;
 
       setState(() {
         _errorMessage = 'Failed to load reports';

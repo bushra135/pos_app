@@ -8,6 +8,7 @@ function harness(getMedia) {
   const elements = [];
   let stopped = 0;
   let decode;
+  let beeps = 0;
   const stream = {getTracks: () => [{stop: () => stopped++}]};
   const document = {
     getElementById: () => null,
@@ -27,16 +28,18 @@ function harness(getMedia) {
     }
   }}};
   vm.runInNewContext(source, context);
+  context.window.ShopPadBrowserScanner.playScanSound = () => beeps++;
   return {open: (callback, summary) => context.window.ShopPadBrowserScanner.open(callback, summary),
     close: () => context.window.ShopPadBrowserScanner.close(),
     position: bounds => context.window.ShopPadBrowserScanner.position(JSON.stringify(bounds)), advance: ms => now += ms, elements, stream,
-    get stopped() {return stopped;}, detect(code) {decode({getText: () => code});}};
+    get beeps() {return beeps;}, get stopped() {return stopped;}, detect(code) {decode({getText: () => code});}};
 }
 const tick = () => new Promise(resolve => setImmediate(resolve));
 test('recognized barcode resolves once and stops the camera', async () => {
   const h = harness(); const result = h.open(); await tick();
   h.detect('3017620422003'); h.detect('3017620422003');
   assert.equal(await result, '3017620422003');
+  assert.equal(h.beeps, 1);
   assert.equal(h.stopped, 1); assert.equal(h.elements[0].removed, true);
 });
 test('closing while permission is pending releases the late camera stream', async () => {
@@ -48,7 +51,7 @@ test('closing while permission is pending releases the late camera stream', asyn
 test('denied permission displays a reason and permits a retry', async () => {
   const h = harness(() => Promise.reject(Object.assign(new Error('Permission denied'), {name:'NotAllowedError'})));
   const result = h.open(); await tick();
-  assert.match(h.elements.find(e => e.tag === 'p').textContent, /NotAllowedError/);
+  assert.equal(h.elements.find(e => e.tag === 'p').textContent, 'Camera access is blocked. Allow the camera for this site in the browser settings, then tap retry.');
   assert.equal(h.elements.find(e => e.textContent === 'Start \/ retry camera').disabled, false);
   h.elements.find(e => e.textContent === 'Close').onclick();
   assert.equal(await result, null);
@@ -62,7 +65,7 @@ test('continuous checkout serializes scans and reports the actual cart summary',
     return JSON.stringify({ok:true, message:code+' added',summary:codes.length+' items · BD 2.000'});
   }, '0 items · BD 0.000');
   await tick(); h.detect('A'); h.detect('A'); h.detect('B'); h.detect('A');
-  assert.deepEqual(codes, ['A']); releaseFirst(); await tick();
+  assert.deepEqual(codes, ['A']); assert.equal(h.beeps, 2); releaseFirst(); await tick();
   assert.deepEqual(codes, ['A','B']);
   assert.equal(h.elements.find(e => e.tag === 'strong' && e.textContent.includes('items')).textContent, '2 items · BD 2.000');
   h.elements.find(e => e.textContent === 'Review sale').onclick();
@@ -103,3 +106,9 @@ test('cashier camera is positioned inside Scan and has no full-screen navigation
   h.close(); assert.equal(await result,null); assert.equal(h.stopped,1);
 });
 
+
+test('unknown lookup still beeps once at decode, held labels stay silent', async () => {
+  const h=harness(); const result=h.open(async()=>JSON.stringify({ok:false,message:'Unknown barcode',summary:'0 items'}));
+  await tick();h.detect('unknown');h.detect('unknown');await tick();assert.equal(h.beeps,1);
+  h.advance(1700);h.detect('unknown');await tick();assert.equal(h.beeps,2);h.close();await result;
+});

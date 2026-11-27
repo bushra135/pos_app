@@ -1,7 +1,7 @@
+import '../../services/scan_feedback.dart';
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
@@ -63,7 +63,6 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     detectionTimeoutMs: 100,
     facing: CameraFacing.back,
   );
-  final _audioPlayer = AudioPlayer();
   final _barcodeInputController = TextEditingController();
   final _barcodeGuard = BarcodeScanGuard();
   Timer? _releaseTimer;
@@ -128,7 +127,6 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     _releaseTimer?.cancel();
     if (_browserScannerOpen) closeBrowserScanner();
     _scannerController.dispose();
-    _audioPlayer.dispose();
     _barcodeInputController.dispose();
     super.dispose();
   }
@@ -244,18 +242,11 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     _entryFocus.requestFocus();
   }
 
-  /// A different signal for problems, so the cashier notices without looking.
+  /// A failed lookup remains distinct through haptics; the decode already beeped.
   Future<void> _playErrorFeedback() async {
     try {
       await HapticFeedback.heavyImpact();
-      for (var i = 0; i < 2; i++) {
-        await _audioPlayer.stop();
-        await _audioPlayer.play(AssetSource('sounds/beep.mp3'));
-        await Future<void>.delayed(const Duration(milliseconds: 160));
-      }
-    } catch (error) {
-      debugPrint('Scan feedback unavailable: $error');
-    }
+    } catch (_) {}
   }
 
   /// Short, translated reasons instead of raw exceptions.
@@ -302,20 +293,10 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _playScanFeedback() async {
-    // Feedback failure must never report an already-added item as a failed scan.
-    try {
-      await HapticFeedback.lightImpact();
-      await _audioPlayer.stop();
-      await _audioPlayer.play(AssetSource('sounds/beep.mp3'));
-    } catch (error) {
-      debugPrint('Scan feedback unavailable: $error');
-    }
-  }
-
   // Resolve a store product before updating the cart.
-  Future<void> _addProductByBarcode(String code) async {
+  Future<void> _addProductByBarcode(String code, {bool feedback = true}) async {
     if (_isAddingProduct || code.trim().isEmpty) return;
+    if (feedback) unawaited(playBarcodeFeedback());
     setState(() {
       _isAddingProduct = true;
       // Visible right away, so a slow connection never looks like a missed scan.
@@ -378,7 +359,6 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
         _lastAddedStoreCode = storeCode;
         _barcodeInputController.clear();
       });
-      unawaited(_playScanFeedback());
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -640,7 +620,7 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
             return jsonEncode({'ok': false, 'message': 'Scanner closed'.tr, 'summary': ''});
           }
           if (!_isManualEntryVisible && !_isProductInfoOpen) {
-            await _addProductByBarcode(code);
+            await _addProductByBarcode(code, feedback: !kIsWeb);
           }
           return jsonEncode({
             'ok': !_hasScanError,
