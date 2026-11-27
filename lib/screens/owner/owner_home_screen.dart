@@ -338,7 +338,9 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> with WidgetsBindingOb
 
     Clipboard.setData(ClipboardData(text: storeCode));
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Store code copied'.tr)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(backgroundColor: AppColors.success, content: Text('Store code copied'.tr)),
+    );
   }
 
   // Keep performance navigation alongside cashier management on the home card.
@@ -584,6 +586,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> with WidgetsBindingOb
     _stockNoticeShown = true;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
+        backgroundColor: AppColors.danger,
         duration: const Duration(seconds: 6),
         content: Text(
           (lowStockCount == 1 ? '1 product is low on stock' : '{n} products are low on stock')
@@ -689,7 +692,10 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> with WidgetsBindingOb
       debugPrint('Could not mark corrections reviewed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not update. Check your connection and try again.'.tr)),
+          SnackBar(
+            backgroundColor: AppColors.danger,
+            content: Text('Could not update. Check your connection and try again.'.tr),
+          ),
         );
       }
     } finally {

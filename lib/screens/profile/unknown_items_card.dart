@@ -69,13 +69,16 @@ class _UnknownItemsCardState extends State<UnknownItemsCard> {
           })
           .timeout(const Duration(seconds: 15));
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Settings saved'.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.success, content: Text('Settings saved'.tr)),
+      );
       widget.onSaved?.call();
     } catch (e) {
       debugPrint('Unknown-product settings save failed: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          backgroundColor: AppColors.danger,
           content: Text('Could not save your changes. Check your connection and try again.'.tr),
         ),
       );

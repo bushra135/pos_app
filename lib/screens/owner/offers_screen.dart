@@ -161,14 +161,19 @@ class _OffersScreenState extends State<OffersScreen> {
       });
       await _load();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(done.tr)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(backgroundColor: AppColors.success, content: Text(done.tr)));
       }
     } catch (e) {
       debugPrint('Offer update failed: $e');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not update the offer. Try again.'.tr)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.danger,
+            content: Text('Could not update the offer. Try again.'.tr),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy.remove(productId));
@@ -181,6 +186,7 @@ class _OffersScreenState extends State<OffersScreen> {
     if (max < ActiveOffer.minPercent) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          backgroundColor: AppColors.danger,
           content: Text(
             'No safe discount for {name}: it would sell below cost.'.trArgs({
               'name': suggestion.slowMover.name,

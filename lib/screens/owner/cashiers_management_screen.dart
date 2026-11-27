@@ -87,9 +87,9 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
     } catch (e) {
       debugPrint('Error updating cashier permission: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to update cashier'.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.danger, content: Text('Failed to update cashier'.tr)),
+      );
     }
   }
 
@@ -141,16 +141,19 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text((isActive ? 'Cashier enabled' : 'Cashier disabled').tr)),
+        SnackBar(
+          backgroundColor: AppColors.success,
+          content: Text((isActive ? 'Cashier enabled' : 'Cashier disabled').tr),
+        ),
       );
     } catch (e) {
       debugPrint('Error updating cashier status: $e');
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to update cashier'.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.danger, content: Text('Failed to update cashier'.tr)),
+      );
     }
   }
 
@@ -180,15 +183,17 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Cashier deleted'.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.success, content: Text('Cashier deleted'.tr)),
+      );
     } catch (e) {
       debugPrint('Error deleting cashier: $e');
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to delete cashier'.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.danger, content: Text('Failed to delete cashier'.tr)),
+      );
     }
   }
 
@@ -219,15 +224,23 @@ class _CashiersManagementScreenState extends State<CashiersManagementScreen> {
                 final messenger = ScaffoldMessenger.of(context);
                 Navigator.of(dialogContext).pop();
 
-                messenger.showSnackBar(SnackBar(content: Text('Cashier invited successfully'.tr)));
+                messenger.showSnackBar(
+                  SnackBar(
+                    backgroundColor: AppColors.success,
+                    content: Text('Cashier invited successfully'.tr),
+                  ),
+                );
               } catch (e) {
                 debugPrint('Error inviting cashier: $e');
 
                 if (!mounted || !context.mounted) return;
 
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: AppColors.danger,
+                    content: Text(e.toString().replaceAll('Exception: ', '')),
+                  ),
+                );
 
                 setDialogState(() => isSaving = false);
               }

@@ -468,6 +468,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            backgroundColor: AppColors.success,
             content: Text('Filtered report prepared for download. Open the Excel workbook.'.tr),
           ),
         );
@@ -475,7 +476,10 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not prepare the report. Retry the download.'.tr)),
+          SnackBar(
+            backgroundColor: AppColors.danger,
+            content: Text('Could not prepare the report. Retry the download.'.tr),
+          ),
         );
       }
     }
@@ -815,7 +819,12 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       );
     }
     if (lines.isEmpty) {
-      messenger.showSnackBar(SnackBar(content: Text('This receipt has no returnable items.'.tr)));
+      messenger.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.danger,
+          content: Text('This receipt has no returnable items.'.tr),
+        ),
+      );
       return;
     }
     Map<String, int> already;
@@ -827,7 +836,10 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Could not check earlier returns. Try again.'.tr)),
+        SnackBar(
+          backgroundColor: AppColors.danger,
+          content: Text('Could not check earlier returns. Try again.'.tr),
+        ),
       );
       return;
     }
@@ -842,7 +854,10 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     }..removeWhere((_, line) => line.left <= 0);
     if (available.isEmpty) {
       messenger.showSnackBar(
-        SnackBar(content: Text('Everything on this receipt was already returned.'.tr)),
+        SnackBar(
+          backgroundColor: AppColors.danger,
+          content: Text('Everything on this receipt was already returned.'.tr),
+        ),
       );
       return;
     }
@@ -866,6 +881,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       );
       messenger.showSnackBar(
         SnackBar(
+          backgroundColor: AppColors.success,
           content: Text(
             'Refunded {amount} · stock updated'.trArgs({'amount': Money.format(amount)}),
           ),
@@ -873,7 +889,10 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text(e is StateError ? e.message : 'Refund failed. Try again.')),
+        SnackBar(
+          backgroundColor: AppColors.danger,
+          content: Text(e is StateError ? e.message : 'Refund failed. Try again.'),
+        ),
       );
     }
   }

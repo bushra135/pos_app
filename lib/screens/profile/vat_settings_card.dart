@@ -59,13 +59,16 @@ class _VatSettingsCardState extends State<VatSettingsCard> {
           })
           .timeout(const Duration(seconds: 15));
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('VAT details saved'.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.success, content: Text('VAT details saved'.tr)),
+      );
       widget.onSaved?.call();
     } catch (e) {
       debugPrint('VAT details save failed: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
+          backgroundColor: AppColors.danger,
           content: Text('Could not save your changes. Check your connection and try again.'.tr),
         ),
       );

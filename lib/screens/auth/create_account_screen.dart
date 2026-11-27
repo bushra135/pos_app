@@ -106,7 +106,9 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message.tr)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(backgroundColor: AppColors.danger, content: Text(message.tr)));
   }
 
   /// Moves to the verify-email screen, keeping the form values in case the user returns.

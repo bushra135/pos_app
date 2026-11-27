@@ -1,3 +1,4 @@
+import 'package:pos_app/app/app_colors.dart';
 import '../support/product_form.dart';
 import 'dart:convert';
 import 'dart:async';
@@ -111,8 +112,15 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Delete product'));
     await tester.pumpAndSettle();
+    final messenger = ScaffoldMessenger.of(tester.element(find.byType(ProductsScreen)));
+    messenger.showSnackBar(const SnackBar(content: Text('Earlier stock notice')));
+    messenger.showSnackBar(const SnackBar(content: Text('Queued stock notice')));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
+    expect(find.text('Earlier stock notice'), findsNothing);
+    expect(find.text('Queued stock notice'), findsNothing);
+    expect(tester.widget<SnackBar>(find.byType(SnackBar)).backgroundColor, AppColors.success);
     expect((await db.collection('products').doc('ours').get()).exists, isFalse);
     expect((await db.collection('sales').doc('receipt').get()).exists, isTrue);
     expect(find.text('Delete product'), findsNothing);

@@ -229,7 +229,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         photo = next ?? '';
         _photoSaving = false;
       });
-      _photoMessage(next == null ? 'Profile photo removed' : 'Profile photo updated');
+      _photoMessage(
+        next == null ? 'Profile photo removed' : 'Profile photo updated',
+        success: true,
+      );
     } catch (e) {
       debugPrint('Photo save failed: $e');
       if (mounted) setState(() => _photoSaving = false);
@@ -237,9 +240,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _photoMessage(String message) {
+  void _photoMessage(String message, {bool success = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message.tr)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: success ? AppColors.success : AppColors.danger,
+        content: Text(message.tr),
+      ),
+    );
   }
 
   /// Owner picks the BenefitPay QR image; it is saved on the store for receipts.
@@ -274,9 +282,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('QR uploaded successfully'.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.success, content: Text('QR uploaded successfully'.tr)),
+      );
     } catch (e) {
       // Details go to the debug log only; the owner sees a friendly message.
       debugPrint('QR upload failed: $e');
@@ -286,9 +294,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not upload the QR image. Try again.'.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.danger,
+          content: Text('Could not upload the QR image. Try again.'.tr),
+        ),
+      );
     }
   }
 
@@ -313,9 +324,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Payment settings saved'.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.success, content: Text('Payment settings saved'.tr)),
+      );
     } catch (e) {
       debugPrint('Payment settings save failed: $e');
       setState(() {
@@ -324,9 +335,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not save payment settings. Try again.'.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.danger,
+          content: Text('Could not save payment settings. Try again.'.tr),
+        ),
+      );
     }
   }
 
@@ -341,6 +355,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            backgroundColor: AppColors.danger,
             content: Text(
               'Your cart could not be saved. Check device storage and try signing out again.'.tr,
             ),
@@ -561,6 +576,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final sentTo = emailSentTo;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            backgroundColor: AppColors.success,
             duration: Duration(seconds: sentTo == null ? 4 : 8),
             content: Text(
               sentTo == null
@@ -579,6 +595,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final address = FirebaseAuth.instance.currentUser?.email ?? email;
     if (address.isEmpty) return;
     var message = 'Password reset link sent to {email}';
+    var sent = true;
     try {
       await FirebaseAuth.instance.sendPasswordResetEmail(
         email: address,
@@ -590,12 +607,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       // Only the error code: the full error may carry the address.
       debugPrint('Reset email failed: ${e is FirebaseAuthException ? e.code : e.runtimeType}');
+      sent = false;
       message = 'Could not send the link. Try again later.';
     }
     if (!sheetContext.mounted) return;
-    ScaffoldMessenger.of(
-      sheetContext,
-    ).showSnackBar(SnackBar(content: Text(message.trArgs({'email': address}))));
+    ScaffoldMessenger.of(sheetContext).showSnackBar(
+      SnackBar(
+        backgroundColor: sent ? AppColors.success : AppColors.danger,
+        content: Text(message.trArgs({'email': address})),
+      ),
+    );
   }
 
   @override

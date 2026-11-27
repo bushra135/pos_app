@@ -228,9 +228,12 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
     } catch (e) {
       debugPrint('Z-report export failed: $e');
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not create the PDF. Try again.'.tr)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.danger,
+            content: Text('Could not create the PDF. Try again.'.tr),
+          ),
+        );
       }
     }
   }

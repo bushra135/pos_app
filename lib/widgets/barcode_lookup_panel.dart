@@ -190,9 +190,12 @@ class BarcodeLookupPanelState extends State<BarcodeLookupPanel> {
       mode: LaunchMode.externalApplication,
     ).catchError((_) => false);
     if (!opened && mounted) {
-      ScaffoldMessenger.maybeOf(
-        context,
-      )?.showSnackBar(SnackBar(content: Text('Could not open the browser.'.tr)));
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.danger,
+          content: Text('Could not open the browser.'.tr),
+        ),
+      );
     }
   }
 }

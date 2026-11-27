@@ -1,3 +1,4 @@
+import 'package:pos_app/app/app_colors.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -88,9 +89,9 @@ class _BackupScreenState extends State<BackupScreen> {
       final summary = await _backupService.createBackup(widget.storeCode);
       if (!mounted) return;
       setState(() => _backups = [summary, ..._backups]);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Cloud backup completed'.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.success, content: Text('Cloud backup completed'.tr)),
+      );
     });
   }
 

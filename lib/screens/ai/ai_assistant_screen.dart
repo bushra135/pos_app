@@ -1319,9 +1319,12 @@ class _MessageBubble extends StatelessWidget {
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: message.text));
                         if (context.mounted) {
-                          ScaffoldMessenger.of(
-                            context,
-                          ).showSnackBar(SnackBar(content: Text('Answer copied'.tr)));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: AppColors.success,
+                              content: Text('Answer copied'.tr),
+                            ),
+                          );
                         }
                       },
                     ),

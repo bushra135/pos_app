@@ -220,13 +220,14 @@ abstract final class AppTheme {
       progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.primaryDark),
       dividerColor: AppColors.border,
       snackBarTheme: SnackBarThemeData(
-        // Navy, so confirmations read as calm system messages, not as another button.
+        // Status messages set their semantic red/green background at the call site.
         backgroundColor: AppColors.navy,
         contentTextStyle: const TextStyle(
           fontFamily: AppTypography.family,
           color: Colors.white,
           fontSize: AppTypography.body,
         ),
+        actionTextColor: Colors.white,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.controlRadius),

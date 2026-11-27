@@ -148,12 +148,16 @@ class ProductRequestsSheet extends StatelessWidget {
       );
       // Sharing prices is opt-in in product management; approval never publishes store data.
       messenger.showSnackBar(
-        SnackBar(content: Text('{name} added to your products'.trArgs({'name': input.name}))),
+        SnackBar(
+          backgroundColor: AppColors.success,
+          content: Text('{name} added to your products'.trArgs({'name': input.name})),
+        ),
       );
     } catch (e) {
       debugPrint('Approve request failed: $e');
       messenger.showSnackBar(
         SnackBar(
+          backgroundColor: AppColors.danger,
           content: Text((e is StateError ? e.message : 'Could not add the product. Try again.').tr),
         ),
       );
@@ -213,6 +217,7 @@ class ProductRequestsSheet extends StatelessWidget {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
+                                        backgroundColor: AppColors.danger,
                                         content: Text(
                                           'Could not decline this request. Try again.'.tr,
                                         ),

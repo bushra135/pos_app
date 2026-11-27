@@ -42,9 +42,14 @@ class _CartScreenState extends State<CartScreen> {
     super.dispose();
   }
 
-  void _message(String message) {
+  void _message(String message, {bool success = false}) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: success ? AppColors.success : AppColors.danger,
+          content: Text(message),
+        ),
+      );
     }
   }
 
@@ -74,7 +79,7 @@ class _CartScreenState extends State<CartScreen> {
     setState(() => _draftBusy = true);
     try {
       await CartManager.hold(label);
-      _message('Sale held on this device. You can start the next customer.'.tr);
+      _message('Sale held on this device. You can start the next customer.'.tr, success: true);
     } catch (_) {
       _message(
         'Could not hold the sale. Your current cart is kept. Check device storage and retry.'.tr,
@@ -157,7 +162,7 @@ class _CartScreenState extends State<CartScreen> {
     setState(() => _draftBusy = true);
     try {
       await CartManager.resume(selected);
-      _message('Sale resumed. Review the items and prices before checkout.'.tr);
+      _message('Sale resumed. Review the items and prices before checkout.'.tr, success: true);
     } catch (_) {
       _message('Could not resume the sale. Your carts are kept. Please retry.'.tr);
     } finally {
@@ -266,6 +271,7 @@ class _CartScreenState extends State<CartScreen> {
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
       SnackBar(
+        backgroundColor: AppColors.success,
         duration: const Duration(seconds: 4),
         content: Text('{name} removed'.trArgs({'name': item.name})),
         action: SnackBarAction(
@@ -281,7 +287,9 @@ class _CartScreenState extends State<CartScreen> {
   /// Opens payment; the cart is cleared only after the sale is saved.
   void _checkout() {
     if (CartManager.items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Cart is empty'.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.danger, content: Text('Cart is empty'.tr)),
+      );
       return;
     }
 

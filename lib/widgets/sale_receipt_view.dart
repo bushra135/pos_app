@@ -58,6 +58,7 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            backgroundColor: AppColors.danger,
             content: Text('Could not export receipt. Your sale is already saved. Try again.'.tr),
           ),
         );
@@ -118,7 +119,10 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
     ).catchError((_) => false);
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not open WhatsApp. Your sale is already saved.'.tr)),
+        SnackBar(
+          backgroundColor: AppColors.danger,
+          content: Text('Could not open WhatsApp. Your sale is already saved.'.tr),
+        ),
       );
     }
   }

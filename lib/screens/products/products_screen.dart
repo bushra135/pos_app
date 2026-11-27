@@ -265,7 +265,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
   }
 
   void _showMessage(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text.tr)));
+    final messenger = ScaffoldMessenger.of(context);
+    // The completed action takes priority over an older stock notice.
+    messenger.clearSnackBars();
+    messenger.removeCurrentSnackBar();
+    messenger.showSnackBar(SnackBar(backgroundColor: AppColors.success, content: Text(text.tr)));
   }
 
   // Barcode input and validation.
@@ -638,6 +642,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 if (messenger.mounted) {
                   messenger.showSnackBar(
                     SnackBar(
+                      backgroundColor: AppColors.success,
                       content: Text(
                         (isEdit ? 'Product updated successfully' : 'Product added successfully').tr,
                       ),
@@ -1666,6 +1671,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         setDialogState(() => importing = false);
                         messenger.showSnackBar(
                           SnackBar(
+                            backgroundColor: AppColors.danger,
                             content: Text(
                               'Import failed. Nothing after the error was saved; try again.'.tr,
                             ),
@@ -1686,7 +1692,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
     controller.dispose();
     if (imported != null && imported > 0) {
       messenger.showSnackBar(
-        SnackBar(content: Text('{n} products imported'.trArgs({'n': imported}))),
+        SnackBar(
+          backgroundColor: AppColors.success,
+          content: Text('{n} products imported'.trArgs({'n': imported})),
+        ),
       );
       unawaited(_loadCosts(storeCode));
     }
@@ -1837,6 +1846,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       ).timeout(_requestTimeout);
       messenger.showSnackBar(
         SnackBar(
+          backgroundColor: AppColors.success,
           content: Text(
             '{name} restocked: +{n} (now {total})'.trArgs({
               'name': name,
@@ -1849,7 +1859,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
     } catch (e) {
       debugPrint('Restock failed: $e');
       messenger.showSnackBar(
-        SnackBar(content: Text('Could not update stock. Check your connection and try again.'.tr)),
+        SnackBar(
+          backgroundColor: AppColors.danger,
+          content: Text('Could not update stock. Check your connection and try again.'.tr),
+        ),
       );
     }
   }

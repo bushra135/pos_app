@@ -47,9 +47,14 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _message(String text) {
+  void _message(String text, {bool success = false}) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: success ? AppColors.success : AppColors.danger,
+          content: Text(text.tr),
+        ),
+      );
     }
   }
 
@@ -97,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
           handleCodeInApp: false,
         ),
       );
-      _message('If this account exists, a password reset link will be sent.');
+      _message('If this account exists, a password reset link will be sent.', success: true);
     } on FirebaseAuthException catch (error) {
       _message(
         error.code == 'too-many-requests'

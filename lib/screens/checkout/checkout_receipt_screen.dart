@@ -262,14 +262,16 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
   Future<void> _confirmPayment() async {
     if (isSavingSale || completedSale != null) return;
     if (CartManager.items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Cart is empty'.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.danger, content: Text('Cart is empty'.tr)),
+      );
       return;
     }
 
     if (storeCode.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Store code not found'.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.danger, content: Text('Store code not found'.tr)),
+      );
       return;
     }
 
@@ -355,9 +357,12 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       unawaited(_playPaymentSuccessSound());
 
       if (result.status == SaleSubmissionStatus.synced) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Sale confirmed and stock updated'.tr)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.success,
+            content: Text('Sale confirmed and stock updated'.tr),
+          ),
+        );
       } else {
         await showDialog<void>(
           context: context,
@@ -381,7 +386,9 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       debugPrint('Sale save failed: $e');
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_saleErrorMessage(e))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.danger, content: Text(_saleErrorMessage(e))),
+      );
 
       setState(() {
         isSavingSale = false;
