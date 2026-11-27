@@ -281,7 +281,7 @@ class _CashierHomeScreenState extends State<CashierHomeScreen> {
                 child: isLoading
                     ? const HomeSkeleton(tiles: 2)
                     : RetainedTabBody(
-                        key: ValueKey('${_userId}_$_storeCode'),
+                        key: ValueKey((_userId, _storeCode, widget.firestore)),
                         index: selectedIndex,
                         retained: const {3},
                         builder: screen,

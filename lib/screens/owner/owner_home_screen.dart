@@ -423,7 +423,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> with WidgetsBindingOb
             child: isLoading
                 ? const HomeSkeleton()
                 : RetainedTabBody(
-                    key: ValueKey('${_ownerUid}_$storeCode'),
+                    key: ValueKey((_ownerUid, storeCode, widget.firestore)),
                     index: _selectedIndex,
                     retained: const {2, 4},
                     builder: screen,
