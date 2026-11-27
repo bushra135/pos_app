@@ -1037,4 +1037,11 @@ const Map<String, String> arabicStrings = {
       'السعر المرجعي المشترك: {price} (ليس سعراً رسمياً)',
   'This request is no longer available.': 'لم يعد هذا الطلب متاحاً.',
   'Additional details (optional)': 'تفاصيل إضافية (اختيارية)',
+  'Secure checkout is not configured. Your receipt remains saved on this device.':
+      'الدفع الآمن غير مهيأ. إيصالك محفوظ على هذا الجهاز.',
+  'Secure checkout is unavailable. Your receipt remains saved on this device.':
+      'الدفع الآمن غير متاح. إيصالك محفوظ على هذا الجهاز.',
+  'The server has not confirmed this receipt.': 'لم يؤكد الخادم هذا الإيصال.',
+  'The sale details changed. Review this sale before retrying.':
+      'تغيرت تفاصيل البيع. راجع العملية قبل إعادة المحاولة.',
 };

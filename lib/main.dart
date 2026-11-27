@@ -10,7 +10,7 @@ import 'app/theme.dart';
 import 'firebase_options.dart';
 import 'screens/auth/auth_wrapper.dart';
 import 'services/local_pos_store.dart';
-import 'services/sale_gateway.dart';
+import 'services/trusted_sale_gateway.dart';
 import 'services/sale_sync_service.dart';
 
 /// Initialize Firebase before building screens that depend on its services.
@@ -28,7 +28,7 @@ Future<void> main() async {
 
   final sync = SaleSyncService(
     store: await LocalPosStore.open(),
-    gateway: FirestoreSaleGateway(),
+    gateway: TrustedSaleGateway(),
     currentUserId: () => FirebaseAuth.instance.currentUser?.uid,
   );
   SaleSyncService.maybeInstance = sync;

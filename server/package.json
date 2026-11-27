@@ -1,0 +1,1 @@
+{"name":"shoppad-checkout","version":"1.0.0","private":true,"type":"commonjs","scripts":{"start":"node index.cjs","test":"node --test test/*.test.cjs"},"engines":{"node":">=22"},"dependencies":{"firebase-admin":"^14.5.1"}}

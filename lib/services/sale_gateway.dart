@@ -19,7 +19,8 @@ abstract class SaleGateway {
   Future<void> commit(SaleRecord sale);
 }
 
-/// Reads authoritative stock before atomically saving one sale and its changes.
+/// Legacy direct writer retained for existing local regression fixtures.
+/// Production checkout uses TrustedSaleGateway; rules deny direct cashier writes.
 class FirestoreSaleGateway implements SaleGateway {
   FirestoreSaleGateway({
     FirebaseFirestore? firestore,

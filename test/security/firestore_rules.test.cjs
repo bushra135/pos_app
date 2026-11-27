@@ -105,9 +105,9 @@ test('approved cashier edits own-store catalogue but cannot cross stores or forg
   denied(await request('/products/editable','cashierA',{method:'PATCH',data:{fields:fields({price:1})},query:'?updateMask.fieldPaths=price',verified:false}));
   denied(await put('sales/forged',{id:'forged',cashierUid:'ownerA',storeCode:'A',items:[{}],productIds:['productA'],total:2,status:'completed',type:'sale'},'cashierA'));
 });
-test('sale transaction updates stock but cashier cannot rewrite its audit linkage',async()=>{
+test('cashier client cannot bypass trusted checkout with a receipt and stock transaction',async()=>{
   const sale=receipt('new-sale','cashierA');
-  allowed(await commit([['sales/new-sale',sale],['products/productA',{storeCode:'A',name:'Pen',price:2,stock:2,barcode:'123',lastSaleId:'new-sale'}]],'cashierA'));
+  denied(await commit([['sales/new-sale',sale],['products/productA',{storeCode:'A',name:'Pen',price:2,stock:2,barcode:'123',lastSaleId:'new-sale'}]],'cashierA'));
   denied(await patch('products/productA',{stock:1,lastSaleId:'fake-sale'},'cashierA'));
 });
 test('a receipt cannot be used to inflate inventory',async()=>{
@@ -253,17 +253,17 @@ test('cost prices are owner-only',async()=>{
   denied(await put('productCosts/costed',{storeCode:'A',cost:-1},'ownerA'));
   denied(await put('productCosts/productB',{storeCode:'A',cost:1},'ownerA'));
 });
-test('cashier receipts must add up and carry a real sale time',async()=>{
+test('cashier clients cannot write receipts directly, including valid and offline shapes',async()=>{
   const saleWith=(id,extra)=>[['sales/'+id,receipt(id,'cashierA',{productIds:[],...extra})]];
-  allowed(await commit(saleWith('ok-receipt',{}),'cashierA'));
+  denied(await commit(saleWith('ok-receipt',{}),'cashierA'));
   denied(await commit(saleWith('zero-total',{total:0}),'cashierA'));
   denied(await commit(saleWith('big-discount',{discount:5,total:0}),'cashierA'));
   denied(await commit(saleWith('negative-discount',{discount:-1,total:3}),'cashierA'));
   denied(await commit(saleWith('backdated',{createdAt:new Date(Date.now()-40*86400000)}),'cashierA'));
   denied(await commit(saleWith('future',{createdAt:new Date(Date.now()+86400000)}),'cashierA'));
   denied(await commit(saleWith('fake-sync',{$serverTime:[],syncedAt:new Date()}),'cashierA'));
-  // Offline sales may sync later within the 30-day window.
-  allowed(await commit(saleWith('offline-receipt',{createdAt:new Date(Date.now()-3*86400000)}),'cashierA'));
+  // Offline sales synchronize through the trusted endpoint, never a client write.
+  denied(await commit(saleWith('offline-receipt',{createdAt:new Date(Date.now()-3*86400000)}),'cashierA'));
 });
 
 test('users edit their own phone and confirmed email, nothing else',async()=>{
@@ -291,7 +291,7 @@ test('bundle offers: only the owner starts them, and receipts may record them',a
   allowed(await patch('products/offerSlowA',{offerActive:false},'ownerA'));
   // A cashier receipt carries the offer's share of the discount; totals must still add up.
   const withOffer=receipt('offer-receipt','cashierA',{productIds:[],subtotal:2,discount:0.2,total:1.8,offerDiscount:0.2,offers:['Pen + Ruler 20%']});
-  allowed(await commit([['sales/offer-receipt',withOffer]],'cashierA'));
+  denied(await commit([['sales/offer-receipt',withOffer]],'cashierA'));
   const wrong=receipt('offer-wrong','cashierA',{productIds:[],subtotal:2,discount:0.2,total:2,offerDiscount:0.2});
   denied(await commit([['sales/offer-wrong',wrong]],'cashierA'));
 });
@@ -389,7 +389,9 @@ test('reference receipts require exact owner-authorized price and never inventor
     items:[{productId:'unknown_A_12340001',barcode:'12340001',name:'Notebook',price:0.7,quantity:2}],
     productIds:['unknown_A_12340001'],subtotal:1.4,total:1.4,
     unknownBarcode:'12340001',pricingPolicy:'owner_authorized_shared_reference',...extra});
-  allowed(await commit([['sales/reference-ok',make('reference-ok')]],'cashierA'));
+  denied(await commit([['sales/reference-ok',make('reference-ok')]],'cashierA'));
+  // Simulate the trusted server result; authorization/pricing is exercised by server integration tests.
+  allowed(await put('sales/reference-ok',make('reference-ok')));
   allowed(await request('/sales/reference-ok','ownerA'));
   const inventory=await request('/products/unknown_A_12340001','ownerA'); assert.equal(inventory.status,404);
   denied(await commit([['sales/reference-fake',make('reference-fake',{items:[{productId:'unknown_A_12340001',barcode:'12340001',name:'Notebook',price:0.1,quantity:2}],subtotal:0.2,total:0.2})]],'cashierA'));
@@ -459,4 +461,10 @@ test('profile photo: own JPEG only, bounded size, role/store permissions remain 
   denied(await patch('users/cashierA',{photo},null));
   allowed(await request('/users/cashierA','cashierA',{method:'PATCH',data:{fields:{}},query:'?updateMask.fieldPaths=photo'}));
   assert.equal((await request('/users/cashierA','cashierA')).body.fields.photo,undefined);
+});
+
+// Regression cases from the independent 27 November attack review.
+test('underpriced receipt-only writes and hidden unknown lines are denied', async()=>{
+  denied(await commit([['sales/underprice-attack',receipt('underprice-attack','cashierA',{items:[{productId:'productA',barcode:'123',name:'Pen',price:0.01,quantity:1}],subtotal:0.01,total:0.01})]],'cashierA'));
+  denied(await commit([['sales/second-unknown-attack',receipt('second-unknown-attack','cashierA',{items:[{productId:'productA',barcode:'123',name:'Pen',price:2,quantity:1},{productId:'unknown_A_12345678',barcode:'12345678',name:'Unknown',price:0.01,quantity:1}],productIds:['productA','unknown_A_12345678'],subtotal:2.01,total:2.01})]],'cashierA'));
 });
