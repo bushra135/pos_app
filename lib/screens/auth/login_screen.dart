@@ -1,3 +1,4 @@
+import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'dart:math' as math;
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -50,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _message(String text, {bool success = false}) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: success ? AppColors.success : AppColors.danger,
           content: Text(text.tr),
         ),

@@ -1,3 +1,4 @@
+import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -57,7 +58,7 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          appSnackBar(
             backgroundColor: AppColors.danger,
             content: Text('Could not export receipt. Your sale is already saved. Try again.'.tr),
           ),
@@ -119,7 +120,7 @@ class _SaleReceiptViewState extends State<SaleReceiptView> {
     ).catchError((_) => false);
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.danger,
           content: Text('Could not open WhatsApp. Your sale is already saved.'.tr),
         ),

@@ -1,3 +1,4 @@
+import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -229,7 +230,7 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
       debugPrint('Z-report export failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          appSnackBar(
             backgroundColor: AppColors.danger,
             content: Text('Could not create the PDF. Try again.'.tr),
           ),

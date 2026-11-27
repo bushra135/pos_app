@@ -1,3 +1,4 @@
+import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -243,7 +244,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _photoMessage(String message, {bool success = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      appSnackBar(
         backgroundColor: success ? AppColors.success : AppColors.danger,
         content: Text(message.tr),
       ),
@@ -283,7 +284,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: AppColors.success, content: Text('QR uploaded successfully'.tr)),
+        appSnackBar(
+          backgroundColor: AppColors.success,
+          content: Text('QR uploaded successfully'.tr),
+        ),
       );
     } catch (e) {
       // Details go to the debug log only; the owner sees a friendly message.
@@ -295,7 +299,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.danger,
           content: Text('Could not upload the QR image. Try again.'.tr),
         ),
@@ -325,7 +329,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: AppColors.success, content: Text('Payment settings saved'.tr)),
+        appSnackBar(backgroundColor: AppColors.success, content: Text('Payment settings saved'.tr)),
       );
     } catch (e) {
       debugPrint('Payment settings save failed: $e');
@@ -336,7 +340,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.danger,
           content: Text('Could not save payment settings. Try again.'.tr),
         ),
@@ -354,7 +358,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          appSnackBar(
             backgroundColor: AppColors.danger,
             content: Text(
               'Your cart could not be saved. Check device storage and try signing out again.'.tr,
@@ -575,7 +579,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) {
         final sentTo = emailSentTo;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          appSnackBar(
             backgroundColor: AppColors.success,
             duration: Duration(seconds: sentTo == null ? 4 : 8),
             content: Text(
@@ -612,7 +616,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
     if (!sheetContext.mounted) return;
     ScaffoldMessenger.of(sheetContext).showSnackBar(
-      SnackBar(
+      appSnackBar(
         backgroundColor: sent ? AppColors.success : AppColors.danger,
         content: Text(message.trArgs({'email': address})),
       ),

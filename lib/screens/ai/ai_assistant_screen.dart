@@ -1,3 +1,4 @@
+import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -1320,7 +1321,7 @@ class _MessageBubble extends StatelessWidget {
                         await Clipboard.setData(ClipboardData(text: message.text));
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
+                            appSnackBar(
                               backgroundColor: AppColors.success,
                               content: Text('Answer copied'.tr),
                             ),

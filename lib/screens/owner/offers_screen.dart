@@ -1,3 +1,4 @@
+import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -163,13 +164,13 @@ class _OffersScreenState extends State<OffersScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(backgroundColor: AppColors.success, content: Text(done.tr)));
+        ).showSnackBar(appSnackBar(backgroundColor: AppColors.success, content: Text(done.tr)));
       }
     } catch (e) {
       debugPrint('Offer update failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          appSnackBar(
             backgroundColor: AppColors.danger,
             content: Text('Could not update the offer. Try again.'.tr),
           ),
@@ -185,7 +186,7 @@ class _OffersScreenState extends State<OffersScreen> {
     final max = _safeMax(suggestion.slowMover.key);
     if (max < ActiveOffer.minPercent) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.danger,
           content: Text(
             'No safe discount for {name}: it would sell below cost.'.trArgs({

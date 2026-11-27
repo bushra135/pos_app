@@ -1,3 +1,4 @@
+import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -191,7 +192,7 @@ class BarcodeLookupPanelState extends State<BarcodeLookupPanel> {
     ).catchError((_) => false);
     if (!opened && mounted) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.danger,
           content: Text('Could not open the browser.'.tr),
         ),

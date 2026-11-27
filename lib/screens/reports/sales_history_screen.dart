@@ -1,3 +1,4 @@
+import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -467,7 +468,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          appSnackBar(
             backgroundColor: AppColors.success,
             content: Text('Filtered report prepared for download. Open the Excel workbook.'.tr),
           ),
@@ -476,7 +477,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          appSnackBar(
             backgroundColor: AppColors.danger,
             content: Text('Could not prepare the report. Retry the download.'.tr),
           ),
@@ -820,7 +821,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     }
     if (lines.isEmpty) {
       messenger.showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.danger,
           content: Text('This receipt has no returnable items.'.tr),
         ),
@@ -836,7 +837,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.danger,
           content: Text('Could not check earlier returns. Try again.'.tr),
         ),
@@ -854,7 +855,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
     }..removeWhere((_, line) => line.left <= 0);
     if (available.isEmpty) {
       messenger.showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.danger,
           content: Text('Everything on this receipt was already returned.'.tr),
         ),
@@ -880,7 +881,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
         ownerName: (_profiles[uid]?['fullName'] ?? 'Owner').toString(),
       );
       messenger.showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.success,
           content: Text(
             'Refunded {amount} · stock updated'.trArgs({'amount': Money.format(amount)}),
@@ -889,7 +890,7 @@ class _SalesHistoryScreenState extends State<SalesHistoryScreen> {
       );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.danger,
           content: Text(e is StateError ? e.message : 'Refund failed. Try again.'),
         ),

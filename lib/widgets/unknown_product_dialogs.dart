@@ -1,3 +1,4 @@
+import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -148,7 +149,7 @@ class ProductRequestsSheet extends StatelessWidget {
       );
       // Sharing prices is opt-in in product management; approval never publishes store data.
       messenger.showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.success,
           content: Text('{name} added to your products'.trArgs({'name': input.name})),
         ),
@@ -156,7 +157,7 @@ class ProductRequestsSheet extends StatelessWidget {
     } catch (e) {
       debugPrint('Approve request failed: $e');
       messenger.showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.danger,
           content: Text((e is StateError ? e.message : 'Could not add the product. Try again.').tr),
         ),
@@ -216,7 +217,7 @@ class ProductRequestsSheet extends StatelessWidget {
                                 } catch (_) {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
+                                      appSnackBar(
                                         backgroundColor: AppColors.danger,
                                         content: Text(
                                           'Could not decline this request. Try again.'.tr,

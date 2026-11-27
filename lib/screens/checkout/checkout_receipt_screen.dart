@@ -1,3 +1,4 @@
+import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
@@ -263,14 +264,14 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
     if (isSavingSale || completedSale != null) return;
     if (CartManager.items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: AppColors.danger, content: Text('Cart is empty'.tr)),
+        appSnackBar(backgroundColor: AppColors.danger, content: Text('Cart is empty'.tr)),
       );
       return;
     }
 
     if (storeCode.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: AppColors.danger, content: Text('Store code not found'.tr)),
+        appSnackBar(backgroundColor: AppColors.danger, content: Text('Store code not found'.tr)),
       );
       return;
     }
@@ -358,7 +359,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
       if (result.status == SaleSubmissionStatus.synced) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          appSnackBar(
             backgroundColor: AppColors.success,
             content: Text('Sale confirmed and stock updated'.tr),
           ),
@@ -387,7 +388,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: AppColors.danger, content: Text(_saleErrorMessage(e))),
+        appSnackBar(backgroundColor: AppColors.danger, content: Text(_saleErrorMessage(e))),
       );
 
       setState(() {

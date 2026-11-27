@@ -1,3 +1,4 @@
+import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/app_colors.dart';
@@ -45,7 +46,7 @@ class _CartScreenState extends State<CartScreen> {
   void _message(String message, {bool success = false}) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: success ? AppColors.success : AppColors.danger,
           content: Text(message),
         ),
@@ -270,7 +271,7 @@ class _CartScreenState extends State<CartScreen> {
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
-      SnackBar(
+      appSnackBar(
         backgroundColor: AppColors.success,
         duration: const Duration(seconds: 4),
         content: Text('{name} removed'.trArgs({'name': item.name})),
@@ -288,7 +289,7 @@ class _CartScreenState extends State<CartScreen> {
   void _checkout() {
     if (CartManager.items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: AppColors.danger, content: Text('Cart is empty'.tr)),
+        appSnackBar(backgroundColor: AppColors.danger, content: Text('Cart is empty'.tr)),
       );
       return;
     }

@@ -1,3 +1,4 @@
+import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -269,7 +270,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     // The completed action takes priority over an older stock notice.
     messenger.clearSnackBars();
     messenger.removeCurrentSnackBar();
-    messenger.showSnackBar(SnackBar(backgroundColor: AppColors.success, content: Text(text.tr)));
+    messenger.showSnackBar(appSnackBar(backgroundColor: AppColors.success, content: Text(text.tr)));
   }
 
   // Barcode input and validation.
@@ -641,7 +642,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 Navigator.pop(context);
                 if (messenger.mounted) {
                   messenger.showSnackBar(
-                    SnackBar(
+                    appSnackBar(
                       backgroundColor: AppColors.success,
                       content: Text(
                         (isEdit ? 'Product updated successfully' : 'Product added successfully').tr,
@@ -1670,7 +1671,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         debugPrint('Product import failed: $error');
                         setDialogState(() => importing = false);
                         messenger.showSnackBar(
-                          SnackBar(
+                          appSnackBar(
                             backgroundColor: AppColors.danger,
                             content: Text(
                               'Import failed. Nothing after the error was saved; try again.'.tr,
@@ -1692,7 +1693,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     controller.dispose();
     if (imported != null && imported > 0) {
       messenger.showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.success,
           content: Text('{n} products imported'.trArgs({'n': imported})),
         ),
@@ -1845,7 +1846,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         newStock: (stock) => stock + amount,
       ).timeout(_requestTimeout);
       messenger.showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.success,
           content: Text(
             '{name} restocked: +{n} (now {total})'.trArgs({
@@ -1859,7 +1860,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     } catch (e) {
       debugPrint('Restock failed: $e');
       messenger.showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.danger,
           content: Text('Could not update stock. Check your connection and try again.'.tr),
         ),

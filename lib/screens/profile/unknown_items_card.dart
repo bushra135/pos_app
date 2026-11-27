@@ -1,3 +1,4 @@
+import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -70,14 +71,14 @@ class _UnknownItemsCardState extends State<UnknownItemsCard> {
           .timeout(const Duration(seconds: 15));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: AppColors.success, content: Text('Settings saved'.tr)),
+        appSnackBar(backgroundColor: AppColors.success, content: Text('Settings saved'.tr)),
       );
       widget.onSaved?.call();
     } catch (e) {
       debugPrint('Unknown-product settings save failed: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.danger,
           content: Text('Could not save your changes. Check your connection and try again.'.tr),
         ),

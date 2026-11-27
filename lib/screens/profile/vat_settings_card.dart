@@ -1,3 +1,4 @@
+import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -60,14 +61,14 @@ class _VatSettingsCardState extends State<VatSettingsCard> {
           .timeout(const Duration(seconds: 15));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(backgroundColor: AppColors.success, content: Text('VAT details saved'.tr)),
+        appSnackBar(backgroundColor: AppColors.success, content: Text('VAT details saved'.tr)),
       );
       widget.onSaved?.call();
     } catch (e) {
       debugPrint('VAT details save failed: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        appSnackBar(
           backgroundColor: AppColors.danger,
           content: Text('Could not save your changes. Check your connection and try again.'.tr),
         ),

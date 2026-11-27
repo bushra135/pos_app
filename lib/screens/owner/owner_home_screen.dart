@@ -1,3 +1,4 @@
+import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -339,7 +340,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> with WidgetsBindingOb
     Clipboard.setData(ClipboardData(text: storeCode));
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(backgroundColor: AppColors.success, content: Text('Store code copied'.tr)),
+      appSnackBar(backgroundColor: AppColors.success, content: Text('Store code copied'.tr)),
     );
   }
 
@@ -585,7 +586,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> with WidgetsBindingOb
     if (_stockNoticeShown || lowStockCount == 0 || !mounted) return;
     _stockNoticeShown = true;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      appSnackBar(
         backgroundColor: AppColors.danger,
         duration: const Duration(seconds: 6),
         content: Text(
@@ -692,7 +693,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> with WidgetsBindingOb
       debugPrint('Could not mark corrections reviewed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          appSnackBar(
             backgroundColor: AppColors.danger,
             content: Text('Could not update. Check your connection and try again.'.tr),
           ),

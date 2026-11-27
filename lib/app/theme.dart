@@ -226,12 +226,14 @@ abstract final class AppTheme {
           fontFamily: AppTypography.family,
           color: Colors.white,
           fontSize: AppTypography.body,
+          fontWeight: FontWeight.w600,
+          height: 1.5,
         ),
         actionTextColor: Colors.white,
+        elevation: 4,
+        insetPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppSpacing.cardRadius)),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: AppColors.surface,

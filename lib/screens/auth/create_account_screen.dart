@@ -1,3 +1,4 @@
+import 'package:pos_app/widgets/app_snack_bar.dart';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -108,7 +109,7 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(backgroundColor: AppColors.danger, content: Text(message.tr)));
+    ).showSnackBar(appSnackBar(backgroundColor: AppColors.danger, content: Text(message.tr)));
   }
 
   /// Moves to the verify-email screen, keeping the form values in case the user returns.
