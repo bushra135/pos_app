@@ -19,10 +19,12 @@ import '../../utils/product_image_data.dart';
 import '../../widgets/motion.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../widgets/barcode_lookup_panel.dart';
+import '../../widgets/unknown_product_dialogs.dart';
 import '../../widgets/product_image.dart';
 import '../../widgets/scanner_error_panel.dart';
 import '../../app/app_language.dart';
 import '../../services/product_costs.dart';
+import '../../services/product_barcodes.dart';
 import '../../services/stock_moves.dart';
 import '../../utils/product_import.dart';
 import '../../app/money.dart';
@@ -379,6 +381,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final nameController = TextEditingController(text: product?['name']?.toString() ?? '');
     final categoryController = TextEditingController(text: product?['category']?.toString() ?? '');
     final priceController = TextEditingController(text: product?['price']?.toString() ?? '');
+    final brandController = TextEditingController(text: product?['brand']?.toString() ?? '');
+    final sizeController = TextEditingController(text: product?['size']?.toString() ?? '');
+    final descriptionController = TextEditingController(
+      text: product?['description']?.toString() ?? '',
+    );
     final savedCost =
         (docId == null ? null : _costs[docId]) ??
         (product?['cost'] is num ? (product!['cost'] as num).toDouble() : null);
@@ -408,6 +415,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     String? saveError;
     // Where an automatic price came from, shown under the price field.
     String? priceHint;
+    String? externalReference;
     // True while the price is the one calculated from cost + markup.
     var priceFromMarkup = false;
     // Owner choice: show this product as a one-tap button at checkout.
@@ -486,7 +494,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
             Future<void> saveProduct() async {
               if (isSavingProduct || isChoosingImage || isLookingUp) return;
               final String name = nameController.text.trim();
-              final String category = categoryController.text.trim();
+              final String category = categoryController.text.trim().isEmpty
+                  ? 'Other'
+                  : categoryController.text.trim();
               final double? price = double.tryParse(priceController.text.trim());
               final costText = costController.text.trim();
               final double? cost = costText.isEmpty ? 0 : double.tryParse(costText);
@@ -557,6 +567,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 // product go through a recorded stock move.
                 final Map<String, dynamic> productData = {
                   'name': name,
+                  'brand': brandController.text.trim(),
+                  'size': sizeController.text.trim(),
+                  'description': descriptionController.text.trim(),
                   'category': category,
                   'price': price,
                   if (!isEdit) 'stock': stock,
@@ -570,7 +583,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                 };
 
                 if (isEdit) {
-                  if (_mayEdit) await productRef.update(productData).timeout(_requestTimeout);
+                  if (_mayEdit) {
+                    await ProductBarcodes.save(
+                      productFirestore,
+                      productRef,
+                      productData,
+                    ).timeout(_requestTimeout);
+                  }
                   if (_mayAdjust && originalStock != null && stock != originalStock) {
                     await StockMoves.adjust(
                       productFirestore,
@@ -583,9 +602,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     ).timeout(_requestTimeout);
                   }
                 } else {
-                  await productRef
-                      .set({...productData, 'createdAt': FieldValue.serverTimestamp()})
-                      .timeout(_requestTimeout);
+                  await ProductBarcodes.save(productFirestore, productRef, {
+                    ...productData,
+                    'createdAt': FieldValue.serverTimestamp(),
+                  }).timeout(_requestTimeout);
                 }
                 if (_isOwner && cost != null && cost >= 0 && cost != (savedCost ?? -1)) {
                   await ProductCosts.save(
@@ -638,464 +658,529 @@ class _ProductsScreenState extends State<ProductsScreen> {
             final hasImage = pickedImageBytes != null || imagePreviewUrl.trim().isNotEmpty;
             final isBusy = isSavingProduct || isChoosingImage || isLookingUp;
 
+            final editorActions = Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: isSavingProduct ? null : () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      side: BorderSide(color: AppColors.border),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+                      ),
+                    ),
+                    child: Text(
+                      'Cancel'.tr,
+                      style: TextStyle(color: AppColors.muted, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: isBusy ? null : saveProduct,
+                    style: ElevatedButton.styleFrom(
+                      elevation: 2,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+                      ),
+                    ),
+                    child: isSavingProduct
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.4,
+                              color: AppColors.onBrand,
+                            ),
+                          )
+                        : Text(
+                            isEdit ? 'Save' : 'Add product',
+                            style: const TextStyle(
+                              color: AppColors.onBrand,
+                              fontSize: AppTypography.button,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            );
+
             return PopScope(
               // The picker can stay open; allow dismissing the form until saving.
               canPop: !isSavingProduct,
               child: Dialog(
                 backgroundColor: Colors.transparent,
-                child: SingleChildScrollView(
-                  child: Container(
-                    padding: const EdgeInsets.all(22),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.text.withValues(alpha: 0.08),
-                          blurRadius: 22,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                (isEdit ? 'Edit product' : 'Add product').tr,
-                                style: const TextStyle(
-                                  fontSize: AppTypography.title,
-                                  fontWeight: FontWeight.w800,
-                                ),
+                child: Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.text.withValues(alpha: 0.08),
+                        blurRadius: 22,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      (isEdit ? 'Edit product' : 'Add product').tr,
+                                      style: const TextStyle(
+                                        fontSize: AppTypography.title,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                  // Delete lives here so the product list stays uncluttered.
+                                  if (isEdit && _mayEdit)
+                                    IconButton(
+                                      tooltip: 'Delete product'.tr,
+                                      onPressed: isBusy
+                                          ? null
+                                          : () {
+                                              Navigator.pop(context);
+                                              _showDeleteDialog(
+                                                docId,
+                                                (product?['name'] ?? '').toString(),
+                                              );
+                                            },
+                                      icon: const Icon(
+                                        Icons.delete_outline_rounded,
+                                        color: AppColors.danger,
+                                      ),
+                                    ),
+                                ],
                               ),
-                            ),
-                            // Delete lives here so the product list stays uncluttered.
-                            if (isEdit && _mayEdit)
-                              IconButton(
-                                tooltip: 'Delete product'.tr,
-                                onPressed: isBusy
-                                    ? null
-                                    : () {
-                                        Navigator.pop(context);
-                                        _showDeleteDialog(
-                                          docId,
-                                          (product?['name'] ?? '').toString(),
-                                        );
+                              const SizedBox(height: 20),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildField(
+                                      barcodeController,
+                                      'Barcode',
+                                      onChanged: (value) {
+                                        setDialogState(() => catalogueSource = null);
+                                        // A typed barcode looks itself up once it is complete.
+                                        lookupDebounce?.cancel();
+                                        final code = value.trim();
+                                        if (!isEdit &&
+                                            RegExp(r'^(\d{8}|\d{12,14})$').hasMatch(code)) {
+                                          lookupDebounce = Timer(
+                                            const Duration(milliseconds: 700),
+                                            () {
+                                              if (context.mounted &&
+                                                  barcodeController.text.trim() == code &&
+                                                  lookupKey.currentState?.lastCode != code) {
+                                                lookupKey.currentState?.lookup();
+                                              }
+                                            },
+                                          );
+                                        }
                                       },
-                                icon: const Icon(
-                                  Icons.delete_outline_rounded,
-                                  color: AppColors.danger,
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildField(
-                                barcodeController,
-                                'Barcode',
-                                onChanged: (value) {
-                                  setDialogState(() => catalogueSource = null);
-                                  // A typed barcode looks itself up once it is complete.
-                                  lookupDebounce?.cancel();
-                                  final code = value.trim();
-                                  if (!isEdit && RegExp(r'^(\d{8}|\d{12,14})$').hasMatch(code)) {
-                                    lookupDebounce = Timer(const Duration(milliseconds: 700), () {
-                                      if (context.mounted &&
-                                          barcodeController.text.trim() == code &&
-                                          lookupKey.currentState?.lastCode != code) {
-                                        lookupKey.currentState?.lookup();
-                                      }
-                                    });
-                                  }
-                                },
-                                enabled: !isBusy && _mayEdit,
-                                keyboardType: TextInputType.number,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Container(
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  color: AppColors.soft,
-                                  borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                                ),
-                                child: IconButton(
-                                  tooltip: 'Scan barcode'.tr,
-                                  icon: const Icon(
-                                    Icons.qr_code_scanner,
-                                    color: AppColors.primaryDark,
-                                  ),
-                                  onPressed: isBusy || !_mayEdit
-                                      ? null
-                                      : () async {
-                                          final result = await _scanBarcode(context);
-
-                                          if (result != null && context.mounted) {
-                                            if (barcodeController.text.trim() != result) {
-                                              setDialogState(() {
-                                                catalogueSource = null;
-                                              });
-                                            }
-                                            barcodeController.text = result;
-                                            if (!isEdit) {
-                                              await lookupKey.currentState?.lookup();
-                                            }
-                                          }
-                                        },
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (!_mayEdit || !_mayAdjust) _permissionNote(),
-                        BarcodeLookupPanel(
-                          key: lookupKey,
-                          barcode: barcodeController,
-                          catalog: catalogue,
-                          enabled: !isSavingProduct && !isChoosingImage && _mayEdit,
-                          onBusyChanged: (busy) {
-                            if (context.mounted) {
-                              setDialogState(() => isLookingUp = busy);
-                            }
-                          },
-                          onProduct: (result) {
-                            if (!context.mounted) return;
-                            setDialogState(() {
-                              var filled = false;
-                              if (nameController.text.trim().isEmpty) {
-                                nameController.text = result.name;
-                                filled = true;
-                              }
-                              if (categoryController.text.trim().isEmpty &&
-                                  result.category.isNotEmpty) {
-                                categoryController.text = result.category;
-                                filled = true;
-                              }
-                              if (pickedImageBytes == null &&
-                                  imagePreviewUrl.isEmpty &&
-                                  imageController.text.trim().isEmpty &&
-                                  result.imageUrl.isNotEmpty) {
-                                // Embedded images from other stores go to the preview, not the URL field.
-                                if (!result.imageUrl.startsWith('data:image/')) {
-                                  imageController.text = result.imageUrl;
-                                }
-                                imagePreviewUrl = result.imageUrl;
-                                filled = true;
-                              }
-                              // Only a price a Bahraini store really uses; never a guess.
-                              if (priceController.text.trim().isEmpty &&
-                                  result.suggestedPrice > 0 &&
-                                  result.productType == CatalogProduct.communityType) {
-                                priceController.text = result.suggestedPrice.toStringAsFixed(3);
-                                priceHint = 'Price another ShopPad store uses. Check it.'.tr;
-                                priceFromMarkup = false;
-                                filled = true;
-                              }
-                              if (filled) catalogueSource = result.attribution;
-                            });
-                          },
-                        ),
-                        if (catalogueSource != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6, bottom: 12),
-                            child: SelectableText(
-                              [
-                                'Source: ${catalogueSource!['provider']} · ${catalogueSource!['note'] ?? (catalogueSource!.containsKey('dataLicense') ? 'data ODbL · images CC BY-SA' : 'name and category only')}',
-                                if ('${catalogueSource!['url'] ?? ''}'.isNotEmpty)
-                                  '${catalogueSource!['url']}',
-                              ].join('\n'),
-                              style: const TextStyle(
-                                fontSize: AppTypography.caption,
-                                color: AppColors.muted,
-                              ),
-                            ),
-                          ),
-                        _buildField(
-                          nameController,
-                          'Product name',
-                          enabled: !isBusy && _mayEdit,
-                          onChanged: (value) {
-                            if (categoryManuallyEdited) return;
-                            final current = categoryController.text.trim();
-                            if (current.isNotEmpty && current != automaticCategory) {
-                              return;
-                            }
-                            final suggestion = ProductCategorySuggestion.fromName(value);
-                            setDialogState(() {
-                              automaticCategory = suggestion;
-                              categoryController.text = suggestion ?? '';
-                            });
-                          },
-                        ),
-                        _buildField(
-                          categoryController,
-                          'Category',
-                          enabled: !isBusy && _mayEdit,
-                          onChanged: (_) => setDialogState(() {
-                            categoryManuallyEdited = true;
-                            automaticCategory = null;
-                          }),
-                        ),
-                        if (automaticCategory != null)
-                          Padding(
-                            padding: EdgeInsets.only(bottom: 12),
-                            child: Text(
-                              'Suggested from product name · you can change it'.tr,
-                              style: TextStyle(
-                                color: AppColors.muted,
-                                fontSize: AppTypography.caption,
-                              ),
-                            ),
-                          ),
-                        if (_isOwner) ...[
-                          _buildField(
-                            costController,
-                            'Cost price (owner only, optional)',
-                            enabled: !isBusy,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            onChanged: (_) => setDialogState(applyMarkup),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                Text(
-                                  'Markup'.tr,
-                                  style: const TextStyle(
-                                    fontSize: AppTypography.caption,
-                                    color: AppColors.muted,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                for (final choice in _markupChoices)
-                                  ChoiceChip(
-                                    label: Text('${choice.toStringAsFixed(0)}%'),
-                                    selected: markup == choice,
-                                    showCheckmark: false,
-                                    visualDensity: VisualDensity.compact,
-                                    onSelected: isBusy
-                                        ? null
-                                        : (_) => setDialogState(() {
-                                            markup = choice;
-                                            _saveMarkup(choice);
-                                            // Re-price only when the price came from the markup.
-                                            if (priceFromMarkup) {
-                                              priceController.clear();
-                                            }
-                                            applyMarkup();
-                                          }),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
-                        _buildField(
-                          priceController,
-                          'Price',
-                          enabled: !isBusy && _mayEdit,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          onChanged: (_) {
-                            priceFromMarkup = false;
-                            if (priceHint != null) setDialogState(() => priceHint = null);
-                          },
-                        ),
-                        if (priceHint != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 0, bottom: 10),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.info_outline, size: 15, color: AppColors.warning),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    priceHint!,
-                                    style: const TextStyle(
-                                      fontSize: AppTypography.caption,
-                                      color: AppColors.warning,
+                                      enabled: !isBusy && _mayEdit,
+                                      keyboardType: TextInputType.number,
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        _buildField(
-                          stockController,
-                          'Stock',
-                          // Changing stock here is recorded as a count correction.
-                          enabled: !isBusy && (!isEdit || _mayAdjust),
-                          keyboardType: TextInputType.number,
-                        ),
-                        _buildField(
-                          minStockController,
-                          'Low stock alert limit',
-                          enabled: !isBusy && _mayEdit,
-                          keyboardType: TextInputType.number,
-                        ),
-                        if (_isOwner)
-                          SwitchListTile(
-                            contentPadding: EdgeInsets.zero,
-                            value: quickKey,
-                            onChanged: isBusy
-                                ? null
-                                : (value) => setDialogState(() => quickKey = value),
-                            title: Text(
-                              'Quick button at checkout'.tr,
-                              style: const TextStyle(fontWeight: FontWeight.w700),
-                            ),
-                            subtitle: Text(
-                              'For items sold often or without a readable barcode'.tr,
-                              style: const TextStyle(fontSize: AppTypography.caption),
-                            ),
-                          ),
-                        if (_isOwner && isEdit) _stockHistory(docId),
-                        _buildField(
-                          imageController,
-                          'Image URL',
-                          enabled: !isBusy && _mayEdit,
-                          onChanged: (value) {
-                            setDialogState(() {
-                              pickedImageBytes = null;
-                              preparedImage = null;
-                              imagePreviewUrl = value.trim();
-                            });
-                          },
-                        ),
-                        _buildProductImagePreview(
-                          pickedImageBytes: pickedImageBytes,
-                          imageUrl: imagePreviewUrl,
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: isBusy || !_mayEdit ? null : chooseImage,
-                                icon: const Icon(Icons.upload_file_rounded),
-                                label: Text(
-                                  (isChoosingImage ? 'Preparing image...' : 'Choose image').tr,
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  side: const BorderSide(color: AppColors.primaryDark),
-                                  foregroundColor: AppColors.primaryDark,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            if (hasImage) ...[
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: isBusy
-                                      ? null
-                                      : () {
-                                          setDialogState(() {
-                                            pickedImageBytes = null;
-                                            preparedImage = null;
-                                            imagePreviewUrl = '';
-                                            imageController.clear();
-                                          });
-                                        },
-                                  icon: const Icon(Icons.close_rounded),
-                                  label: Text('Remove'.tr),
-                                  style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    side: BorderSide(color: AppColors.border),
-                                    foregroundColor: AppColors.text,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        if (isSavingProduct) ...[
-                          Text(
-                            '$saveStage...',
-                            style: const TextStyle(color: AppColors.primaryDark),
-                          ),
-                          const SizedBox(height: 8),
-                          LinearProgressIndicator(
-                            backgroundColor: AppColors.soft,
-                            minHeight: 6,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          const SizedBox(height: 14),
-                        ],
-                        if (saveError != null) ...[
-                          Text(saveError!, style: const TextStyle(color: AppColors.danger)),
-                          const SizedBox(height: 14),
-                        ],
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: isSavingProduct ? null : () => Navigator.pop(context),
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 15),
-                                  side: BorderSide(color: AppColors.border),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Cancel'.tr,
-                                  style: TextStyle(
-                                    color: AppColors.muted,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: isBusy ? null : saveProduct,
-                                style: ElevatedButton.styleFrom(
-                                  elevation: 2,
-                                  padding: const EdgeInsets.symmetric(vertical: 15),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                                  ),
-                                ),
-                                child: isSavingProduct
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.4,
-                                          color: AppColors.onBrand,
-                                        ),
-                                      )
-                                    : Text(
-                                        isEdit ? 'Save' : 'Add product',
-                                        style: const TextStyle(
-                                          color: AppColors.onBrand,
-                                          fontSize: AppTypography.button,
-                                          fontWeight: FontWeight.w700,
+                                  const SizedBox(width: 8),
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: Container(
+                                      height: 56,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.soft,
+                                        borderRadius: BorderRadius.circular(
+                                          AppSpacing.controlRadius,
                                         ),
                                       ),
+                                      child: IconButton(
+                                        tooltip: 'Scan barcode'.tr,
+                                        icon: const Icon(
+                                          Icons.qr_code_scanner,
+                                          color: AppColors.primaryDark,
+                                        ),
+                                        onPressed: isBusy || !_mayEdit
+                                            ? null
+                                            : () async {
+                                                final result = await _scanBarcode(context);
+
+                                                if (result != null && context.mounted) {
+                                                  if (barcodeController.text.trim() != result) {
+                                                    setDialogState(() {
+                                                      catalogueSource = null;
+                                                    });
+                                                  }
+                                                  barcodeController.text = result;
+                                                  if (!isEdit) {
+                                                    await lookupKey.currentState?.lookup();
+                                                  }
+                                                }
+                                              },
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
+                              if (!_mayEdit || !_mayAdjust) _permissionNote(),
+                              BarcodeLookupPanel(
+                                key: lookupKey,
+                                barcode: barcodeController,
+                                catalog: catalogue,
+                                enabled: !isSavingProduct && !isChoosingImage && _mayEdit,
+                                onBusyChanged: (busy) {
+                                  if (context.mounted) {
+                                    setDialogState(() => isLookingUp = busy);
+                                  }
+                                },
+                                onProduct: (result) {
+                                  if (!context.mounted) return;
+                                  setDialogState(() {
+                                    var filled = false;
+                                    if (nameController.text.trim().isEmpty) {
+                                      nameController.text = result.name;
+                                      filled = true;
+                                    }
+                                    if (categoryController.text.trim().isEmpty &&
+                                        result.category.isNotEmpty) {
+                                      categoryController.text = result.category;
+                                      filled = true;
+                                    }
+                                    if (pickedImageBytes == null &&
+                                        imagePreviewUrl.isEmpty &&
+                                        imageController.text.trim().isEmpty &&
+                                        result.imageUrl.isNotEmpty) {
+                                      // Embedded images from other stores go to the preview, not the URL field.
+                                      if (!result.imageUrl.startsWith('data:image/')) {
+                                        imageController.text = result.imageUrl;
+                                      }
+                                      imagePreviewUrl = result.imageUrl;
+                                      filled = true;
+                                    }
+                                    // Only a price a Bahraini store really uses; never a guess.
+                                    if (priceController.text.trim().isEmpty &&
+                                        result.suggestedPrice > 0 &&
+                                        result.productType == CatalogProduct.communityType) {
+                                      priceController.text = result.suggestedPrice.toStringAsFixed(
+                                        3,
+                                      );
+                                      priceHint = 'Price another ShopPad store uses. Check it.'.tr;
+                                      priceFromMarkup = false;
+                                      filled = true;
+                                    }
+                                    if (brandController.text.isEmpty) {
+                                      brandController.text = result.brand;
+                                      filled = filled || result.brand.isNotEmpty;
+                                    }
+                                    if (sizeController.text.isEmpty) {
+                                      sizeController.text = result.size;
+                                      filled = filled || result.size.isNotEmpty;
+                                    }
+                                    if (descriptionController.text.isEmpty) {
+                                      descriptionController.text = result.description;
+                                      filled = filled || result.description.isNotEmpty;
+                                    }
+                                    externalReference = result.referencePrice > 0
+                                        ? 'External reference offer: {price} {currency}. Not your selling price.'
+                                              .trArgs({
+                                                'price': result.referencePrice.toStringAsFixed(2),
+                                                'currency': result.referenceCurrency,
+                                              })
+                                        : null;
+                                    if (filled) catalogueSource = result.attribution;
+                                  });
+                                },
+                              ),
+                              if (externalReference != null) Text(externalReference!),
+                              if (catalogueSource != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6, bottom: 12),
+                                  child: SelectableText(
+                                    [
+                                      'Source: ${catalogueSource!['provider']} · ${catalogueSource!['note'] ?? (catalogueSource!.containsKey('dataLicense') ? 'data ODbL · images CC BY-SA' : 'name and category only')}',
+                                      if ('${catalogueSource!['url'] ?? ''}'.isNotEmpty)
+                                        '${catalogueSource!['url']}',
+                                    ].join('\n'),
+                                    style: const TextStyle(
+                                      fontSize: AppTypography.caption,
+                                      color: AppColors.muted,
+                                    ),
+                                  ),
+                                ),
+                              _buildField(
+                                nameController,
+                                'Product name',
+                                enabled: !isBusy && _mayEdit,
+                                onChanged: (value) {
+                                  if (categoryManuallyEdited) return;
+                                  final current = categoryController.text.trim();
+                                  if (current.isNotEmpty && current != automaticCategory) {
+                                    return;
+                                  }
+                                  final suggestion = ProductCategorySuggestion.fromName(value);
+                                  setDialogState(() {
+                                    automaticCategory = suggestion;
+                                    categoryController.text = suggestion ?? '';
+                                  });
+                                },
+                              ),
+                              _buildField(
+                                priceController,
+                                'Price',
+                                enabled: !isBusy && _mayEdit,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                onChanged: (_) {
+                                  priceFromMarkup = false;
+                                  if (priceHint != null) setDialogState(() => priceHint = null);
+                                },
+                              ),
+                              if (priceHint != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 0, bottom: 10),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.info_outline,
+                                        size: 15,
+                                        color: AppColors.warning,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          priceHint!,
+                                          style: const TextStyle(
+                                            fontSize: AppTypography.caption,
+                                            color: AppColors.warning,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              _buildField(
+                                stockController,
+                                'Stock',
+                                // Changing stock here is recorded as a count correction.
+                                enabled: !isBusy && (!isEdit || _mayAdjust),
+                                keyboardType: TextInputType.number,
+                              ),
+                              ExpansionTile(
+                                key: const ValueKey('product-additional-details'),
+                                title: Text('Additional details (optional)'.tr),
+                                tilePadding: EdgeInsets.zero,
+                                maintainState: true,
+                                children: [
+                                  _buildField(
+                                    categoryController,
+                                    'Category',
+                                    enabled: !isBusy && _mayEdit,
+                                    onChanged: (_) => setDialogState(() {
+                                      categoryManuallyEdited = true;
+                                      automaticCategory = null;
+                                    }),
+                                  ),
+                                  if (automaticCategory != null)
+                                    Padding(
+                                      padding: EdgeInsets.only(bottom: 12),
+                                      child: Text(
+                                        'Suggested from product name · you can change it'.tr,
+                                        style: TextStyle(
+                                          color: AppColors.muted,
+                                          fontSize: AppTypography.caption,
+                                        ),
+                                      ),
+                                    ),
+                                  _buildField(
+                                    brandController,
+                                    'Brand',
+                                    enabled: !isBusy && _mayEdit,
+                                  ),
+                                  _buildField(sizeController, 'Size', enabled: !isBusy && _mayEdit),
+                                  _buildField(
+                                    descriptionController,
+                                    'Description',
+                                    enabled: !isBusy && _mayEdit,
+                                  ),
+                                  if (_isOwner) ...[
+                                    _buildField(
+                                      costController,
+                                      'Cost price (owner only, optional)',
+                                      enabled: !isBusy,
+                                      keyboardType: const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                      onChanged: (_) => setDialogState(applyMarkup),
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 12),
+                                      child: Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        crossAxisAlignment: WrapCrossAlignment.center,
+                                        children: [
+                                          Text(
+                                            'Markup'.tr,
+                                            style: const TextStyle(
+                                              fontSize: AppTypography.caption,
+                                              color: AppColors.muted,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          for (final choice in _markupChoices)
+                                            ChoiceChip(
+                                              label: Text('${choice.toStringAsFixed(0)}%'),
+                                              selected: markup == choice,
+                                              showCheckmark: false,
+                                              visualDensity: VisualDensity.compact,
+                                              onSelected: isBusy
+                                                  ? null
+                                                  : (_) => setDialogState(() {
+                                                      markup = choice;
+                                                      _saveMarkup(choice);
+                                                      // Re-price only when the price came from the markup.
+                                                      if (priceFromMarkup) {
+                                                        priceController.clear();
+                                                      }
+                                                      applyMarkup();
+                                                    }),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                  _buildField(
+                                    minStockController,
+                                    'Low stock alert limit',
+                                    enabled: !isBusy && _mayEdit,
+                                    keyboardType: TextInputType.number,
+                                  ),
+                                  if (_isOwner)
+                                    SwitchListTile(
+                                      contentPadding: EdgeInsets.zero,
+                                      value: quickKey,
+                                      onChanged: isBusy
+                                          ? null
+                                          : (value) => setDialogState(() => quickKey = value),
+                                      title: Text(
+                                        'Quick button at checkout'.tr,
+                                        style: const TextStyle(fontWeight: FontWeight.w700),
+                                      ),
+                                      subtitle: Text(
+                                        'For items sold often or without a readable barcode'.tr,
+                                        style: const TextStyle(fontSize: AppTypography.caption),
+                                      ),
+                                    ),
+                                  if (_isOwner && isEdit) _stockHistory(docId),
+                                  _buildField(
+                                    imageController,
+                                    'Image URL',
+                                    enabled: !isBusy && _mayEdit,
+                                    onChanged: (value) {
+                                      setDialogState(() {
+                                        pickedImageBytes = null;
+                                        preparedImage = null;
+                                        imagePreviewUrl = value.trim();
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                              _buildProductImagePreview(
+                                pickedImageBytes: pickedImageBytes,
+                                imageUrl: imagePreviewUrl,
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: isBusy || !_mayEdit ? null : chooseImage,
+                                      icon: const Icon(Icons.upload_file_rounded),
+                                      label: Text(
+                                        (isChoosingImage ? 'Preparing image...' : 'Choose image')
+                                            .tr,
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        side: const BorderSide(color: AppColors.primaryDark),
+                                        foregroundColor: AppColors.primaryDark,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            AppSpacing.controlRadius,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (hasImage) ...[
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: isBusy
+                                            ? null
+                                            : () {
+                                                setDialogState(() {
+                                                  pickedImageBytes = null;
+                                                  preparedImage = null;
+                                                  imagePreviewUrl = '';
+                                                  imageController.clear();
+                                                });
+                                              },
+                                        icon: const Icon(Icons.close_rounded),
+                                        label: Text('Remove'.tr),
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(vertical: 14),
+                                          side: BorderSide(color: AppColors.border),
+                                          foregroundColor: AppColors.text,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              AppSpacing.controlRadius,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              if (isSavingProduct) ...[
+                                Text(
+                                  '$saveStage...',
+                                  style: const TextStyle(color: AppColors.primaryDark),
+                                ),
+                                const SizedBox(height: 8),
+                                LinearProgressIndicator(
+                                  backgroundColor: AppColors.soft,
+                                  minHeight: 6,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                const SizedBox(height: 14),
+                              ],
+                              if (saveError != null) ...[
+                                Text(saveError!, style: const TextStyle(color: AppColors.danger)),
+                                const SizedBox(height: 14),
+                              ],
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 12),
+                      editorActions,
+                    ],
                   ),
                 ),
               ),
@@ -1611,11 +1696,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Future<int> _importProducts(List<ImportedProduct> rows) async {
     final products = _firestore.collection('products');
     final ids = <ImportedProduct, String>{};
-    for (var start = 0; start < rows.length; start += 400) {
+    for (var start = 0; start < rows.length; start += 5) {
       final batch = _firestore.batch();
-      for (final row in rows.skip(start).take(400)) {
+      for (final row in rows.skip(start).take(5)) {
         final ref = products.doc();
         ids[row] = ref.id;
+        batch.set(ProductBarcodes.claim(_firestore, storeCode, row.barcode), {
+          'storeCode': storeCode,
+          'barcode': row.barcode,
+          'productId': ref.id,
+        });
         batch.set(ref, {
           'name': row.name,
           'category': row.category,
@@ -2160,6 +2250,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
           ),
         ),
         actions: [
+          if (_isOwner)
+            IconButton(
+              tooltip: 'Product requests'.tr,
+              onPressed: storeCode.isEmpty
+                  ? null
+                  : () => ProductRequestsSheet.show(context, storeCode, db: _firestore),
+              icon: const Icon(Icons.playlist_add_check_rounded),
+            ),
           if (_isOwner)
             IconButton(
               tooltip: 'Import from Excel'.tr,

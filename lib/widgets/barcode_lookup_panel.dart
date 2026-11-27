@@ -82,7 +82,9 @@ class BarcodeLookupPanelState extends State<BarcodeLookupPanel> {
       if (mounted && generation == _generation) _generation++;
     });
     try {
-      final product = await widget.catalog.lookup(code).timeout(const Duration(seconds: 10));
+      final product = await widget.catalog
+          .lookupWithPhoto(code)
+          .timeout(const Duration(seconds: 10));
       if (!mounted || generation != _generation) return;
       if (widget.barcode.text.trim() != code) {
         _finish(generation, 'Barcode changed. Search again for the new barcode.');

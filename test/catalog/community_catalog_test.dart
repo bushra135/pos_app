@@ -16,6 +16,10 @@ class _FailingCommunity implements CommunityCatalog {
     required String category,
     double price = 0,
     String image = '',
+    String brand = '',
+    String size = '',
+    String description = '',
+    String source = '',
   }) async {}
 }
 
@@ -48,7 +52,11 @@ void main() {
         'createdAt',
       });
       expect(stored['name'], 'Al Rabie Juice');
-      expect(stored['contributedBy'], 'ownerA');
+      expect(stored['contributedBy'], 'store');
+      expect(
+        stored.values,
+        isNot(contains('ownerA')),
+      ); // Public entries cannot expose an account ID.
 
       final found = (await catalog.lookup('6287017260083'))!;
       expect(found.name, 'Al Rabie Juice');

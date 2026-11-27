@@ -204,3 +204,20 @@ Before accepting payment, pending draft writes finish; accepting the durable rec
 Owner Home uses BD with three decimal places. The previous placeholder percentage growth is removed because it was not a real period comparison. Cart buttons, messages and spacing follow the shared app theme.
 
 ShopPad targets Android and the web. The iOS, macOS and Linux folders were removed because Firebase is not configured for them; recreate one with `flutter create --platforms=ios .` followed by `flutterfire configure` if it is ever needed.
+
+
+## Universal barcode identification (local implementation, 26 November 2026)
+
+Find Product uses shared ShopPad metadata, the official Open Facts universal endpoint
+(food, beauty, household/general and pet food), and native UPCitemdb free fallback.
+Brand, size and description stay editable. External offers are labelled in their own
+currency and are never treated as the store selling price.
+
+Cashiers can request owner approval from an unknown-barcode dialog. Owners review
+requests from Products. The default policy requires approval. Owners may enable
+reference-price sales with a ceiling in Profile; these use a separate one-item receipt
+and never create permanent inventory. Barcode changes/new writes use atomic
+`productBarcodes` claims. The matching rules remain local and were not deployed.
+
+See [verification, security and limitations](docs/security/BARCODE_VERIFICATION_2026-11-26.md)
+for emulator commands, results, legacy migration boundaries and the browser UPC CORS limit.

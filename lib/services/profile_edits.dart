@@ -86,10 +86,11 @@ abstract final class ProfileEdits {
     required String uid,
     required String? photo,
   }) {
-    return firestore.collection('users').doc(uid).update({
-      'photo': photo ?? FieldValue.delete(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    return firestore
+        .collection('users')
+        .doc(uid)
+        .update({'photo': photo ?? FieldValue.delete(), 'updatedAt': FieldValue.serverTimestamp()})
+        .timeout(const Duration(seconds: 20));
   }
 
   /// After the user confirms a new email (link sent by Firebase Auth), copies it to their

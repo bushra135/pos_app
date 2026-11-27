@@ -1,3 +1,4 @@
+import '../support/product_form.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -162,7 +163,14 @@ void main() {
                 ? http.Response(
                     jsonEncode({
                       'status': 'success',
-                      'product': {'code': '70850307258913', 'product_name': 'Test product'},
+                      'product': {
+                        'code': '70850307258913',
+                        'product_name': 'Test product',
+                        'brands': 'Original Brand',
+                        'quantity': 'A5',
+                        'generic_name': 'Ruled notebook',
+                        'categories': 'Stationery',
+                      },
                     }),
                     200,
                   )
@@ -174,7 +182,14 @@ void main() {
                 ? http.Response(
                     jsonEncode({
                       'status': 'success',
-                      'product': {'code': '70850307258913', 'product_name': 'Test product'},
+                      'product': {
+                        'code': '70850307258913',
+                        'product_name': 'Test product',
+                        'brands': 'Original Brand',
+                        'quantity': 'A5',
+                        'generic_name': 'Ruled notebook',
+                        'categories': 'Stationery',
+                      },
                     }),
                     200,
                   )
@@ -195,6 +210,21 @@ void main() {
           ),
           findsOneWidget,
         );
+        if (outcome == 'found') {
+          await openProductDetails(tester);
+          for (final entry in {
+            'Brand': 'Original Brand',
+            'Size': 'A5',
+            'Description': 'Ruled notebook',
+          }.entries) {
+            final field = find.widgetWithText(TextField, entry.key);
+            expect(tester.widget<TextField>(field).controller!.text, entry.value);
+          }
+          final brand = find.widgetWithText(TextField, 'Brand');
+          await tester.ensureVisible(brand);
+          await tester.enterText(brand, 'Owner edited brand');
+          expect(tester.widget<TextField>(brand).controller!.text, 'Owner edited brand');
+        }
         expect(tester.takeException(), isNull);
       });
     }

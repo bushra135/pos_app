@@ -20,6 +20,10 @@ abstract class CommunityCatalog {
     required String category,
     double price = 0,
     String image = '',
+    String brand = '',
+    String size = '',
+    String description = '',
+    String source = '',
   });
 }
 
@@ -49,13 +53,21 @@ class FirestoreCommunityCatalog implements CommunityCatalog {
     if (name.isEmpty) return null;
     final price = data?['price'];
     final image = (data?['image'] ?? '').toString();
+    String text(String key) => (data?[key] ?? '').toString().trim();
+    final hasPrice = price is num && price > 0;
+    final priceDate = data?['priceAt'] ?? data?['createdAt'];
     return CatalogProduct(
       barcode: barcode,
       name: name,
       imageUrl: _isSafeImage(image) ? image : '',
-      category: (data?['category'] ?? '').toString().trim(),
+      category: text('category'),
       productType: CatalogProduct.communityType,
-      suggestedPrice: price is num && price > 0 ? price.toDouble() : 0,
+      suggestedPrice: hasPrice ? price.toDouble() : 0,
+      sharedPriceDate: hasPrice && priceDate is Timestamp ? priceDate.toDate() : null,
+      brand: text('brand'),
+      size: text('size'),
+      description: text('description'),
+      originalSource: text('source'),
     );
   }
 
@@ -76,6 +88,10 @@ class FirestoreCommunityCatalog implements CommunityCatalog {
     required String category,
     double price = 0,
     String image = '',
+    String brand = '',
+    String size = '',
+    String description = '',
+    String source = '',
   }) async {
     final code = barcode.trim();
     final uid = _uid;
@@ -90,8 +106,15 @@ class FirestoreCommunityCatalog implements CommunityCatalog {
       // so entries saved before prices were shared still become complete.
       final data = existing.data() ?? const {};
       final updates = <String, Object>{
-        if (data['price'] == null && price > 0 && price <= 100000) 'price': price,
+        if (data['price'] == null && price > 0 && price <= 100000) ...{
+          'price': price,
+          'priceAt': FieldValue.serverTimestamp(),
+        },
         if (data['image'] == null && _isSafeImage(image.trim())) 'image': image.trim(),
+        if (data['brand'] == null && brand.trim().isNotEmpty) 'brand': _clip(brand, 60),
+        if (data['size'] == null && size.trim().isNotEmpty) 'size': _clip(size, 40),
+        if (data['description'] == null && description.trim().isNotEmpty)
+          'description': _clip(description, 300),
       };
       if (updates.isNotEmpty) await ref.update(updates);
       return;
@@ -101,10 +124,19 @@ class FirestoreCommunityCatalog implements CommunityCatalog {
       'category': category.trim().length > 60
           ? category.trim().substring(0, 60).trim()
           : category.trim(),
-      if (price > 0 && price <= 100000) 'price': price,
+      if (price > 0 && price <= 100000) ...{'price': price},
       if (_isSafeImage(image.trim())) 'image': image.trim(),
-      'contributedBy': uid,
+      if (brand.trim().isNotEmpty) 'brand': _clip(brand, 60),
+      if (size.trim().isNotEmpty) 'size': _clip(size, 40),
+      if (description.trim().isNotEmpty) 'description': _clip(description, 300),
+      if (source.trim().isNotEmpty) 'source': _clip(source, 40),
+      'contributedBy': 'store',
       'createdAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  static String _clip(String value, int max) {
+    final text = value.trim();
+    return text.length > max ? text.substring(0, max).trim() : text;
   }
 }

@@ -979,4 +979,62 @@ const Map<String, String> arabicStrings = {
   '{time} · 1 item': '{time} · منتج واحد',
   '{time} · {n} items': '{time} · {n} منتجات',
   'العربية': 'العربية',
+
+  'Brand': 'العلامة التجارية',
+  'Size': 'الحجم',
+  'Description': 'الوصف',
+  'Product requests': 'طلبات المنتجات',
+  'Products not in your store': 'المنتجات غير المسجلة في متجرك',
+  'When a cashier scans a barcode you have not added, ShopPad identifies it and sends you a request to approve it with your price.':
+      'عندما يمسح الكاشير باركوداً غير مسجل، يعرض ShopPad معلوماته ويمكنه إرسال طلب لاعتماده بالسعر الذي تحدده.',
+  'Let cashiers sell at the shared reference price': 'السماح للكاشير بالبيع بالسعر المرجعي المشترك',
+  'The price other ShopPad stores set for the same barcode. It is not an official Bahrain retail price. The sale is flagged for you to review.':
+      'سعر تشاركه متاجر ShopPad لنفس الباركود، وليس سعراً رسمياً في البحرين. تُحفظ العملية للمراجعة دون إضافة المنتج إلى المخزون.',
+  'Highest price cashiers may use': 'أعلى سعر مسموح للكاشير',
+  'Above this, the cashier sends you a request instead.':
+      'إذا تجاوز السعر الحد، يُرسل طلب إلى المالك بدلاً من البيع.',
+  'Enter the highest price cashiers may use.': 'أدخل أعلى سعر مسموح للكاشير.',
+  'The maximum is BD 1000.': 'الحد الأعلى 1000 دينار بحريني.',
+  'Shared reference price: {price} · set by a ShopPad store{date}. Not an official retail price.':
+      'السعر المرجعي المشترك: {price} · شاركه متجر ShopPad{date}. ليس سعراً رسمياً.',
+  'on {date}': 'بتاريخ {date}',
+  'No shared reference price for this barcode yet.':
+      'لا يوجد سعر مرجعي مشترك لهذا الباركود حتى الآن.',
+  'Bahrain retail price: not available from an official source.':
+      'سعر التجزئة في البحرين: غير متاح من مصدر رسمي.',
+  'External reference offer: {price} {currency}. Not your selling price.':
+      'عرض مرجعي خارجي: {price} {currency}. ليس سعر البيع في متجرك.',
+  'Request owner approval': 'طلب موافقة المالك',
+  'Use owner-authorized reference price': 'استخدام السعر المرجعي المسموح من المالك',
+  'Request sent to the owner.': 'تم إرسال الطلب إلى المالك.',
+  'A request is already waiting for the owner.': 'يوجد طلب لهذا المنتج بانتظار المالك.',
+  'The owner has not authorized this reference price.': 'لم يسمح المالك بهذا السعر المرجعي.',
+  'Sell an unknown product separately without a discount.':
+      'أكمل بيع المنتج غير المسجل في فاتورة منفصلة دون خصم.',
+  'Complete the reference-price sale separately first.':
+      'أكمل فاتورة السعر المرجعي المنفصلة أولاً.',
+  'Could not complete this action. Check your connection and permissions.':
+      'تعذر إكمال العملية. تحقق من الاتصال والصلاحيات.',
+  'Products waiting for you': 'منتجات بانتظار موافقتك',
+  'Cashiers scanned these barcodes. Add each one with your price, or decline it.':
+      'مسح الكاشير هذه الباركودات. أضف المنتج بالسعر الذي تحدده أو ارفض الطلب.',
+  'No requests right now.': 'لا توجد طلبات حالياً.',
+  'Could not load requests. Check your connection and permissions.':
+      'تعذر تحميل الطلبات. تحقق من الاتصال والصلاحيات.',
+  'Could not decline this request. Try again.': 'تعذر رفض الطلب. حاول مرة أخرى.',
+  'Asked by {name}': 'طلبه {name}',
+  'Decline': 'رفض',
+  'Add to your products': 'إضافة إلى منتجاتك',
+  'Your selling price': 'سعر البيع في متجرك',
+  'Units in stock (count them)': 'الكمية الفعلية في المخزون',
+  'Use the shared reference price ({price})': 'استخدام السعر المرجعي المشترك ({price})',
+  'Enter the product name.': 'أدخل اسم المنتج.',
+  'Enter a price above zero.': 'أدخل سعراً أكبر من صفر.',
+  'Enter 0 or more units.': 'أدخل كمية تساوي صفراً أو أكثر.',
+  '{name} added to your products': 'تمت إضافة {name} إلى منتجاتك',
+  'Could not add the product. Try again.': 'تعذرت إضافة المنتج. حاول مرة أخرى.',
+  'Shared reference price: {price} (not an official retail price)':
+      'السعر المرجعي المشترك: {price} (ليس سعراً رسمياً)',
+  'This request is no longer available.': 'لم يعد هذا الطلب متاحاً.',
+  'Additional details (optional)': 'تفاصيل إضافية (اختيارية)',
 };

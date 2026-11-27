@@ -25,6 +25,8 @@ import '../../utils/today_summary.dart';
 import '../../widgets/adaptive_layout.dart';
 import '../../widgets/receipt_card.dart';
 
+typedef _SetupProgress = ({bool products, bool cashiers, bool benefit, bool vat});
+
 /// Hosts management pages; cashier mode changes the workspace, not stored permissions.
 class OwnerHomeScreen extends StatefulWidget {
   const OwnerHomeScreen({super.key, this.firestore, this.currentUserId});
@@ -38,7 +40,7 @@ class OwnerHomeScreen extends StatefulWidget {
 
 /// Owner shell: home, products, dashboard, assistant and profile tabs, and the
 /// switch into cashier mode.
-class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
+class _OwnerHomeScreenState extends State<OwnerHomeScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
   bool _cashierMode = false;
 
@@ -67,9 +69,17 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   int totalProducts = 0;
   int cashierCount = 0;
 
-  /// For the first-run checklist: whether BenefitPay payments are set up.
-  bool hasBenefitNumber = true;
-  bool hasVatDetails = true;
+  // Null means readiness is unknown, not incomplete. Dashboard defaults and cached
+  // empty queries must never be interpreted as unfinished store setup.
+  _SetupProgress? _setup;
+  String? _ownerUid;
+  int _ownerLoad = 0;
+  int _dashboardLoad = 0;
+  bool get _needsSetup {
+    final setup = _setup;
+    return setup != null && !(setup.products && setup.cashiers && setup.benefit && setup.vat);
+  }
+
   int activeCashierCount = 0;
 
   /// Today's receipts that look unusual (see ReceiptAudit), for the owner to check.
@@ -83,16 +93,53 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadOwnerData();
+  }
+
+  @override
+  void didUpdateWidget(covariant OwnerHomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_userId != _ownerUid || oldWidget.firestore != widget.firestore) _loadOwnerData();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _loadOwnerData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  void _selectTab(int index) {
+    final returningHome = index == 0 && _selectedIndex != 0;
+    setState(() {
+      _selectedIndex = index;
+      if (returningHome) _setup = null;
+    });
+    if (returningHome && storeCode.isNotEmpty) _loadDashboardData(storeCode);
   }
 
   /// Loads the owner's profile and store, from the offline cache first when available.
   Future<void> _loadOwnerData() async {
+    final uid = _userId;
+    final load = ++_ownerLoad;
+    ++_dashboardLoad;
+    setState(() {
+      if (_ownerUid != uid) {
+        storeCode = '';
+        isLoading = true;
+      }
+      _ownerUid = uid;
+      _setup = null;
+    });
+    bool current() => mounted && load == _ownerLoad && _userId == uid;
     try {
-      final uid = _userId;
-
       if (uid == null) {
-        if (!mounted) return;
+        if (!current()) return;
         setState(() => isLoading = false);
         return;
       }
@@ -105,9 +152,12 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         data = Map<String, dynamic>.from(cachedContext['profile'] as Map);
         store = Map<String, dynamic>.from(cachedContext['store'] as Map);
       } else {
-        final doc = await _firestore.collection('users').doc(uid).get();
+        final doc = await _firestore
+            .collection('users')
+            .doc(uid)
+            .get(const GetOptions(source: Source.server));
         if (!doc.exists) {
-          if (!mounted) return;
+          if (!current()) return;
           setState(() => isLoading = false);
           return;
         }
@@ -115,9 +165,9 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       }
 
       final fullName = data['fullName'] ?? '';
-      final ownerStoreCode = data['storeCode'] ?? '';
+      final ownerStoreCode = (data['storeCode'] ?? '').toString().trim();
 
-      if (!mounted) return;
+      if (!current()) return;
 
       setState(() {
         firstName = fullName.isNotEmpty ? fullName.split(' ')[0] : '';
@@ -131,7 +181,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       }
     } catch (e) {
       debugPrint('Error loading owner data: $e');
-      if (!mounted) return;
+      if (!current()) return;
       setState(() => isLoading = false);
     }
   }
@@ -139,11 +189,22 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   /// Loads today's and yesterday's sales, product and cashier counts, low stock,
   /// stock corrections and the setup checklist state.
   Future<void> _loadDashboardData(String code) async {
+    final uid = _userId;
+    final load = ++_dashboardLoad;
+    bool current() =>
+        mounted &&
+        uid != null &&
+        uid == _userId &&
+        uid == _ownerUid &&
+        code == storeCode &&
+        load == _dashboardLoad;
     try {
       final options = SaleSyncService.maybeInstance?.online == false
           ? const GetOptions(source: Source.cache)
           : const GetOptions();
-      final storeData = (await _firestore.collection('stores').doc(code).get(options)).data();
+      final storeSnapshot = await _firestore.collection('stores').doc(code).get(options);
+      if (!current()) return;
+      final storeData = storeSnapshot.data();
       final benefitReady = (storeData?['benefitNumber'] ?? '').toString().trim().isNotEmpty;
       final vatReady = StoreVat.fromStore(storeData).configured;
       // Count only users with the cashier role in this store.
@@ -153,6 +214,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           .where('role', isEqualTo: 'cashier')
           .get(options);
 
+      if (!current()) return;
       final totalCashiers = cashiersSnapshot.docs.length;
       // An invite the cashier has not accepted yet is not an active cashier.
       final activeCashiers = cashiersSnapshot.docs.where((doc) {
@@ -164,6 +226,26 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
           .collection('products')
           .where('storeCode', isEqualTo: code)
           .get(options);
+
+      if (!current()) return;
+      // Only a complete, server-confirmed set of reads can establish incompleteness.
+      // Cached snapshots still feed offline dashboard metrics, never onboarding.
+      final setupSnapshots = [
+        storeSnapshot.metadata,
+        cashiersSnapshot.metadata,
+        productsSnapshot.metadata,
+      ];
+      if (storeSnapshot.exists &&
+          setupSnapshots.every((m) => !m.isFromCache && !m.hasPendingWrites)) {
+        setState(
+          () => _setup = (
+            products: productsSnapshot.docs.isNotEmpty,
+            cashiers: cashiersSnapshot.docs.isNotEmpty,
+            benefit: benefitReady,
+            vat: vatReady,
+          ),
+        );
+      }
 
       int lowStock = 0;
       final lowItems = <({String name, int stock, int minStock})>[];
@@ -229,7 +311,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         return ReceiptAudit.issues(sale.data(), catalogPrices: prices).isNotEmpty;
       }).length;
 
-      if (!mounted) return;
+      if (!current()) return;
 
       setState(() {
         todaySales = today.sales;
@@ -241,8 +323,6 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         bestSellerSold = today.bestSellerUnits;
         totalProducts = total;
         cashierCount = totalCashiers;
-        hasBenefitNumber = benefitReady;
-        hasVatDetails = vatReady;
         activeCashierCount = activeCashiers;
         stockCorrections = corrections;
         receiptsToReview = reviewCount;
@@ -271,6 +351,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   Future<void> _openCashiersManagement() async {
     if (storeCode.isEmpty) return;
 
+    setState(() => _setup = null);
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => CashiersManagementScreen(storeCode: storeCode)),
@@ -306,7 +387,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 
     return AdaptiveNavScaffold(
       selectedIndex: _selectedIndex,
-      onSelected: (index) => setState(() => _selectedIndex = index),
+      onSelected: _selectTab,
       items: [
         (icon: Icons.home_outlined, selectedIcon: Icons.home_rounded, label: 'Home'.tr),
         (
@@ -361,10 +442,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
             _buildCorrectionsAlert(),
           ],
           if (receiptsToReview > 0) ...[const SizedBox(height: 14), _buildReviewAlert()],
-          if (totalProducts == 0 || cashierCount == 0 || !hasBenefitNumber || !hasVatDetails) ...[
-            const SizedBox(height: 14),
-            _buildSetupChecklist(),
-          ],
+          if (_needsSetup) ...[const SizedBox(height: 14), _buildSetupChecklist(_setup!)],
           const SizedBox(height: 26),
           Text(
             'Overview'.tr,
@@ -622,31 +700,31 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
   /// Owner alert: items sold although the records said they were out of stock.
   /// First-run steps for a new store; each opens the screen where it is done and the
   /// card disappears once all three are complete.
-  Widget _buildSetupChecklist() {
+  Widget _buildSetupChecklist(_SetupProgress setup) {
     final steps = [
       (
-        done: totalProducts > 0,
+        done: setup.products,
         icon: Icons.inventory_2_outlined,
         title: 'Add your first product',
         hint: 'Scan its barcode; the name and photo are filled in for you',
         open: () => setState(() => _selectedIndex = 1),
       ),
       (
-        done: cashierCount > 0,
+        done: setup.cashiers,
         icon: Icons.person_add_alt_1_outlined,
         title: 'Invite a cashier',
         hint: 'Share your store code or send an invite',
         open: _openCashiersManagement,
       ),
       (
-        done: hasBenefitNumber,
+        done: setup.benefit,
         icon: Icons.qr_code_2_rounded,
         title: 'Set up BenefitPay',
         hint: 'Add your BenefitPay number and QR in Profile',
         open: () => setState(() => _selectedIndex = 4),
       ),
       (
-        done: hasVatDetails,
+        done: setup.vat,
         icon: Icons.receipt_long_outlined,
         title: 'Set up VAT invoice details',
         hint: 'Registered or not, VAT number and address, in Profile',

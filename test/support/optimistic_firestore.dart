@@ -81,5 +81,12 @@ class _BufferedTransaction implements Transaction {
   }
 
   @override
+  Transaction delete(DocumentReference documentReference) {
+    writtenPaths.add(documentReference.path);
+    writes.add(() => documentReference.delete());
+    return this;
+  }
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

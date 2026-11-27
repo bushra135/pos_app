@@ -1,3 +1,4 @@
+import '../support/product_form.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:pos_app/screens/products/products_screen.dart';
@@ -32,6 +33,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
+    await openProductDetails(tester);
     final name = find.widgetWithText(TextField, 'Product name');
     final category = find.widgetWithText(TextField, 'Category');
     String value() => tester.widget<TextField>(category).controller!.text;

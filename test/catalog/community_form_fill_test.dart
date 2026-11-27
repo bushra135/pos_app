@@ -1,3 +1,4 @@
+import '../support/product_form.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,7 +36,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
+    await openProductDetails(tester);
     await tester.enterText(find.widgetWithText(TextField, 'Barcode'), '6287017260083');
+    await tester.ensureVisible(find.text('Find product info · free'));
     await tester.tap(find.text('Find product info · free'));
     await tester.pumpAndSettle();
 

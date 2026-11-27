@@ -1,3 +1,4 @@
+import 'product_barcodes.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Lightweight metadata shown before opening a complete recovery copy.
@@ -159,10 +160,30 @@ class BackupService {
             'Restore stopped: pending sales detected. Completed records remain restored; retry safely after synchronization.',
           );
         }
+        final restoredBarcode = row.data()['barcode']?.toString() ?? '';
+        if (isProduct && restoredBarcode.isNotEmpty) {
+          final duplicates = await db
+              .collection('products')
+              .where('storeCode', isEqualTo: storeCode)
+              .where('barcode', isEqualTo: restoredBarcode)
+              .get(_server);
+          if (duplicates.docs.any((d) => d.id != row.id)) continue;
+        }
         final target = db.collection(isProduct ? 'products' : 'sales').doc(row.id);
         final inserted = await db.runTransaction<bool>((transaction) async {
           final existing = await transaction.get(target);
           if (existing.exists) return false;
+          final barcode = row.data()['barcode']?.toString() ?? '';
+          if (isProduct && barcode.isNotEmpty && !barcode.contains('/')) {
+            final claim = ProductBarcodes.claim(db, storeCode, barcode);
+            final held = await transaction.get(claim);
+            if (held.exists && held.data()?['productId'] != target.id) return false;
+            transaction.set(claim, {
+              'storeCode': storeCode,
+              'barcode': barcode,
+              'productId': target.id,
+            });
+          }
           transaction.set(target, {
             ...row.data(),
             if (isProduct) ...{

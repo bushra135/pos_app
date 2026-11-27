@@ -1,3 +1,4 @@
+import '../support/product_form.dart';
 import 'dart:convert';
 
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -81,6 +82,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
+    await openProductDetails(tester);
     await tester.enterText(find.widgetWithText(TextField, 'Barcode'), '87654321');
     await tester.pump(const Duration(milliseconds: 800));
     await tester.pumpAndSettle();

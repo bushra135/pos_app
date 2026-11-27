@@ -111,7 +111,12 @@ class LocalPosStore {
         transaction,
         finder: Finder(filter: Filter.equals('sale.storeCode', sale.storeCode)),
       );
+      final unknown = sale.items.where((i) => i.productId.startsWith('unknown_')).toList();
+      if (unknown.isNotEmpty && (sale.items.length != 1 || sale.discount != 0)) {
+        throw StateError('Sell an unknown product separately without a discount.');
+      }
       for (final entry in quantities.entries) {
+        if (entry.key.startsWith('unknown_')) continue;
         final product = await _products
             .record(_productKey(sale.storeCode, entry.key))
             .get(transaction);

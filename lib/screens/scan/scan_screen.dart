@@ -12,7 +12,8 @@ import '../../app/app_typography.dart';
 import '../../services/barcode_catalog_service.dart';
 import '../../services/platform/browser_scanner.dart';
 import '../../widgets/motion.dart';
-import '../../widgets/product_image.dart';
+import '../../widgets/identified_product_view.dart';
+import '../../widgets/unknown_product_dialogs.dart';
 import '../../widgets/scanner_error_panel.dart';
 import '../../widgets/app_empty_state.dart';
 import '../../services/sale_sync_service.dart';
@@ -351,6 +352,9 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
       final name = (data['name'] ?? '').toString();
       final productId = data['id'] as String;
       final storeCode = data['storeCode'] as String;
+      if (CartManager.items.any((i) => i.productId.startsWith('unknown_'))) {
+        throw StateError('Complete the reference-price sale separately first.');
+      }
       CartManager.addItem(
         name: name,
         price: (data['price'] as num).toDouble(),
@@ -472,45 +476,23 @@ class _ScanScreenState extends State<ScanScreen> with WidgetsBindingObserver {
                       }
                       final product = snapshot.data?.product;
                       if (snapshot.data?.error != null || product == null) {
-                        return Text(
-                          snapshot.data?.error != null
-                              ? snapshot.data!.error!
-                              : 'No match in ShopPad or the free product catalogues. This product can still be added manually.'
-                                    .tr,
+                        return Column(
+                          children: [
+                            Text(
+                              snapshot.data?.error?.tr ??
+                                  'No match in ShopPad or the free product catalogues. This product can still be added manually.'
+                                      .tr,
+                            ),
+                            if (snapshot.data?.error == null) UnknownProductActions(barcode: code),
+                          ],
                         );
                       }
                       return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (product.imageUrl.isNotEmpty)
-                            SizedBox(
-                              height: 140,
-                              width: double.infinity,
-                              child: ProductImage(
-                                source: product.imageUrl,
-                                placeholder: const Center(
-                                  child: Icon(Icons.image_not_supported_outlined),
-                                ),
-                                fit: BoxFit.contain,
-                              ),
-                            ),
+                          IdentifiedProductView(product: product),
                           const SizedBox(height: 12),
-                          Text(
-                            product.name,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: AppTypography.section,
-                            ),
-                          ),
-                          if (product.category.isNotEmpty) Text(product.category),
-                          const SizedBox(height: 10),
-                          SelectableText(
-                            product.creditLine,
-                            style: const TextStyle(
-                              fontSize: AppTypography.caption,
-                              color: AppColors.muted,
-                            ),
-                          ),
+                          UnknownProductActions(barcode: code, product: product),
                         ],
                       );
                     },

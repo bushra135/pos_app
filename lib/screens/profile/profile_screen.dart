@@ -17,6 +17,7 @@ import '../../app/app_language.dart';
 import '../../widgets/adaptive_layout.dart';
 import '../../services/profile_edits.dart';
 import '../../utils/profile_photo_data.dart';
+import 'unknown_items_card.dart';
 import 'vat_settings_card.dart';
 import '../../widgets/qr_image_box.dart';
 
@@ -760,6 +761,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   if (isOwner && storeCode.isNotEmpty) ...[
                     VatSettingsCard(
                       key: ValueKey(storeData.hashCode),
+                      storeCode: storeCode,
+                      store: storeData,
+                      onSaved: _loadUserData,
+                    ),
+                    const SizedBox(height: 16),
+                    UnknownItemsCard(
+                      key: ValueKey('unknown-${storeData.hashCode}'),
                       storeCode: storeCode,
                       store: storeData,
                       onSaved: _loadUserData,

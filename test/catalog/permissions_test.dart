@@ -1,3 +1,4 @@
+import '../support/product_form.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -50,6 +51,7 @@ void main() {
 
     await tester.tap(find.text('Notebook'));
     await tester.pumpAndSettle();
+    await openProductDetails(tester);
     expect(find.textContaining('View only'), findsOneWidget);
     expect(find.byTooltip('Delete product'), findsNothing);
     final price = tester.widget<TextField>(find.widgetWithText(TextField, 'Price'));
@@ -109,6 +111,7 @@ void main() {
     // Saving a cost in the editor writes the owner-only document, not the product.
     await tester.tap(find.text('Notebook'));
     await tester.pumpAndSettle();
+    await openProductDetails(tester);
     await tester.enterText(
       find.widgetWithText(TextField, 'Cost price (owner only, optional)'),
       '1.1',
@@ -131,6 +134,7 @@ void main() {
     await open(tester, db);
     await tester.tap(find.text('Notebook'));
     await tester.pumpAndSettle();
+    await openProductDetails(tester);
     await tester.tap(find.byTooltip('Delete product'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete').last);

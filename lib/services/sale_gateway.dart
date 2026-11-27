@@ -75,6 +75,46 @@ class FirestoreSaleGateway implements SaleGateway {
         return;
       }
 
+      final unknown = sale.items.where((i) => i.productId.startsWith('unknown_')).toList();
+      if (unknown.isNotEmpty) {
+        if (sale.items.length != 1 || sale.discount != 0 || sale.offerDiscount != 0) {
+          throw const SaleConflictException(
+            'Sell an unknown product separately without a discount.',
+          );
+        }
+        final item = unknown.single;
+        final ownerStore = (await transaction.get(
+          _firestore.collection('stores').doc(sale.storeCode),
+        )).data();
+        final shared = (await transaction.get(
+          _firestore.collection('catalog').doc(item.barcode),
+        )).data();
+        final max = ownerStore?['sharedPriceMax'];
+        if (item.productId != 'unknown_${sale.storeCode}_${item.barcode}' ||
+            ownerStore?['sharedPriceSales'] != true ||
+            max is! num ||
+            shared?['price'] != item.price ||
+            item.price <= 0 ||
+            item.price > max) {
+          throw const SaleConflictException('The owner has not authorized this reference price.');
+        }
+        transaction.set(saleRef, {
+          ...sale.toJson(),
+          'createdAt': Timestamp.fromDate(sale.createdAt),
+          'syncedAt': FieldValue.serverTimestamp(),
+          'productIds': [item.productId],
+          'subtotal': sale.subtotal,
+          'discount': 0,
+          'refund': 0.0,
+          'tax': sale.tax,
+          'status': 'completed',
+          'type': 'sale',
+          'unknownBarcode': item.barcode,
+          'pricingPolicy': 'owner_authorized_shared_reference',
+        });
+        return;
+      }
+
       final stock = <String, Map<String, dynamic>>{};
       for (final entry in products.entries) {
         final snapshot = await transaction.get(entry.value);
