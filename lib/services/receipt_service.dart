@@ -17,7 +17,8 @@ abstract final class ReceiptService {
     required String status,
     ReceiptSealData? verifiedSeal,
   }) async {
-    final seal = verifiedSeal ?? await ReceiptSealService.load(sale);
+    // Ordinary exports have no dependency on an external verification service.
+    final seal = verifiedSeal;
     if (seal != null) sale = seal.sale;
     final font = pw.Font.ttf(await rootBundle.load('assets/fonts/IBMPlexSansArabic-Regular.ttf'));
     final boldFont = pw.Font.ttf(
