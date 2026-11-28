@@ -120,7 +120,8 @@ void main() {
     expect(sale.total, 1.0);
     expect(sale.invoiceKind, InvoiceKind.receipt);
     expect(sale.storeVatNumber, isEmpty);
-    expect(find.text('إيصال · Receipt'), findsOneWidget);
+    expect(find.text('إيصال'), findsOneWidget);
+    expect(find.text('Receipt'), findsOneWidget);
     expect(find.textContaining('VAT'), findsNothing);
     expect(tester.takeException(), isNull);
   });

@@ -88,7 +88,7 @@ Future<FakeFirebaseFirestore> _seed() async {
 
 /// Latin words still on screen, after removing allowed names and short codes.
 /// [bilingual]: the receipt prints Arabic and English side by side by design, so a
-/// line that carries Arabic as well is accepted there (and only there).
+/// line carrying Arabic, or an exact translated sibling with correct direction, is accepted.
 List<String> _englishOnScreen(WidgetTester tester, {bool bilingual = false}) {
   final found = <String>[];
   for (final element in find.byType(Text).evaluate()) {
@@ -101,12 +101,73 @@ List<String> _englishOnScreen(WidgetTester tester, {bool bilingual = false}) {
     // Receipt codes such as #SZLXMV and barcodes are identifiers, not words.
     rest = rest.replaceAll(RegExp(r'#[A-Z0-9]+|RCPT-\S+|INV-\S+'), '');
     if (bilingual && RegExp(r'[؀-ۿ]').hasMatch(text)) continue;
+    if (bilingual) {
+      const receiptTranslations = {
+        'Receipt': 'إيصال',
+        'Date': 'التاريخ',
+        'Cashier': 'الكاشير',
+        'Subtotal': 'المجموع',
+        'Discount': 'خصم',
+        'Excl. VAT': 'المبلغ قبل الضريبة',
+        'VAT 10%': 'ضريبة القيمة المضافة',
+        'Total incl. VAT': 'الإجمالي شامل الضريبة',
+        'Paid by': 'الدفع',
+        'Cash': 'نقداً',
+        'Thank you': 'شكراً لتسوقكم',
+      };
+      final arabic = receiptTranslations[text];
+      if (arabic != null) {
+        var paired = false;
+        element.visitAncestorElements((ancestor) {
+          if (ancestor.widget is! Column) return true;
+          final labels = (ancestor.widget as Column).children.whereType<Text>().toList();
+          paired =
+              labels.length == 2 &&
+              labels.any(
+                (label) => label.data == arabic && label.textDirection == TextDirection.rtl,
+              ) &&
+              labels.any((label) => label.data == text && label.textDirection == TextDirection.ltr);
+          return false;
+        });
+        if (paired) continue;
+      }
+    }
     if (RegExp(r'[A-Za-z]{3,}').hasMatch(rest)) found.add(text);
   }
   return found;
 }
 
 void main() {
+  testWidgets('bilingual receipt guard rejects missing, wrong and misdirected translations', (
+    tester,
+  ) async {
+    for (final arabic in <String?>[null, 'الكاشير', 'التاريخ']) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Column(
+            children: [
+              if (arabic != null) Text(arabic, textDirection: TextDirection.rtl),
+              const Text('Date', textDirection: TextDirection.rtl),
+            ],
+          ),
+        ),
+      );
+      expect(_englishOnScreen(tester, bilingual: true), contains('Date'));
+    }
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Column(
+          children: [
+            Text('التاريخ', textDirection: TextDirection.rtl),
+            Text('Date', textDirection: TextDirection.ltr),
+          ],
+        ),
+      ),
+    );
+    expect(_englishOnScreen(tester, bilingual: true), isEmpty);
+    expect(_englishOnScreen(tester), contains('Date'));
+  });
+
   setUpAll(() {
     for (final name in ['xyz.luan/audioplayers', 'xyz.luan/audioplayers.global']) {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
