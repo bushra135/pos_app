@@ -1047,4 +1047,7 @@ const Map<String, String> arabicStrings = {
   'Verify receipt': 'التحقق من الفاتورة',
   'Digital receipt seal': 'ختم الفاتورة الرقمي',
   'Scan to verify the amount and receipt number': 'امسح الرمز للتحقق من المبلغ ورقم الفاتورة',
+  "Calculated automatically from today's cash sales.": 'يُحسب تلقائياً من مبيعات اليوم النقدية.',
+  'Cash sales today': 'المبيعات النقدية اليوم',
+  'Check the drawer (optional)': 'مطابقة الدرج (اختياري)',
 };

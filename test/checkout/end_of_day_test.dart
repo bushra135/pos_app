@@ -60,6 +60,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('1 receipt today'), findsOneWidget);
+    // The expected cash is calculated automatically, with no counting needed.
+    expect(find.text('Expected in drawer'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'Counted cash'), findsNothing);
+
+    // Counting the drawer is optional; open it to check for a shortage.
+    await tester.tap(find.text('Check the drawer (optional)'));
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextField, 'Opening float (cash at start of day)'),
       '20',

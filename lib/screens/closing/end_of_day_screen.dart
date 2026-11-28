@@ -82,6 +82,9 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
   final _floatController = TextEditingController();
   final _countedController = TextEditingController();
 
+  /// The manual drawer count is optional and starts closed; the expected cash is automatic.
+  bool _countOpen = false;
+
   bool _loading = true;
   String? _error;
   DaySummary? _summary;
@@ -370,28 +373,54 @@ class _EndOfDayScreenState extends State<EndOfDayScreen> {
         const SizedBox(height: 14),
         card('Cash drawer', [
           Text(
-            'Count the cash in the drawer and enter it below.'.tr,
+            "Calculated automatically from today's cash sales.".tr,
             style: TextStyle(color: AppColors.muted, fontSize: AppTypography.body),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _floatController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              labelText: 'Opening float (cash at start of day)'.tr,
-              suffixText: Money.symbol,
+          const SizedBox(height: 10),
+          row('Cash sales today', Money.format(summary.cashSales)),
+          if (opening > 0) row('Opening float', Money.format(opening)),
+          row('Expected in drawer', Money.format(expected), bold: true),
+          const SizedBox(height: 6),
+          InkWell(
+            borderRadius: BorderRadius.circular(AppSpacing.smallRadius),
+            onTap: () => setState(() => _countOpen = !_countOpen),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Check the drawer (optional)'.tr,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  Icon(
+                    _countOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: AppColors.muted,
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _countedController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(labelText: 'Counted cash'.tr, suffixText: Money.symbol),
-          ),
-          const SizedBox(height: 10),
-          row('Expected in drawer', Money.format(expected), bold: true),
+          if (_countOpen) ...[
+            const SizedBox(height: 4),
+            TextField(
+              controller: _floatController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: 'Opening float (cash at start of day)'.tr,
+                suffixText: Money.symbol,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _countedController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(labelText: 'Counted cash'.tr, suffixText: Money.symbol),
+            ),
+          ],
           if (hasCount)
             Container(
               margin: const EdgeInsets.only(top: 8),
