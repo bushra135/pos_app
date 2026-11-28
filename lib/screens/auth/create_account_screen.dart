@@ -409,11 +409,11 @@ class _CreateAccountScreenState extends State<CreateAccountScreen> {
     );
   }
 
-  // The grey header: back, then a start-aligned title. The short scan line under
+  // The soft blue header: back, then a start-aligned title. The short scan line under
   // the title draws in once, echoing the scanner frame on sign-in.
   Widget _header() => DecoratedBox(
     decoration: const BoxDecoration(
-      color: AppColors.backdrop,
+      color: AppColors.soft,
       borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
     ),
     child: SafeArea(
