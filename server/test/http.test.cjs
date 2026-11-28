@@ -10,3 +10,27 @@ test('public receipt verification renders escaped metadata and never exposes int
  const invalid=await fetch(verify,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:'invalid'})});assert.equal(invalid.status,400);assert.deepEqual(await invalid.json(),{valid:false});
  },{verifyReceipt:async token=>token==='token'?{valid:true,merchant:'<script>',receipt:'RCPT-1',totalFils:2000,currency:'BHD',date:'2026-11-27'}:null});
 });
+
+
+test('receipt verification browser preflight allows only the configured origin without reading receipts',async()=>{
+ let reads=0,authCalls=0,checkoutCalls=0;
+ await run(async url=>{
+  const verify=url.replace('/checkout','/verify');
+  const headers={Origin:'https://shop.example','Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'content-type'};
+  const preflight=await fetch(verify,{method:'OPTIONS',headers});
+  assert.equal(preflight.status,204);
+  assert.equal(preflight.headers.get('access-control-allow-origin'),'https://shop.example');
+  assert.match(preflight.headers.get('access-control-allow-methods'),/POST/);
+  assert.match(preflight.headers.get('access-control-allow-headers'),/Content-Type/i);
+  assert.equal(preflight.headers.get('cache-control'),'no-store');
+  assert.equal(await preflight.text(),'');
+  assert.equal(reads,0);assert.equal(authCalls,0);assert.equal(checkoutCalls,0);
+  assert.equal((await fetch(verify,{method:'OPTIONS',headers:{...headers,Origin:'https://evil.example'}})).status,403);
+  const result=await fetch(verify,{method:'POST',headers:{Origin:'https://shop.example','Content-Type':'application/json'},body:JSON.stringify({token:'valid'})});
+  assert.equal(result.status,200);assert.equal((await result.json()).valid,true);
+  assert.equal(result.headers.get('access-control-allow-origin'),'https://shop.example');
+  assert.equal(reads,1);
+  assert.equal((await fetch(verify,{method:'DELETE',headers})).status,405);
+  assert.equal((await fetch(url.replace('/checkout','/missing'),{method:'OPTIONS',headers})).status,404);
+ },{verifyReceipt:async token=>{reads++;return token==='valid'?{valid:true}:null;},verifyToken:async()=>{authCalls++;},checkout:async()=>{checkoutCalls++;}});
+});

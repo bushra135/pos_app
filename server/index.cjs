@@ -14,6 +14,9 @@ function createHandler({checkout,verifyToken,origins=[],verifyReceipt}){
   const send=(status,body)=>{res.writeHead(status,headers);res.end(JSON.stringify(body));};
   const url=new URL(req.url,'http://localhost');
   if(url.pathname==='/verify'&&verifyReceipt){
+   // JSON verification from Flutter Web requires a browser preflight first.
+   // The exact-origin check above still applies; preflight never reads a receipt.
+   if(req.method==='OPTIONS'){res.writeHead(204,{...headers,'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type'});return res.end();}
    try{
     let token;
     if(req.method==='GET')token=url.searchParams.get('token');
