@@ -132,7 +132,8 @@ void main() {
     expect(sale.invoiceKind, InvoiceKind.full);
     expect(sale.buyerName, 'Gulf Trading W.L.L.');
     expect(sale.buyerVatNumber, '987654321098765');
-    expect(find.textContaining('فاتورة ضريبية · Tax Invoice'), findsOneWidget);
+    expect(find.text('فاتورة ضريبية'), findsOneWidget);
+    expect(find.text('Tax Invoice'), findsOneWidget);
     expect(find.text('Gulf Trading W.L.L.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

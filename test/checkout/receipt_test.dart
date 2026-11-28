@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pos_app/models/sale_record.dart';
+import 'package:pos_app/app/app_language.dart';
 import 'package:pos_app/services/receipt_service.dart';
 import 'package:pos_app/utils/cart_manager.dart';
 import 'package:pos_app/widgets/sale_receipt_view.dart';
@@ -64,7 +65,8 @@ void main() {
         ),
       );
       expect(find.text('Sale saved'), findsOneWidget);
-      expect(find.text('الإجمالي · Total'), findsOneWidget);
+      expect(find.text('الإجمالي'), findsOneWidget);
+      expect(find.text('Total'), findsOneWidget);
       expect(find.text('BD 4.500'), findsWidgets);
       await tester.scrollUntilVisible(
         find.text('Share PDF'),
@@ -80,4 +82,41 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+  testWidgets('Arabic receipts keep VAT number groups and dates explicitly left to right', (
+    tester,
+  ) async {
+    AppLanguage.locale.value = AppLanguage.arabic;
+    addTearDown(() => AppLanguage.locale.value = AppLanguage.english);
+    final saved = SaleRecord(
+      id: 'direction-test',
+      storeCode: 'A',
+      storeName: 'متجر الاختبار',
+      cashierUid: 'cashier',
+      cashierName: 'سارة',
+      paymentMethod: 'Cash',
+      createdAt: DateTime(2026, 11, 28, 16, 30),
+      invoiceKind: 'full',
+      vatRate: 10,
+      storeVatNumber: '123456789012345',
+      buyerName: 'أحمد علي',
+      buyerVatNumber: '543210987654321',
+      items: const [SaleLine(productId: 'pen', barcode: '123', name: 'قلم', price: 2, quantity: 1)],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: Scaffold(
+            body: SaleReceiptView(sale: saved, status: 'تمت المزامنة', onNewSale: () {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.widget<Text>(find.text('5432 1098 7654 321')).textDirection, TextDirection.ltr);
+    expect(tester.widget<Text>(find.text('28/11/2026 16:30')).textDirection, TextDirection.ltr);
+    expect(find.text('رقم ض.ق.م للعميل'), findsOneWidget);
+    expect(find.text('Customer VAT No.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

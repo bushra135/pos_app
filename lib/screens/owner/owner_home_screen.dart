@@ -532,13 +532,6 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> with WidgetsBindingOb
     );
   }
 
-  String get _greeting {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Good morning'.tr;
-    if (hour < 18) return 'Good afternoon'.tr;
-    return 'Good evening'.tr;
-  }
-
   /// Greeting, store name and the switch to cashier mode.
   Widget _buildHeader() {
     return Row(
@@ -548,10 +541,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> with WidgetsBindingOb
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '{greeting}, {name}'.trArgs({
-                  'greeting': _greeting,
-                  'name': firstName.isEmpty ? 'Owner'.tr : firstName,
-                }),
+                'Hi, {name}'.trArgs({'name': firstName.isEmpty ? 'Owner'.tr : firstName}),
                 style: const TextStyle(
                   color: AppColors.muted,
                   fontSize: AppTypography.body,

@@ -36,6 +36,30 @@ class SaleReceiptView extends StatefulWidget {
   State<SaleReceiptView> createState() => _SaleReceiptViewState();
 }
 
+/// Separate bilingual labels and isolate dates/identifiers from surrounding RTL.
+class _ReceiptLabel extends StatelessWidget {
+  const _ReceiptLabel(this.value, {required this.style, required this.align});
+  final String value;
+  final TextStyle style;
+  final TextAlign align;
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: align == TextAlign.center
+        ? CrossAxisAlignment.center
+        : CrossAxisAlignment.stretch,
+    children: [
+      for (final part in value.split(' · '))
+        Text(
+          part,
+          style: style,
+          textAlign: align,
+          textDirection: RegExp(r'[؀-ۿ]').hasMatch(part) ? TextDirection.rtl : TextDirection.ltr,
+        ),
+    ],
+  );
+}
+
 /// Receipt with print, share-PDF and send actions.
 class _SaleReceiptViewState extends State<SaleReceiptView> {
   bool exporting = false;
@@ -230,35 +254,41 @@ class _ReceiptPaper extends StatelessWidget {
 
   final ReceiptLayout layout;
 
-  Widget _row(ReceiptRow row, {double size = AppTypography.caption}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Text(
-            row.label,
-            style: TextStyle(
-              color: row.strong ? AppColors.text : AppColors.muted,
-              fontSize: size,
-              fontWeight: row.strong ? FontWeight.w700 : FontWeight.w500,
+  Widget _row(ReceiptRow row, {double size = AppTypography.caption}) => Builder(
+    builder: (context) {
+      final rtl = Directionality.of(context) == TextDirection.rtl;
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _ReceiptLabel(
+                row.label,
+                align: rtl ? TextAlign.right : TextAlign.left,
+                style: TextStyle(
+                  color: row.strong ? AppColors.text : AppColors.muted,
+                  fontSize: size,
+                  fontWeight: row.strong ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
             ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Flexible(
-          child: Text(
-            row.value,
-            textAlign: TextAlign.end,
-            style: TextStyle(
-              fontSize: row.strong ? size + 3 : size,
-              fontWeight: row.strong ? FontWeight.w700 : FontWeight.w600,
-              fontFeatures: const [FontFeature.tabularFigures()],
+            const SizedBox(width: 12),
+            Flexible(
+              child: _ReceiptLabel(
+                row.value,
+                align: rtl ? TextAlign.left : TextAlign.right,
+                style: TextStyle(
+                  fontSize: row.strong ? size + 3 : size,
+                  fontWeight: row.strong ? FontWeight.w700 : FontWeight.w600,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
             ),
-          ),
+          ],
         ),
-      ],
-    ),
+      );
+    },
   );
 
   @override
@@ -279,9 +309,9 @@ class _ReceiptPaper extends StatelessWidget {
           for (final line in layout.storeLines)
             Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: Text(
+              child: _ReceiptLabel(
                 line,
-                textAlign: TextAlign.center,
+                align: TextAlign.center,
                 style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
               ),
             ),
@@ -293,9 +323,9 @@ class _ReceiptPaper extends StatelessWidget {
                 color: AppColors.accentSoft,
                 borderRadius: BorderRadius.circular(AppSpacing.pillRadius),
               ),
-              child: Text(
+              child: _ReceiptLabel(
                 layout.title,
-                textAlign: TextAlign.center,
+                align: TextAlign.center,
                 style: const TextStyle(
                   color: AppColors.primaryDark,
                   fontWeight: FontWeight.w700,
@@ -330,6 +360,7 @@ class _ReceiptPaper extends StatelessWidget {
                         Text(line.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                         Text(
                           '${line.quantity} × ${Money.format(line.price)}',
+                          textDirection: TextDirection.ltr,
                           style: const TextStyle(
                             color: AppColors.muted,
                             fontSize: AppTypography.caption,
@@ -357,9 +388,9 @@ class _ReceiptPaper extends StatelessWidget {
           const SizedBox(height: 8),
           for (final row in layout.totals) _row(row, size: AppTypography.body),
           const SizedBox(height: 10),
-          const Text(
+          const _ReceiptLabel(
             ReceiptLayout.thanks,
-            textAlign: TextAlign.center,
+            align: TextAlign.center,
             style: TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
           ),
         ],
