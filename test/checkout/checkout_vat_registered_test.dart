@@ -42,8 +42,9 @@ void main() {
 
   Future<(_RecordingGateway, SaleSyncService)> open(
     WidgetTester tester,
-    Map<String, dynamic> store,
-  ) async {
+    Map<String, dynamic> store, {
+    String role = 'cashier',
+  }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(430, 2400);
     addTearDown(tester.view.resetPhysicalSize);
@@ -52,7 +53,7 @@ void main() {
     await db.collection('users').doc('cashier').set({
       'storeCode': 'A',
       'fullName': 'Noora',
-      'role': 'cashier',
+      'role': role,
       'isActive': true,
     });
     await db.collection('stores').doc('A').set({'storeName': 'Store A', ...store});
@@ -118,7 +119,9 @@ void main() {
     });
     expect(find.text('VAT 10% (included)'), findsOneWidget);
     expect(find.text('BD 0.091'), findsOneWidget); // 1.000 × 10 / 110
-    expect(find.text('Full tax invoice for the customer'), findsOneWidget);
+    // Cashiers cannot add a discount or a full tax invoice; those are owner actions.
+    expect(find.text('Full tax invoice for the customer'), findsNothing);
+    expect(find.text('Add discount'), findsNothing);
     await pay(tester);
 
     final sale = gateway.sales.single;

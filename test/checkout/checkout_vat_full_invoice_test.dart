@@ -52,7 +52,8 @@ void main() {
     await db.collection('users').doc('cashier').set({
       'storeCode': 'A',
       'fullName': 'Noora',
-      'role': 'cashier',
+      // Full tax invoices are an owner action; cashiers no longer see the button.
+      'role': 'owner',
       'isActive': true,
     });
     await db.collection('stores').doc('A').set({'storeName': 'Store A', ...store});

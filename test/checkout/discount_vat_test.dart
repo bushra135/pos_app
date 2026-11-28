@@ -1,13 +1,7 @@
-import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:pos_app/app/theme.dart';
 import 'package:pos_app/models/report_sale.dart';
 import 'package:pos_app/models/sale_record.dart';
-import 'package:pos_app/screens/checkout/checkout_receipt_screen.dart';
 import 'package:pos_app/services/sale_gateway.dart';
-import 'package:pos_app/utils/cart_manager.dart';
 
 import '../support/optimistic_firestore.dart';
 
@@ -95,53 +89,6 @@ void main() {
       expect((await firestore.collection('sales').get()).docs, isEmpty);
     });
   });
-
-  group('checkout screen', () {
-    setUpAll(() async {
-      await (FontLoader('Cairo')..addFont(rootBundle.load('assets/fonts/Cairo.ttf'))).load();
-    });
-    tearDown(CartManager.clearCart);
-
-    testWidgets('cashier applies a percent discount and sees VAT in the receipt', (tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(430, 2200);
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final db = FakeFirebaseFirestore();
-      await db.collection('users').doc('cashier').set({'storeCode': 'A', 'fullName': 'Cashier'});
-      CartManager.addItem(
-        name: 'Book',
-        price: 10,
-        barcode: '1',
-        image: '',
-        productId: 'book',
-        storeCode: 'A',
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: CheckoutReceiptScreen(firestore: db, currentUserId: () => 'cashier'),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('BD 0.909'), findsOneWidget); // VAT inside BD 10.000
-
-      await tester.tap(find.text('Add discount'));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.descendant(of: find.byType(Dialog), matching: find.byType(TextField)),
-        '20',
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Customer pays BD 8.000'), findsOneWidget);
-      await tester.tap(find.text('Apply'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('− BD 2.000'), findsOneWidget);
-      expect(find.text('BD 8.000'), findsWidgets);
-      expect(find.text('BD 0.727'), findsOneWidget); // VAT inside BD 8.000
-      expect(find.text('Discount 20% · Edit'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-  });
+  // The checkout-screen discount check runs as the owner in checkout_owner_options_test.dart:
+  // discounts are an owner action, so cashiers no longer see the button.
 }

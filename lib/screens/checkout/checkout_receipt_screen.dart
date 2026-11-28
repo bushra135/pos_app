@@ -135,6 +135,9 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
   String storeName = '';
   String cashierName = '';
+
+  /// Discounts and full tax invoices are owner decisions; cashiers do not see them.
+  bool _isOwner = false;
   String benefitNumber = '';
   String benefitQrBase64 = '';
   String storeCode = '';
@@ -214,6 +217,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
       final contextData = await sync.loadContext(uid);
       final userData = Map<String, dynamic>.from(contextData['profile'] as Map);
       final String fullName = (userData['fullName'] ?? '').toString();
+      final isOwner = (userData['role'] ?? '').toString().toLowerCase() == 'owner';
       final String firstName = fullName.split(' ').first;
       final String fetchedStoreCode = (userData['storeCode'] ?? '').toString().trim();
 
@@ -234,6 +238,7 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
 
       setState(() {
         cashierName = firstName;
+        _isOwner = isOwner;
         storeName = fetchedStoreName;
         storeCode = fetchedStoreCode;
         benefitNumber = fetchedBenefitNumber;
@@ -775,32 +780,33 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 14),
-                                  OutlinedButton.icon(
-                                    onPressed: isSavingSale ? null : _editDiscount,
-                                    icon: Icon(
-                                      _manualDiscountAmount > 0
-                                          ? Icons.edit_outlined
-                                          : Icons.local_offer_outlined,
-                                      size: 18,
+                                  if (_isOwner) ...[
+                                    const SizedBox(height: 14),
+                                    OutlinedButton.icon(
+                                      onPressed: isSavingSale ? null : _editDiscount,
+                                      icon: Icon(
+                                        _manualDiscountAmount > 0
+                                            ? Icons.edit_outlined
+                                            : Icons.local_offer_outlined,
+                                        size: 18,
+                                      ),
+                                      label: Text(
+                                        _manualDiscountAmount > 0
+                                            ? (_discountIsPercent
+                                                  ? 'Discount {value}% · Edit'.trArgs({
+                                                      'value': _discountValue.toStringAsFixed(
+                                                        _discountValue % 1 == 0 ? 0 : 1,
+                                                      ),
+                                                    })
+                                                  : 'Discount BD {amount} · Edit'.trArgs({
+                                                      'amount': _manualDiscountAmount
+                                                          .toStringAsFixed(3),
+                                                    }))
+                                            : 'Add discount'.tr,
+                                      ),
                                     ),
-                                    label: Text(
-                                      _manualDiscountAmount > 0
-                                          ? (_discountIsPercent
-                                                ? 'Discount {value}% · Edit'.trArgs({
-                                                    'value': _discountValue.toStringAsFixed(
-                                                      _discountValue % 1 == 0 ? 0 : 1,
-                                                    ),
-                                                  })
-                                                : 'Discount BD {amount} · Edit'.trArgs({
-                                                    'amount': _manualDiscountAmount.toStringAsFixed(
-                                                      3,
-                                                    ),
-                                                  }))
-                                          : 'Add discount'.tr,
-                                    ),
-                                  ),
-                                  if (_storeVat.issuesTaxInvoices) ...[
+                                  ],
+                                  if (_isOwner && _storeVat.issuesTaxInvoices) ...[
                                     const SizedBox(height: 10),
                                     OutlinedButton.icon(
                                       onPressed: isSavingSale ? null : _editBuyer,
