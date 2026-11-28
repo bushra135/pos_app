@@ -34,3 +34,24 @@ Flutter Web sends an OPTIONS preflight before its cross-origin JSON POST to `/ve
 - Financial tests establish supported application invariants under their fixtures; they do not prove physical payment occurred or guarantee absence of undiscovered vulnerabilities.
 
 Earlier detailed security reports remain in this directory. This report records the latest local counts and does not imply that the existing public preview uses the new trusted checkout.
+
+
+## Follow-up: actual Flutter-to-server acceptance
+
+After hosting was deferred again, five additional opt-in acceptance tests were added under `verification/`. They run the production Dart gateway and real durable Sembast file storage against the actual Node checkout handler, Firebase Admin SDK, Auth Emulator and Firestore Emulator. They are separate from the 299-test unit/widget suite.
+
+- Cashier receipt survives closing and reopening its local database, then confirms using a real Auth-emulator token.
+- Repeating the same confirmed intent creates no duplicate receipt or stock deduction.
+- The owner can sell through the same trusted endpoint.
+- A modified unit price and forged token cannot create a receipt or change stock.
+- A deliberately lost HTTP acknowledgement leaves the queued receipt durable; retry confirms without another deduction.
+- The stored server signature verifies through the real verification HTTP route.
+- The launcher independently checks exactly three confirmed signed receipts and final stock 7 from initial stock 10.
+
+Result: **5 passed, 0 failed** using the portable `firebase.verification.json` configuration and real repository Firestore rules. The launcher explicitly requires anonymous product access to return 403 before running, so an emulator that silently falls back to permissive rules cannot count as a pass. The test project and localhost emulator addresses are asserted before setup; production credentials are not used. See `verification/README.md` for the tested command. Log: `.security-audit/portable-acceptance-20261128.log`.
+
+Initial harness failures (module import, a future-dated synthetic receipt, and portable emulator rules-path resolution) were corrected in the harness; production date validation and assertions were preserved. A preliminary portable run without loaded rules is not counted as acceptance evidence; the final guarded run above loaded the actual rules and passed.
+
+The updated application, including the soft-blue account header, also compiled successfully to `.security-audit/app-ready-20261128` (log: `.security-audit/app-ready-20261128-build.log`). Full Flutter analysis including the new verification Dart file reported no issues (log: `.security-audit/local-completion-analyze-20261128.log`). The same Cupertino icon-family compilation warning remains; physical-iPhone rendering still needs acceptance testing.
+
+This proves local HTTP/SDK/storage integration for these cases, not physical-phone UI behavior, browser IndexedDB restart behavior or a hosted HTTPS deployment. No preview, live rules, billing configuration or store data was changed.

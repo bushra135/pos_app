@@ -26,7 +26,7 @@ void main() {
     cashierUid: uid,
     cashierName: uid,
     paymentMethod: 'Cash',
-    createdAt: DateTime.utc(2026, 11, 28, 12),
+    createdAt: DateTime.now().toUtc(),
     items: [
       SaleLine(
         productId: 'bridge-pen',

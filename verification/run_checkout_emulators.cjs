@@ -4,9 +4,10 @@ const assert=require('node:assert/strict');
 const http=require('node:http');
 const {spawn}=require('node:child_process');
 const {generateKeyPairSync}=require('node:crypto');
-const {initializeApp,deleteApp}=require('../server/node_modules/firebase-admin/app');
-const {getAuth}=require('../server/node_modules/firebase-admin/auth');
-const {getFirestore}=require('../server/node_modules/firebase-admin/firestore');
+const serverRequire=require('node:module').createRequire(require.resolve('../server/package.json'));
+const {initializeApp,deleteApp}=serverRequire('firebase-admin/app');
+const {getAuth}=serverRequire('firebase-admin/auth');
+const {getFirestore}=serverRequire('firebase-admin/firestore');
 const {createCheckout}=require('../server/checkout.cjs');
 const {createHandler}=require('../server/index.cjs');
 const {createReceiptSeals}=require('../server/receipt_seals.cjs');
@@ -31,6 +32,9 @@ async function main(){
   }
   await db.doc('stores/BRIDGE').set({ownerUid:'bridge-owner',storeName:'متجر التجربة',vatRegistered:false});
   await db.doc('products/bridge-pen').set({storeCode:'BRIDGE',name:'قلم Pen',barcode:'12345678',price:2,stock:10,quantity:10});
+  // Refuse to test against an accidentally permissive/default rules emulator.
+  const anonymous=await fetch('http://127.0.0.1:9184/v1/projects/demo-shoppad-security/databases/(default)/documents/products/bridge-pen');
+  assert.equal(anonymous.status,403,'Load the real Firestore rules before acceptance testing');
   const keys=generateKeyPairSync('ed25519');
   const seals=createReceiptSeals({keyId:'demo-only',privateKey:keys.privateKey.export({type:'pkcs8',format:'pem'})});
   server=http.createServer(createHandler({checkout:createCheckout(db,{seals}),verifyToken:t=>auth.verifyIdToken(t,true),verifyReceipt:t=>seals.check(t,db),origins:['http://localhost']}));
