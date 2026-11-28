@@ -78,7 +78,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool isSaving = false;
   bool _loggingOut = false;
 
-  bool isPaymentExpanded = true;
+  bool isPaymentExpanded = false;
 
   final TextEditingController benefitNumberController = TextEditingController();
 

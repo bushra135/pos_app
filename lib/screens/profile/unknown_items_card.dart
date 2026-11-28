@@ -40,6 +40,9 @@ class _UnknownItemsCardState extends State<UnknownItemsCard> {
   );
   bool _saving = false;
 
+  /// Collapsed by default so the profile stays short; tap the heading to open.
+  bool _open = false;
+
   @override
   void dispose() {
     _max.dispose();
@@ -103,61 +106,71 @@ class _UnknownItemsCardState extends State<UnknownItemsCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primaryDark),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Products not in your store'.tr,
-                    style: const TextStyle(
-                      fontSize: AppTypography.subtitle,
-                      fontWeight: FontWeight.w700,
+            InkWell(
+              borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+              onTap: () => setState(() => _open = !_open),
+              child: Row(
+                children: [
+                  const Icon(Icons.qr_code_scanner_rounded, color: AppColors.primaryDark),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Products not in your store'.tr,
+                      style: const TextStyle(
+                        fontSize: AppTypography.subtitle,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
+                  Icon(
+                    _open ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: AppColors.muted,
+                  ),
+                ],
+              ),
+            ),
+            if (_open) ...[
+              const SizedBox(height: 4),
+              Text(
+                'When a cashier scans a barcode you have not added, ShopPad identifies it and sends you a request to approve it with your price.'
+                    .tr,
+                style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _allow,
+                onChanged: _saving ? null : (v) => setState(() => _allow = v),
+                title: Text('Let cashiers sell at the shared reference price'.tr),
+                subtitle: Text(
+                  'The price other ShopPad stores set for the same barcode. It is not an official Bahrain retail price. The sale is flagged for you to review.'
+                      .tr,
+                ),
+              ),
+              if (_allow) ...[
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const ValueKey('shared-price-max'),
+                  controller: _max,
+                  enabled: !_saving,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  textDirection: TextDirection.ltr,
+                  decoration: InputDecoration(
+                    labelText: 'Highest price cashiers may use'.tr,
+                    helperText: 'Above this, the cashier sends you a request instead.'.tr,
+                    helperMaxLines: 2,
+                    suffixText: Money.symbol,
+                    prefixIcon: const Icon(Icons.price_check_rounded),
+                  ),
+                  validator: (v) => _checkMax(v)?.tr,
                 ),
               ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'When a cashier scans a barcode you have not added, ShopPad identifies it and sends you a request to approve it with your price.'
-                  .tr,
-              style: const TextStyle(color: AppColors.muted, fontSize: AppTypography.caption),
-            ),
-            const SizedBox(height: 8),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _allow,
-              onChanged: _saving ? null : (v) => setState(() => _allow = v),
-              title: Text('Let cashiers sell at the shared reference price'.tr),
-              subtitle: Text(
-                'The price other ShopPad stores set for the same barcode. It is not an official Bahrain retail price. The sale is flagged for you to review.'
-                    .tr,
-              ),
-            ),
-            if (_allow) ...[
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const ValueKey('shared-price-max'),
-                controller: _max,
-                enabled: !_saving,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                textDirection: TextDirection.ltr,
-                decoration: InputDecoration(
-                  labelText: 'Highest price cashiers may use'.tr,
-                  helperText: 'Above this, the cashier sends you a request instead.'.tr,
-                  helperMaxLines: 2,
-                  suffixText: Money.symbol,
-                  prefixIcon: const Icon(Icons.price_check_rounded),
-                ),
-                validator: (v) => _checkMax(v)?.tr,
+              const SizedBox(height: 14),
+              FilledButton(
+                onPressed: _saving ? null : _save,
+                child: Text(_saving ? 'Saving...'.tr : 'Save'.tr),
               ),
             ],
-            const SizedBox(height: 14),
-            FilledButton(
-              onPressed: _saving ? null : _save,
-              child: Text(_saving ? 'Saving...'.tr : 'Save'.tr),
-            ),
           ],
         ),
       ),
